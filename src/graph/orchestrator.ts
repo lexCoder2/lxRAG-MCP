@@ -8,6 +8,14 @@ import * as path from "path";
 import TypeScriptParser, {
   type ParsedFile,
 } from "../parsers/typescript-parser.js";
+import ParserRegistry from "../parsers/parser-registry.js";
+import type { ParseResult } from "../parsers/parser-interface.js";
+import {
+  PythonParser,
+  GoParser,
+  RustParser,
+  JavaParser,
+} from "../parsers/regex-language-parsers.js";
 import GraphBuilder, { type CypherStatement } from "./builder.js";
 import GraphIndexManager from "./index.js";
 import CacheManager from "./cache.js";
@@ -39,6 +47,7 @@ export interface BuildResult {
 
 export class GraphOrchestrator {
   private parser: TypeScriptParser;
+  private parserRegistry: ParserRegistry;
   private builder: GraphBuilder;
   private index: GraphIndexManager;
   private cache: CacheManager;
@@ -47,6 +56,11 @@ export class GraphOrchestrator {
 
   constructor(memgraph?: MemgraphClient, verbose = false) {
     this.parser = new TypeScriptParser();
+    this.parserRegistry = new ParserRegistry();
+    this.parserRegistry.register(new PythonParser());
+    this.parserRegistry.register(new GoParser());
+    this.parserRegistry.register(new RustParser());
+    this.parserRegistry.register(new JavaParser());
     this.builder = new GraphBuilder();
     this.index = new GraphIndexManager();
     this.cache = new CacheManager();
@@ -94,17 +108,15 @@ export class GraphOrchestrator {
         console.log(`[GraphOrchestrator] Mode: ${opts.mode}`);
       }
 
-      // Get all TypeScript files
-      const files = await this.findTypeScriptFiles(
+      // Get all source files across supported languages
+      const files = await this.findSourceFiles(
         opts.sourceDir,
         opts.exclude,
         opts.workspaceRoot,
       );
 
       if (opts.verbose) {
-        console.log(
-          `[GraphOrchestrator] Found ${files.length} TypeScript files`
-        );
+        console.log(`[GraphOrchestrator] Found ${files.length} source files`);
       }
 
       // Determine which files to process
@@ -117,7 +129,7 @@ export class GraphOrchestrator {
             path: f,
             hash: await this.hashFile(f),
             LOC: (fs.readFileSync(f, "utf-8").match(/\n/g) || []).length + 1,
-          }))
+          })),
         );
 
         filesToProcess = hashes
@@ -127,7 +139,7 @@ export class GraphOrchestrator {
 
         if (opts.verbose) {
           console.log(
-            `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`
+            `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`,
           );
         }
       } else {
@@ -149,9 +161,7 @@ export class GraphOrchestrator {
 
       for (const filePath of filesToProcess) {
         try {
-          const parsed = this.parser.parseFile(filePath, {
-            workspaceRoot: opts.workspaceRoot,
-          });
+          const parsed = await this.parseSourceFile(filePath, opts.workspaceRoot);
           parsedFiles.push({ filePath, parsed });
           const adaptedParsed = this.adaptParsedFile(parsed);
           const statements = this.builder.buildFromParsedFile(adaptedParsed);
@@ -167,7 +177,7 @@ export class GraphOrchestrator {
 
           if (opts.verbose && filesToProcess.indexOf(filePath) % 50 === 0) {
             console.log(
-              `[GraphOrchestrator] Processed ${filesToProcess.indexOf(filePath)}/${filesToProcess.length} files`
+              `[GraphOrchestrator] Processed ${filesToProcess.indexOf(filePath)}/${filesToProcess.length} files`,
             );
           }
         } catch (error) {
@@ -196,7 +206,7 @@ export class GraphOrchestrator {
       if (this.memgraph.isConnected()) {
         if (opts.verbose) {
           console.log(
-            `[GraphOrchestrator] Executing ${statementsToExecute.length} Cypher statements...`
+            `[GraphOrchestrator] Executing ${statementsToExecute.length} Cypher statements...`,
           );
         }
         const results = await this.memgraph.executeBatch(statementsToExecute);
@@ -207,7 +217,7 @@ export class GraphOrchestrator {
       } else {
         if (opts.verbose) {
           console.log(
-            `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`
+            `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`,
           );
         }
       }
@@ -222,11 +232,11 @@ export class GraphOrchestrator {
         console.log("[GraphOrchestrator] Build complete!");
         console.log(`[GraphOrchestrator] Duration: ${duration}ms`);
         console.log(
-          `[GraphOrchestrator] Files processed: ${filesToProcess.length}`
+          `[GraphOrchestrator] Files processed: ${filesToProcess.length}`,
         );
         console.log(`[GraphOrchestrator] Nodes created: ${nodesCreated}`);
         console.log(
-          `[GraphOrchestrator] Relationships: ${relationshipsCreated}`
+          `[GraphOrchestrator] Relationships: ${relationshipsCreated}`,
         );
         console.log(`[GraphOrchestrator] Statistics:`, stats);
       }
@@ -262,9 +272,9 @@ export class GraphOrchestrator {
   }
 
   /**
-   * Find all TypeScript files in source directory
+   * Find all supported source files in source directory
    */
-  private async findTypeScriptFiles(
+  private async findSourceFiles(
     sourceDir: string,
     exclude: string[],
     workspaceRoot: string,
@@ -279,7 +289,7 @@ export class GraphOrchestrator {
       console.log(`[GraphOrchestrator] Scanning directory: ${basePath}`);
     } else {
       console.warn(
-        `[GraphOrchestrator] Source directory not found: ${basePath}`
+        `[GraphOrchestrator] Source directory not found: ${basePath}`,
       );
       return files;
     }
@@ -298,19 +308,129 @@ export class GraphOrchestrator {
 
           if (entry.isDirectory()) {
             walk(fullPath);
-          } else if (entry.isFile() && /\.(ts|tsx)$/.test(entry.name)) {
+          } else if (
+            entry.isFile() &&
+            /\.(ts|tsx|py|go|rs|java)$/.test(entry.name)
+          ) {
             files.push(fullPath);
           }
         }
       } catch (error) {
         console.warn(
-          `[GraphOrchestrator] Error scanning directory ${dir}: ${error}`
+          `[GraphOrchestrator] Error scanning directory ${dir}: ${error}`,
         );
       }
     };
 
     walk(basePath);
     return files;
+  }
+
+  private async parseSourceFile(
+    filePath: string,
+    workspaceRoot: string,
+  ): Promise<ParsedFile> {
+    const extension = path.extname(filePath).toLowerCase();
+    if (extension === ".ts" || extension === ".tsx") {
+      return this.parser.parseFile(filePath, { workspaceRoot });
+    }
+
+    const content = fs.readFileSync(filePath, "utf-8");
+    const parsed = await this.parserRegistry.parse(filePath, content);
+    if (parsed) {
+      return this.adaptLanguageParseResult(filePath, workspaceRoot, content, parsed);
+    }
+
+    return this.adaptLanguageParseResult(filePath, workspaceRoot, content, {
+      file: path.basename(filePath),
+      language: this.languageFromExtension(extension),
+      symbols: [],
+    });
+  }
+
+  private adaptLanguageParseResult(
+    filePath: string,
+    workspaceRoot: string,
+    content: string,
+    parsed: ParseResult,
+  ): ParsedFile {
+    const relativePath = path.relative(workspaceRoot, filePath).replace(/\\/g, "/");
+    const hash = this.simpleHash(content);
+    const LOC = content.split("\n").length;
+
+    const imports = parsed.symbols
+      .filter((symbol) => symbol.type === "import")
+      .map((symbol, index) => ({
+        id: `${relativePath}:import:${index}`,
+        source: symbol.name,
+        specifiers: [
+          {
+            name: symbol.name,
+            imported: symbol.name,
+            isDefault: false,
+          },
+        ],
+        startLine: symbol.startLine,
+      }));
+
+    const functions = parsed.symbols
+      .filter((symbol) => symbol.type === "function" || symbol.type === "method")
+      .map((symbol, index) => ({
+        id: `${relativePath}:function:${symbol.name}:${index}`,
+        name: symbol.name,
+        kind: "function" as const,
+        startLine: symbol.startLine,
+        endLine: symbol.endLine,
+        LOC: Math.max(1, symbol.endLine - symbol.startLine + 1),
+        parameters: [],
+        isExported: false,
+      }));
+
+    const classes = parsed.symbols
+      .filter((symbol) => symbol.type === "class" || symbol.type === "interface")
+      .map((symbol, index) => ({
+        id: `${relativePath}:class:${symbol.name}:${index}`,
+        name: symbol.name,
+        kind: symbol.type === "interface" ? ("interface" as const) : ("class" as const),
+        startLine: symbol.startLine,
+        endLine: symbol.endLine,
+        LOC: Math.max(1, symbol.endLine - symbol.startLine + 1),
+        isExported: false,
+      }));
+
+    return {
+      filePath,
+      relativePath,
+      language: parsed.language,
+      LOC,
+      hash,
+      ast: {
+        type: "file",
+        name: path.basename(filePath),
+        startLine: 1,
+        endLine: LOC,
+        text: content,
+        children: [],
+      },
+      functions,
+      classes,
+      variables: [],
+      imports,
+      exports: [],
+      testSuites: [],
+    };
+  }
+
+  private languageFromExtension(extension: string): string {
+    const table: Record<string, string> = {
+      ".py": "python",
+      ".go": "go",
+      ".rs": "rust",
+      ".java": "java",
+      ".ts": "typescript",
+      ".tsx": "typescript",
+    };
+    return table[extension] || "unknown";
   }
 
   /**
@@ -359,7 +479,7 @@ export class GraphOrchestrator {
         `contains:${fn.id}`,
         `file:${parsed.relativePath}`,
         fn.id,
-        "CONTAINS"
+        "CONTAINS",
       );
     });
 
@@ -378,7 +498,7 @@ export class GraphOrchestrator {
         `contains:${cls.id}`,
         `file:${parsed.relativePath}`,
         cls.id,
-        "CONTAINS"
+        "CONTAINS",
       );
     });
 
@@ -392,7 +512,7 @@ export class GraphOrchestrator {
         `imports:${imp.id}`,
         `file:${parsed.relativePath}`,
         imp.id,
-        "IMPORTS"
+        "IMPORTS",
       );
     });
   }

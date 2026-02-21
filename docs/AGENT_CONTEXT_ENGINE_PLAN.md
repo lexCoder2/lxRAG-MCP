@@ -1791,6 +1791,14 @@ The current `src/parsers/typescript-parser.ts` uses regex patterns. Migration is
 3. After verification (all existing tests pass), old regex parser is removed
 4. `src/parsers/typescript-parser.ts` becomes a re-export shim for backwards compat
 
+**Implementation status (2026-02-21)**:
+- ✅ Added parser abstraction interfaces in `src/parsers/parser-interface.ts`.
+- ✅ Added parser registry in `src/parsers/parser-registry.ts` with extension-based parser dispatch.
+- ✅ Added multi-language parser scaffolds in `src/parsers/regex-language-parsers.ts` for Python (`.py`), Go (`.go`), Rust (`.rs`), and Java (`.java`).
+- ✅ Integrated multi-language file discovery and parser registry into `src/graph/orchestrator.ts` while keeping TypeScript parsing on the existing parser path.
+- ✅ Added non-breaking fallback behavior: unknown extensions (or missing parser matches) still index FILE-level nodes.
+- ℹ️ This slice introduces parser abstraction and baseline language support; Tree-sitter migration and richer cross-language symbol extraction remain follow-up work.
+
 ---
 
 ### Phase 10 — File Watch / Incremental Push
