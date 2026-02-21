@@ -334,6 +334,48 @@ function createMcpServerInstance(): McpServer {
   );
 
   mcpServer.registerTool(
+    "diff_since",
+    {
+      description:
+        "Summarize temporal graph changes since txId, timestamp, git commit, or agentId",
+      inputSchema: z.object({
+        since: z
+          .string()
+          .describe("Anchor value: txId, ISO timestamp, git commit SHA, or agentId"),
+        projectId: z
+          .string()
+          .optional()
+          .describe("Optional project override (defaults to active context)"),
+        types: z
+          .array(z.enum(["FILE", "FUNCTION", "CLASS"]))
+          .optional()
+          .describe("Optional node types to include"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("diff_since", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  mcpServer.registerTool(
     "contract_validate",
     {
       description:

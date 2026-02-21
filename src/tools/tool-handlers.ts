@@ -540,6 +540,96 @@ export class ToolHandlers {
     return Number.isNaN(parsed) ? null : parsed;
   }
 
+  private toSafeNumber(value: unknown): number | null {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : null;
+    }
+
+    if (typeof value === "bigint") {
+      return Number(value);
+    }
+
+    if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    if (
+      value &&
+      typeof value === "object" &&
+      "low" in (value as Record<string, unknown>)
+    ) {
+      const low = Number((value as Record<string, unknown>).low);
+      const highRaw = (value as Record<string, unknown>).high;
+      const high = typeof highRaw === "number" ? highRaw : Number(highRaw || 0);
+
+      if (Number.isFinite(low) && Number.isFinite(high)) {
+        return high * 4294967296 + low;
+      }
+    }
+
+    return null;
+  }
+
+  private async resolveSinceAnchor(
+    since: string,
+    projectId: string,
+  ): Promise<
+    | {
+        sinceTs: number;
+        mode: "txId" | "timestamp" | "gitCommit" | "agentId";
+        anchorValue: string;
+      }
+    | null
+  > {
+    const trimmed = since.trim();
+    if (!trimmed) {
+      return null;
+    }
+
+    const txIdPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (txIdPattern.test(trimmed) || trimmed.startsWith("tx-")) {
+      const txLookup = await this.context.memgraph.executeCypher(
+        "MATCH (tx:GRAPH_TX {projectId: $projectId, id: $id}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
+        { projectId, id: trimmed },
+      );
+      const ts = this.toSafeNumber(txLookup.data?.[0]?.timestamp);
+      if (ts !== null) {
+        return { sinceTs: ts, mode: "txId", anchorValue: trimmed };
+      }
+      return null;
+    }
+
+    const timestamp = this.toEpochMillis(trimmed);
+    if (timestamp !== null) {
+      return { sinceTs: timestamp, mode: "timestamp", anchorValue: trimmed };
+    }
+
+    if (/^[a-f0-9]{7,40}$/i.test(trimmed)) {
+      const commitLookup = await this.context.memgraph.executeCypher(
+        "MATCH (tx:GRAPH_TX {projectId: $projectId, gitCommit: $gitCommit}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
+        { projectId, gitCommit: trimmed },
+      );
+      const ts = this.toSafeNumber(commitLookup.data?.[0]?.timestamp);
+      if (ts !== null) {
+        return { sinceTs: ts, mode: "gitCommit", anchorValue: trimmed };
+      }
+      return null;
+    }
+
+    const agentLookup = await this.context.memgraph.executeCypher(
+      "MATCH (tx:GRAPH_TX {projectId: $projectId, agentId: $agentId}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
+      { projectId, agentId: trimmed },
+    );
+    const agentTs = this.toSafeNumber(agentLookup.data?.[0]?.timestamp);
+    if (agentTs !== null) {
+      return { sinceTs: agentTs, mode: "agentId", anchorValue: trimmed };
+    }
+
+    return null;
+  }
+
   private async ensureEmbeddings(): Promise<void> {
     if (this.embeddingsReady || !this.embeddingEngine) {
       return;
@@ -1582,6 +1672,160 @@ export class ToolHandlers {
       );
     } catch (error) {
       return this.errorEnvelope("GRAPH_HEALTH_FAILED", String(error), true);
+    }
+  }
+
+  async diff_since(args: any): Promise<string> {
+    const {
+      since,
+      types = ["FILE", "FUNCTION", "CLASS"],
+      profile = "compact",
+    } = args || {};
+
+    if (!since || typeof since !== "string") {
+      return this.errorEnvelope(
+        "DIFF_SINCE_INVALID_INPUT",
+        "Field 'since' is required and must be a string.",
+        true,
+        "Provide txId, ISO timestamp, git commit SHA, or agentId.",
+      );
+    }
+
+    try {
+      const active = this.getActiveProjectContext();
+      const projectId =
+        typeof args?.projectId === "string" && args.projectId.trim().length > 0
+          ? args.projectId
+          : active.projectId;
+
+      const normalizedTypes = Array.isArray(types)
+        ? types
+            .map((item) => String(item).toUpperCase())
+            .filter((item) => ["FILE", "FUNCTION", "CLASS"].includes(item))
+        : ["FILE", "FUNCTION", "CLASS"];
+
+      if (!normalizedTypes.length) {
+        return this.errorEnvelope(
+          "DIFF_SINCE_INVALID_TYPES",
+          "Field 'types' must include at least one of FILE, FUNCTION, CLASS.",
+          true,
+        );
+      }
+
+      const anchor = await this.resolveSinceAnchor(since, projectId);
+      if (!anchor) {
+        return this.errorEnvelope(
+          "DIFF_SINCE_ANCHOR_NOT_FOUND",
+          `Unable to resolve 'since' anchor: ${since}`,
+          true,
+          "Use a known txId, ISO timestamp, git commit SHA, or agentId with recorded GRAPH_TX entries.",
+        );
+      }
+
+      const txResult = await this.context.memgraph.executeCypher(
+        `MATCH (tx:GRAPH_TX {projectId: $projectId})
+         WHERE tx.timestamp >= $sinceTs
+         RETURN tx.id AS id
+         ORDER BY tx.timestamp ASC`,
+        { projectId, sinceTs: anchor.sinceTs },
+      );
+      const txIds = (txResult.data || [])
+        .map((row) => String(row.id || ""))
+        .filter(Boolean);
+
+      const addedResult = await this.context.memgraph.executeCypher(
+        `MATCH (n)
+         WHERE n.projectId = $projectId
+           AND labels(n)[0] IN $types
+           AND n.validFrom IS NOT NULL
+           AND n.validFrom >= $sinceTs
+         RETURN labels(n)[0] AS type,
+                n.id AS scip_id,
+                coalesce(n.path, n.relativePath, '') AS path,
+                n.name AS symbolName,
+                n.validFrom AS validFrom,
+                n.validTo AS validTo
+         ORDER BY n.validFrom DESC
+         LIMIT 500`,
+        { projectId, sinceTs: anchor.sinceTs, types: normalizedTypes },
+      );
+
+      const removedResult = await this.context.memgraph.executeCypher(
+        `MATCH (n)
+         WHERE n.projectId = $projectId
+           AND labels(n)[0] IN $types
+           AND n.validTo IS NOT NULL
+           AND n.validTo >= $sinceTs
+         RETURN labels(n)[0] AS type,
+                n.id AS scip_id,
+                coalesce(n.path, n.relativePath, '') AS path,
+                n.name AS symbolName,
+                n.validFrom AS validFrom,
+                n.validTo AS validTo
+         ORDER BY n.validTo DESC
+         LIMIT 500`,
+        { projectId, sinceTs: anchor.sinceTs, types: normalizedTypes },
+      );
+
+      const modifiedResult = await this.context.memgraph.executeCypher(
+        `MATCH (newer)
+         WHERE newer.projectId = $projectId
+           AND labels(newer)[0] IN $types
+           AND newer.validFrom IS NOT NULL
+           AND newer.validFrom >= $sinceTs
+         MATCH (older)
+         WHERE older.projectId = $projectId
+           AND labels(older)[0] IN $types
+           AND older.id = newer.id
+           AND older.validTo IS NOT NULL
+           AND older.validTo >= $sinceTs
+         RETURN DISTINCT labels(newer)[0] AS type,
+                newer.id AS scip_id,
+                coalesce(newer.path, newer.relativePath, '') AS path,
+                newer.name AS symbolName,
+                newer.validFrom AS validFrom,
+                newer.validTo AS validTo
+         ORDER BY validFrom DESC
+         LIMIT 500`,
+        { projectId, sinceTs: anchor.sinceTs, types: normalizedTypes },
+      );
+
+      const mapDelta = (rows: any[]) =>
+        (rows || []).map((row) => ({
+          scip_id: String(row.scip_id || ""),
+          type: String(row.type || "UNKNOWN"),
+          path: String(row.path || ""),
+          symbolName: row.symbolName ? String(row.symbolName) : undefined,
+          validFrom: this.toSafeNumber(row.validFrom),
+          validTo: this.toSafeNumber(row.validTo) ?? undefined,
+        }));
+
+      const added = mapDelta(addedResult.data || []);
+      const removed = mapDelta(removedResult.data || []);
+      const modified = mapDelta(modifiedResult.data || []);
+
+      const summary = `${added.length} added, ${removed.length} removed, ${modified.length} modified since ${anchor.anchorValue}.`;
+
+      return this.formatSuccess(
+        {
+          summary,
+          projectId,
+          since: {
+            input: since,
+            resolvedMode: anchor.mode,
+            resolvedTimestamp: anchor.sinceTs,
+          },
+          added,
+          removed,
+          modified,
+          txIds,
+        },
+        profile,
+        summary,
+        "diff_since",
+      );
+    } catch (error) {
+      return this.errorEnvelope("DIFF_SINCE_FAILED", String(error), true);
     }
   }
 

@@ -601,7 +601,9 @@ This is the single biggest lever for hitting the Phase 1 target of `_tokenEstima
 - ✅ Added `GRAPH_TX` creation on `graph_rebuild` start in `src/tools/tool-handlers.ts`.
 - ✅ Added `graph_query.asOf` (natural-language mode) and exposed schema support in both `src/server.ts` and `src/mcp-server.ts`.
 - ✅ Added `graph_health` transaction metadata (`latestTxId`, `latestTxTimestamp`, `txCount`).
-- ⏳ Remaining in Phase 2: full historical filtering for arbitrary Cypher mode and `diff_since` tool implementation.
+- ✅ Added `diff_since` tool implementation with `since` anchor resolution (`txId` / timestamp / git SHA / agentId) in `src/tools/tool-handlers.ts`.
+- ✅ Registered `diff_since` in both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`) and response shaping (`src/response/schemas.ts`).
+- ⏳ Remaining in Phase 2: full historical filtering for arbitrary Cypher mode.
 
 #### 2.1 Temporal schema extension
 

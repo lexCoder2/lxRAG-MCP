@@ -354,6 +354,38 @@ const TOOLS: Tool[] = [
   },
 
   {
+    name: "diff_since",
+    description:
+      "Summarize temporal graph changes since txId, timestamp, git commit, or agentId.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        since: {
+          type: "string",
+          description: "Anchor value: txId, ISO timestamp, git commit SHA, or agentId",
+        },
+        projectId: {
+          type: "string",
+          description: "Optional project override",
+        },
+        types: {
+          type: "array",
+          items: {
+            type: "string",
+            enum: ["FILE", "FUNCTION", "CLASS"],
+          },
+          description: "Optional node types to include",
+        },
+        profile: {
+          type: "string",
+          enum: ["compact", "balanced", "debug"],
+        },
+      },
+      required: ["since"],
+    },
+  },
+
+  {
     name: "episode_add",
     description:
       "Persist an episode (observation, decision, edit, test result, or error) for agent memory.",

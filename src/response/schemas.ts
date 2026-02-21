@@ -177,6 +177,43 @@ export const TOOL_OUTPUT_SCHEMAS: Record<string, OutputField[]> = {
       description: "Related learning nodes",
     },
   ],
+  diff_since: [
+    {
+      key: "summary",
+      priority: "required",
+      description: "Human-readable change summary",
+    },
+    {
+      key: "projectId",
+      priority: "required",
+      description: "Project scope",
+    },
+    {
+      key: "since",
+      priority: "high",
+      description: "Resolved anchor details",
+    },
+    {
+      key: "added",
+      priority: "high",
+      description: "Added nodes since anchor",
+    },
+    {
+      key: "removed",
+      priority: "high",
+      description: "Removed nodes since anchor",
+    },
+    {
+      key: "modified",
+      priority: "high",
+      description: "Modified nodes since anchor",
+    },
+    {
+      key: "txIds",
+      priority: "medium",
+      description: "Covered transaction ids",
+    },
+  ],
 };
 
 const PRIORITY_ORDER: FieldPriority[] = ["low", "medium", "high"];
