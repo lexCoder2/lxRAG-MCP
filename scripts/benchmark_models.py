@@ -68,57 +68,73 @@ MODEL_CATALOG: Dict[str, ModelSpec] = {
 
 
 def build_model_scenarios() -> List[ModelScenario]:
+    """
+    Six scenarios that target code-graph-server's own TypeScript codebase.
+    Each scenario is designed to be issued as a prompt to an LLM that has
+    access to the MCP tools and should prefer graph-backed answers over
+    raw grep/file reads.
+    """
     return [
         ModelScenario(
             scenario_id="M001",
-            title="Dependency tracing for LoginPage",
+            title="Dependency tracing: callTool callers",
             prompt=(
-                "Find all files that import LoginPage and return a concise list with reason for each file. "
-                "Prefer relation-aware answers over raw grep output."
+                "Trace all callers of the `callTool` method defined in src/tools/tool-handlers.ts. "
+                "Return a concise list: file path, caller name, and whether the call is direct or transitive. "
+                "Prefer MCP graph tools over raw file reads."
             ),
-            expected_keywords=["LoginPage", "App.tsx", "import"],
+            expected_keywords=["callTool", "tool-handlers", "import"],
         ),
         ModelScenario(
             scenario_id="M002",
-            title="Architecture violation triage",
+            title="Architecture violation triage in code-graph-server",
             prompt=(
-                "Given a React+TypeScript repo with layer rules, identify top architecture violations and propose fixes. "
-                "Output in JSON with severity and file path."
+                "Identify the top architecture violations in code-graph-server using its defined layer rules "
+                "(cli → tools → engines → graph → vector). "
+                "Output JSON with: file, violated rule, severity, and a one-line fix suggestion."
             ),
             expected_keywords=["violations", "severity", "file"],
         ),
         ModelScenario(
             scenario_id="M003",
-            title="Impacted tests from hook changes",
+            title="Impacted tests from progress-engine change",
             prompt=(
-                "Changed files: src/hooks/useCalculateAll.ts and src/hooks/useBuildingState.ts. "
-                "Select impacted tests and justify direct vs transitive impact."
+                "Changed file: src/engines/progress-engine.ts. "
+                "Select all impacted tests and justify each as direct (imports the file) "
+                "or transitive (uses a class/function that depends on it). "
+                "Use impact_analyze with depth=3."
             ),
             expected_keywords=["test", "impact", "direct"],
         ),
         ModelScenario(
             scenario_id="M004",
-            title="Code placement suggestion",
+            title="Code placement: EpisodeEngine service",
             prompt=(
-                "Suggest where to place a new hook named useBeamSizing with dependencies useBuildingState and useCalculateAll. "
-                "Return target layer and path."
+                "Suggest where to place a new TypeScript class named `EpisodeEngine` that depends on "
+                "`MemgraphClient` (src/graph/client.ts) and `QdrantClient` (src/vector/qdrant-client.ts). "
+                "Return target layer, directory path, and rationale. "
+                "Use arch_suggest tool for the recommendation."
             ),
-            expected_keywords=["layer", "path", "hook"],
+            expected_keywords=["layer", "path", "engines"],
         ),
         ModelScenario(
             scenario_id="M005",
-            title="Load takedown semantic retrieval",
+            title="Semantic retrieval: context budget handling",
             prompt=(
-                "Find core files implementing load takedown logic and summarize why each file matters. "
-                "Keep response under 10 bullets."
+                "Find all functions and classes in code-graph-server that are involved in response shaping, "
+                "token estimation, or context budget enforcement. "
+                "Use semantic_search or graph_query to locate them. "
+                "Summarize each in one sentence."
             ),
-            expected_keywords=["load", "takedown", "service"],
+            expected_keywords=["token", "budget", "shapeValue"],
         ),
         ModelScenario(
             scenario_id="M006",
-            title="Blocking issues dashboard",
+            title="Blocking issues and Phase 1 readiness",
             prompt=(
-                "Produce a blocking-issues summary for current engineering work with risk, owner, and next action fields. "
+                "Produce a blocking-issues summary for Phase 1 implementation work "
+                "(context budget model in code-graph-server). "
+                "Include: risk level, owner hint, and next concrete action. "
                 "Use compact table-like text."
             ),
             expected_keywords=["blocking", "risk", "next action"],

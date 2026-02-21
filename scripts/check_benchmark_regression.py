@@ -26,6 +26,8 @@ def main() -> None:
     parser.add_argument("--max-token-regression", type=int, default=5, help="Allowed decrease for mcpLowerTokens")
     parser.add_argument("--max-speed-regression", type=int, default=2, help="Allowed decrease for mcpFaster")
     parser.add_argument("--max-accuracy-regression", type=int, default=1, help="Allowed decrease for mcpHigherAccuracy")
+    parser.add_argument("--max-budget-regression", type=int, default=2, help="Allowed decrease for tokenBudgetCompliance (Phase 1 gate)")
+    parser.add_argument("--max-summary-regression", type=int, default=2, help="Allowed decrease for summaryFieldPresent (Phase 1 gate)")
     args = parser.parse_args()
 
     db_path = Path(args.db)
@@ -53,6 +55,9 @@ def main() -> None:
             "mcpLowerTokens": to_int(latest_summary, "mcpLowerTokens") - to_int(previous_summary, "mcpLowerTokens"),
             "mcpFaster": to_int(latest_summary, "mcpFaster") - to_int(previous_summary, "mcpFaster"),
             "mcpHigherAccuracy": to_int(latest_summary, "mcpHigherAccuracy") - to_int(previous_summary, "mcpHigherAccuracy"),
+            # Phase 1 quality gates
+            "tokenBudgetCompliance": to_int(latest_summary, "tokenBudgetCompliance") - to_int(previous_summary, "tokenBudgetCompliance"),
+            "summaryFieldPresent": to_int(latest_summary, "summaryFieldPresent") - to_int(previous_summary, "summaryFieldPresent"),
         }
 
         print("[benchmark-regression] latest:", latest)
@@ -71,6 +76,15 @@ def main() -> None:
         if deltas["mcpHigherAccuracy"] < -args.max_accuracy_regression:
             failures.append(
                 f"mcpHigherAccuracy regressed by {deltas['mcpHigherAccuracy']} (limit {-args.max_accuracy_regression})"
+            )
+        # Phase 1 regression gates — protect compact-profile token budget and answer-first summary
+        if deltas["tokenBudgetCompliance"] < -args.max_budget_regression:
+            failures.append(
+                f"tokenBudgetCompliance regressed by {deltas['tokenBudgetCompliance']} (limit {-args.max_budget_regression})"
+            )
+        if deltas["summaryFieldPresent"] < -args.max_summary_regression:
+            failures.append(
+                f"summaryFieldPresent regressed by {deltas['summaryFieldPresent']} (limit {-args.max_summary_regression})"
             )
 
         if failures:
