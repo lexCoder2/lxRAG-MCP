@@ -507,6 +507,29 @@ const TOOLS: Tool[] = [
       required: ["task"],
     },
   },
+
+  {
+    name: "semantic_slice",
+    description:
+      "Return relevant exact source lines with optional dependency and memory context.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string" },
+        symbol: { type: "string" },
+        query: { type: "string" },
+        context: {
+          type: "string",
+          enum: ["signature", "body", "with-deps", "full"],
+        },
+        pprScore: { type: "number" },
+        profile: {
+          type: "string",
+          enum: ["compact", "balanced", "debug"],
+        },
+      },
+    },
+  },
 ];
 
 // Resource definitions

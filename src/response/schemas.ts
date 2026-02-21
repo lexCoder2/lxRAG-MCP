@@ -130,6 +130,53 @@ export const TOOL_OUTPUT_SCHEMAS: Record<string, OutputField[]> = {
       description: "Debug PPR score map",
     },
   ],
+  semantic_slice: [
+    {
+      key: "symbolName",
+      priority: "required",
+      description: "Resolved symbol name",
+    },
+    {
+      key: "file",
+      priority: "required",
+      description: "Source file path",
+    },
+    {
+      key: "startLine",
+      priority: "required",
+      description: "Slice start line",
+    },
+    {
+      key: "endLine",
+      priority: "required",
+      description: "Slice end line",
+    },
+    {
+      key: "code",
+      priority: "high",
+      description: "Extracted source code",
+    },
+    {
+      key: "incomingCallers",
+      priority: "medium",
+      description: "Callers of the selected symbol",
+    },
+    {
+      key: "outgoingCalls",
+      priority: "medium",
+      description: "Callees of the selected symbol",
+    },
+    {
+      key: "relevantDecisions",
+      priority: "low",
+      description: "Related decision episodes",
+    },
+    {
+      key: "relevantLearnings",
+      priority: "low",
+      description: "Related learning nodes",
+    },
+  ],
 };
 
 const PRIORITY_ORDER: FieldPriority[] = ["low", "medium", "high"];

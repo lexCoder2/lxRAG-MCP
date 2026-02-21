@@ -1330,6 +1330,13 @@ async function materializeCodeSlice(node: GraphNode, pprScore: number): Promise<
 - `context='full'` includes relevant decisions and learnings linked to the sliced symbol
 - Symbol lookup by name falls back to hybrid search when not found by exact ID
 
+**Implementation status (2026-02-21)**:
+- ✅ Added `semantic_slice` tool handler in `src/tools/tool-handlers.ts` supporting `signature`, `body`, `with-deps`, and `full` contexts.
+- ✅ Added symbol resolution flow: exact id (`::`), `file+symbol`, symbol-only lookup, query fallback, and file fallback.
+- ✅ Implemented exact line materialization from filesystem via node `startLine`/`endLine` with context-specific range rules.
+- ✅ Added dependency enrichment (`incomingCallers`, `outgoingCalls`) and full-context knowledge enrichment (`relevantDecisions`, `relevantLearnings`).
+- ✅ Registered `semantic_slice` schemas on both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`) and response field priorities (`src/response/schemas.ts`).
+
 #### 6.1 New module: `src/tools/semantic-slice.ts`
 
 ```typescript

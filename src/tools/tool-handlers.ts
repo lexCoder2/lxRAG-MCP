@@ -2016,6 +2016,109 @@ export class ToolHandlers {
     }
   }
 
+  async semantic_slice(args: any): Promise<string> {
+    const {
+      file,
+      symbol,
+      query,
+      context = "body",
+      pprScore,
+      profile = "compact",
+    } = args || {};
+
+    if (!symbol && !query && !file) {
+      return this.errorEnvelope(
+        "SEMANTIC_SLICE_INVALID_INPUT",
+        "Provide at least one of: symbol, query, or file.",
+        true,
+      );
+    }
+
+    try {
+      const { workspaceRoot, projectId } = this.getActiveProjectContext();
+      const resolved = this.resolveSemanticSliceAnchor({ file, symbol, query });
+      if (!resolved) {
+        return this.errorEnvelope(
+          "SEMANTIC_SLICE_NOT_FOUND",
+          "Unable to resolve a symbol or file anchor for semantic slicing.",
+          true,
+          "Provide symbol + file for exact lookup or a more specific query.",
+        );
+      }
+
+      const { node, filePath, startLine, endLine } = resolved;
+      const absolutePath = path.isAbsolute(filePath)
+        ? filePath
+        : path.resolve(workspaceRoot, filePath);
+
+      const sliceContext =
+        context === "signature" ||
+        context === "body" ||
+        context === "with-deps" ||
+        context === "full"
+          ? context
+          : "body";
+
+      const [rangeStart, rangeEnd] = this.computeSliceRange(
+        startLine,
+        endLine,
+        sliceContext,
+      );
+      const code = this.readExactLines(absolutePath, rangeStart, rangeEnd);
+
+      const incomingCallers =
+        sliceContext === "with-deps" || sliceContext === "full"
+          ? this.context.index
+              .getRelationshipsTo(node.id)
+              .filter((rel) => rel.type === "CALLS")
+              .slice(0, 10)
+              .map((rel) => ({ id: rel.from, name: this.context.index.getNode(rel.from)?.properties?.name || rel.from }))
+          : [];
+
+      const outgoingCalls =
+        sliceContext === "with-deps" || sliceContext === "full"
+          ? this.context.index
+              .getRelationshipsFrom(node.id)
+              .filter((rel) => rel.type === "CALLS")
+              .slice(0, 10)
+              .map((rel) => ({ id: rel.to, name: this.context.index.getNode(rel.to)?.properties?.name || rel.to }))
+          : [];
+
+      const includeKnowledge = sliceContext === "full";
+      const decisions = includeKnowledge
+        ? await this.findDecisionEpisodes([node.id], projectId)
+        : [];
+      const learnings = includeKnowledge
+        ? await this.findLearnings([node.id], projectId)
+        : [];
+
+      const response = {
+        file: filePath,
+        startLine: rangeStart,
+        endLine: rangeEnd,
+        code,
+        symbolName: String(node.properties.name || path.basename(filePath)),
+        pprScore:
+          typeof pprScore === "number"
+            ? pprScore
+            : undefined,
+        incomingCallers,
+        outgoingCalls,
+        relevantDecisions: decisions,
+        relevantLearnings: learnings,
+        validFrom: node.properties.validFrom || null,
+        context: sliceContext,
+        projectId,
+      };
+
+      const summary = `Semantic slice resolved ${response.symbolName} in ${response.file}:${response.startLine}-${response.endLine}.`;
+
+      return this.formatSuccess(response, profile, summary, "semantic_slice");
+    } catch (error) {
+      return this.errorEnvelope("SEMANTIC_SLICE_FAILED", String(error), true);
+    }
+  }
+
   private findSeedNodeIds(task: string, limit: number): string[] {
     const tokens = task
       .toLowerCase()
@@ -2331,6 +2434,124 @@ export class ToolHandlers {
       estimated = estimateTokens(pack);
       guard += 1;
     }
+  }
+
+  private resolveSemanticSliceAnchor(input: {
+    file?: string;
+    symbol?: string;
+    query?: string;
+  }): {
+    node: GraphNode;
+    filePath: string;
+    startLine: number;
+    endLine: number;
+  } | null {
+    const normalizedFile = input.file ? String(input.file) : undefined;
+    const normalizedSymbol = input.symbol ? String(input.symbol) : undefined;
+
+    if (normalizedSymbol?.includes("::")) {
+      const exact = this.resolveNodeForSlice(normalizedSymbol);
+      if (exact) {
+        return exact;
+      }
+    }
+
+    if (normalizedSymbol && normalizedFile) {
+      const fileNode = this.context.index
+        .getNodesByType("FILE")
+        .find((candidate) => {
+          const candidatePath = String(
+            candidate.properties.path || candidate.properties.filePath || "",
+          );
+          return (
+            candidatePath === normalizedFile ||
+            candidatePath.endsWith(normalizedFile) ||
+            normalizedFile.endsWith(candidatePath)
+          );
+        });
+
+      if (fileNode) {
+        const childIds = this.context.index
+          .getRelationshipsFrom(fileNode.id)
+          .filter((rel) => rel.type === "CONTAINS")
+          .map((rel) => rel.to);
+        const targetName = normalizedSymbol.split(".").pop() || normalizedSymbol;
+        const child = childIds
+          .map((id) => this.context.index.getNode(id))
+          .find((node) => node?.properties?.name === targetName);
+        if (child) {
+          return this.resolveNodeForSlice(child.id);
+        }
+      }
+    }
+
+    if (normalizedSymbol) {
+      const targetName = normalizedSymbol.split(".").pop() || normalizedSymbol;
+      const direct = [
+        ...this.context.index.getNodesByType("FUNCTION"),
+        ...this.context.index.getNodesByType("CLASS"),
+        ...this.context.index.getNodesByType("FILE"),
+      ].find((node) => {
+        const name = String(node.properties.name || node.properties.path || "");
+        return name === targetName || name.includes(targetName);
+      });
+
+      if (direct) {
+        return this.resolveNodeForSlice(direct.id);
+      }
+    }
+
+    if (input.query) {
+      const fallbackId = this.findSeedNodeIds(String(input.query), 1)[0];
+      if (fallbackId) {
+        return this.resolveNodeForSlice(fallbackId);
+      }
+    }
+
+    if (normalizedFile) {
+      const fileNode = this.context.index
+        .getNodesByType("FILE")
+        .find((candidate) => {
+          const candidatePath = String(
+            candidate.properties.path || candidate.properties.filePath || "",
+          );
+          return (
+            candidatePath === normalizedFile ||
+            candidatePath.endsWith(normalizedFile) ||
+            normalizedFile.endsWith(candidatePath)
+          );
+        });
+      if (fileNode) {
+        return this.resolveNodeForSlice(fileNode.id);
+      }
+    }
+
+    return null;
+  }
+
+  private computeSliceRange(
+    startLine: number,
+    endLine: number,
+    context: "signature" | "body" | "with-deps" | "full",
+  ): [number, number] {
+    if (context === "signature") {
+      return [startLine, startLine];
+    }
+    return [startLine, Math.max(startLine, endLine)];
+  }
+
+  private readExactLines(
+    absolutePath: string,
+    startLine: number,
+    endLine: number,
+  ): string {
+    if (!fs.existsSync(absolutePath)) {
+      return "";
+    }
+    const lines = fs.readFileSync(absolutePath, "utf-8").split("\n");
+    return lines
+      .slice(Math.max(0, startLine - 1), Math.max(startLine, endLine))
+      .join("\n");
   }
 }
 

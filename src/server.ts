@@ -1180,6 +1180,46 @@ function createMcpServerInstance(): McpServer {
     },
   );
 
+  // semantic_slice
+  mcpServer.registerTool(
+    "semantic_slice",
+    {
+      description:
+        "Return relevant exact source lines with optional dependency and memory context",
+      inputSchema: z.object({
+        file: z.string().optional().describe("Relative or absolute source file path"),
+        symbol: z.string().optional().describe("Symbol id/name (e.g. ToolHandlers.callTool)"),
+        query: z.string().optional().describe("Natural-language fallback query"),
+        context: z
+          .enum(["signature", "body", "with-deps", "full"])
+          .default("body")
+          .describe("Slice detail mode"),
+        pprScore: z.number().optional().describe("Optional PPR score from context_pack pipeline"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("semantic_slice", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return mcpServer;
 }
 
