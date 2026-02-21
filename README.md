@@ -128,7 +128,7 @@ npm run start:http
 Health endpoint:
 
 ```bash
-curl http://localhost:9000/health
+npm run start:http
 ```
 
 ### 3) Required MCP HTTP session flow
@@ -146,38 +146,54 @@ Workspace context is session-scoped.
 
 ![MCP HTTP Session Flow](docs/diagrams/mcp-session-flow.svg)
 
-Example:
+### Visual examples (no transport boilerplate)
 
-```bash
-# initialize
-curl -s -D /tmp/mcp_headers.txt -o /tmp/mcp_init.txt \
-  -X POST http://localhost:9000/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"client","version":"1.0.0"}}}'
+| Workflow | Minimal tool sequence | Outcome |
+|---|---|---|
+| **Boot a project context** | `initialize` → `graph_set_workspace` → `graph_rebuild` | Graph becomes query-ready for that MCP session |
+| **Understand a subsystem** | `graph_query` → `code_explain` → `semantic_slice` | Dependency map + concrete code slice |
+| **Plan safe changes** | `impact_analyze` → `test_select` → `test_run` | Change radius + focused test execution |
+| **Coordinate multiple agents** | `agent_claim` → `context_pack` → `task_update` | Ownership, task context, and durable progress |
 
-SESSION_ID=$(grep -i '^mcp-session-id:' /tmp/mcp_headers.txt | awk '{print $2}' | tr -d '\r')
+#### Example A — Set workspace context
 
-# set workspace
-curl -s -X POST http://localhost:9000/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -H "mcp-session-id: $SESSION_ID" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"graph_set_workspace","arguments":{"workspaceRoot":"/workspace","sourceDir":"src","projectId":"my-repo"}}}'
+```json
+{
+  "name": "graph_set_workspace",
+  "arguments": {
+    "workspaceRoot": "/workspace",
+    "sourceDir": "src",
+    "projectId": "my-repo"
+  }
+}
+```
 
-# queue rebuild
-curl -s -X POST http://localhost:9000/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -H "mcp-session-id: $SESSION_ID" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"graph_rebuild","arguments":{"mode":"incremental"}}}'
+#### Example B — Natural graph query
 
-# query
-curl -s -X POST http://localhost:9000/mcp \
-  -H 'Content-Type: application/json' \
-  -H 'Accept: application/json, text/event-stream' \
-  -H "mcp-session-id: $SESSION_ID" \
-  -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"graph_query","arguments":{"query":"find key graph files","language":"natural","mode":"local","limit":5}}}'
+```json
+{
+  "name": "graph_query",
+  "arguments": {
+    "query": "find key graph files",
+    "language": "natural",
+    "mode": "local",
+    "limit": 5
+  }
+}
+```
+
+#### Example C — Context pack for an active task
+
+```json
+{
+  "name": "context_pack",
+  "arguments": {
+    "task": "stabilize hybrid retrieval outputs",
+    "taskId": "PHASE8-RET-01",
+    "agentId": "agent-copilot",
+    "profile": "compact"
+  }
+}
 ```
 
 ## Runtime modes
