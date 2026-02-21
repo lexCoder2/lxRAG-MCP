@@ -1,5 +1,6 @@
 import type { GraphIndexManager, GraphNode } from "./index.js";
 import type EmbeddingEngine from "../vector/embedding-engine.js";
+import type MemgraphClient from "./client.js";
 
 export interface RetrievalOptions {
   query: string;
@@ -29,6 +30,7 @@ export class HybridRetriever {
   constructor(
     private index: GraphIndexManager,
     private embeddingEngine?: EmbeddingEngine,
+    private memgraph?: MemgraphClient,
   ) {}
 
   async retrieve(opts: RetrievalOptions): Promise<RetrievalResult[]> {
@@ -102,6 +104,40 @@ export class HybridRetriever {
     opts: RetrievalOptions,
   ): Promise<RankedNode[]> {
     const limit = Math.max(1, Math.min(opts.limit || 10, 100));
+
+    if (this.memgraph) {
+      try {
+        const response = await this.memgraph.executeCypher(
+          `
+            CALL text_search.search('symbol_index', $query)
+            YIELD node, score
+            WHERE coalesce(node.projectId, '') = $projectId
+              AND labels(node)[0] IN ['FUNCTION', 'CLASS', 'FILE']
+            RETURN node.id AS nodeId, score
+            ORDER BY score DESC
+            LIMIT $limit
+          `,
+          {
+            query,
+            projectId: opts.projectId,
+            limit,
+          },
+        );
+
+        if (!response.error && response.data.length > 0) {
+          return response.data
+            .map((row: Record<string, unknown>) => ({
+              nodeId: String(row.nodeId || ""),
+              score: Number(row.score || 0),
+              source: "bm25" as const,
+            }))
+            .filter((row) => row.nodeId.length > 0 && Number.isFinite(row.score))
+            .slice(0, limit);
+        }
+      } catch {
+        // Fall through to in-memory lexical BM25 fallback
+      }
+    }
 
     return this.lexicalFallback(query, opts.projectId, "bm25", limit);
   }

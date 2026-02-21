@@ -323,6 +323,7 @@ export class ToolHandlers {
     this.hybridRetriever = new HybridRetriever(
       this.context.index,
       this.embeddingEngine,
+      this.context.memgraph,
     );
 
     void this.qdrant.connect().catch((error) => {

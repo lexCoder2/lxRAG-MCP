@@ -1679,6 +1679,7 @@ All tools that called `routeNaturalToCypher` benefit automatically: `graph_query
 - ✅ Integrated `HybridRetriever` into `src/tools/tool-handlers.ts` for `graph_query` when `language: 'natural'` in both `local` and `hybrid` modes.
 - ✅ Removed legacy regex `routeNaturalToCypher()` path from natural query handling and retained direct Memgraph passthrough for `language: 'cypher'`.
 - ✅ Added temporal filtering over hybrid retrieval rows for `asOf` in natural mode.
+- ✅ Added optional Memgraph `text_search` BM25 path (`symbol_index`) in `HybridRetriever` with automatic fallback to in-memory lexical scoring when full-text index/module is unavailable.
 - ✅ Smoke-validated `graph_query` over MCP session flow (`initialize` + `mcp-session-id` + `graph_set_workspace`) on fresh build.
 - ℹ️ BM25 path currently uses in-memory lexical scoring (name/path/summary token matching). Memgraph `text_search` can be re-enabled later where full-text indexes are guaranteed.
 
