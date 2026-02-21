@@ -1074,10 +1074,10 @@ def main() -> None:
             notes.append("Natural-language query quality is low")
         if case.tool in {"semantic_search", "find_similar_code", "code_clusters", "semantic_diff", "suggest_tests"}:
             notes.append("Vector tool: requires Qdrant index to be populated")
-        if not row["mcp"].get("token_budget_ok", True):
-            tok = row["mcp"].get("reported_token_estimate") or row["mcp"]["output_tokens_est"]
+        if not mcp.get("token_budget_ok", True):
+            tok = mcp.get("reported_token_estimate") or mcp["output_tokens_est"]
             notes.append(f"Token budget exceeded: {tok} tok > 300")
-        if row["mcp"].get("has_summary_field"):
+        if mcp.get("has_summary_field"):
             notes.append("✓ summary field present")
         if baseline["latency_ms"] is None:
             notes.append("No direct non-graph automation")
