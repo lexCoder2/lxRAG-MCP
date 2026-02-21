@@ -214,6 +214,87 @@ export const TOOL_OUTPUT_SCHEMAS: Record<string, OutputField[]> = {
       description: "Covered transaction ids",
     },
   ],
+  episode_add: [
+    { key: "episodeId", priority: "required", description: "Persisted episode id" },
+    { key: "type", priority: "required", description: "Episode type" },
+    { key: "projectId", priority: "high", description: "Project scope" },
+    { key: "taskId", priority: "medium", description: "Optional task id" },
+  ],
+  episode_recall: [
+    { key: "query", priority: "required", description: "Recall query" },
+    { key: "count", priority: "required", description: "Episode count" },
+    { key: "episodes", priority: "high", description: "Ranked recall results" },
+    { key: "projectId", priority: "medium", description: "Project scope" },
+    { key: "entityHints", priority: "low", description: "Embedding-derived entity hints" },
+  ],
+  decision_query: [
+    { key: "query", priority: "required", description: "Decision query" },
+    { key: "count", priority: "required", description: "Decision count" },
+    { key: "decisions", priority: "high", description: "Decision episodes" },
+    { key: "projectId", priority: "medium", description: "Project scope" },
+  ],
+  reflect: [
+    { key: "reflectionId", priority: "required", description: "Reflection episode id" },
+    { key: "insight", priority: "high", description: "Reflection summary" },
+    { key: "learningsCreated", priority: "high", description: "Number of learnings" },
+    { key: "patterns", priority: "medium", description: "Recurring entities" },
+  ],
+  agent_claim: [
+    { key: "status", priority: "required", description: "Claim outcome status" },
+    { key: "claimId", priority: "high", description: "Claim identifier" },
+    { key: "projectId", priority: "high", description: "Project scope" },
+    { key: "conflicts", priority: "medium", description: "Conflicting claims" },
+  ],
+  agent_release: [
+    { key: "claimId", priority: "required", description: "Released claim id" },
+    { key: "released", priority: "required", description: "Release success flag" },
+    { key: "outcome", priority: "medium", description: "Optional release outcome" },
+  ],
+  agent_status: [
+    { key: "agentId", priority: "required", description: "Agent identifier" },
+    { key: "activeClaims", priority: "high", description: "Open claims" },
+    { key: "recentEpisodes", priority: "medium", description: "Recent episode ids" },
+    { key: "projectId", priority: "high", description: "Project scope" },
+  ],
+  coordination_overview: [
+    { key: "activeClaims", priority: "required", description: "Active claim set" },
+    { key: "staleClaims", priority: "high", description: "Stale claims" },
+    { key: "conflicts", priority: "high", description: "Current conflicts" },
+    { key: "projectId", priority: "high", description: "Project scope" },
+  ],
+  graph_set_workspace: [
+    { key: "success", priority: "required", description: "Operation success" },
+    { key: "projectContext", priority: "required", description: "Active project context" },
+    { key: "watcherState", priority: "high", description: "Watcher runtime state" },
+    { key: "pendingChanges", priority: "high", description: "Queued filesystem changes" },
+    { key: "message", priority: "medium", description: "Operation summary" },
+  ],
+  contract_validate: [
+    { key: "tool", priority: "required", description: "Validated tool name" },
+    { key: "normalized", priority: "required", description: "Normalized arguments" },
+    { key: "warnings", priority: "high", description: "Normalization warnings" },
+    { key: "valid", priority: "high", description: "Validation result" },
+  ],
+  progress_query: [
+    { key: "type", priority: "required", description: "Progress entity type" },
+    { key: "count", priority: "high", description: "Returned items" },
+    { key: "items", priority: "high", description: "Progress records" },
+  ],
+  task_update: [
+    { key: "success", priority: "required", description: "Update success" },
+    { key: "task", priority: "high", description: "Updated task payload" },
+    { key: "postActions", priority: "medium", description: "Triggered side effects" },
+  ],
+  feature_status: [
+    { key: "id", priority: "required", description: "Feature identifier" },
+    { key: "status", priority: "required", description: "Feature status" },
+    { key: "tasks", priority: "high", description: "Linked tasks" },
+  ],
+  blocking_issues: [
+    { key: "totalBlocked", priority: "required", description: "Blocked item count" },
+    { key: "blockingIssues", priority: "high", description: "Blocking issue list" },
+    { key: "recommendation", priority: "medium", description: "Suggested next action" },
+  ],
 };
 
 const PRIORITY_ORDER: FieldPriority[] = ["low", "medium", "high"];

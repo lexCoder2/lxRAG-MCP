@@ -321,7 +321,8 @@ There is no way to say "what did the codebase look like when we started task T?"
 - ✅ Added `src/response/schemas.ts` with field-priority schemas and budget-aware field dropping.
 - ✅ Integrated `ToolHandlers` to use the shared shaper for success/error responses; `graph_query`, `graph_rebuild`, and `graph_health` now pass tool-specific summaries.
 - ✅ Verified compile (`npm run build`) and MCP chat smoke call (`graph_query`) after integration.
-- ⏳ Remaining in Phase 1: full schema coverage for all tools and indexing-time summarization integration (`summarizer.ts` + builder wiring).
+- ✅ Expanded field-priority schema coverage across episode, coordination, workspace, and progress tools.
+- ⏳ Remaining in Phase 1: indexing-time summarization integration (`summarizer.ts` + builder wiring).
 
 #### 1.1 Context Budget System
 
@@ -757,7 +758,9 @@ RETURN n, null AS old, 'added' AS changeType
 - ✅ Added tool handlers in `src/tools/tool-handlers.ts`: `episode_add`, `episode_recall`, `decision_query`, and `reflect`.
 - ✅ Added Phase 3 tool schemas in both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`).
 - ✅ `reflect` now creates `REFLECTION` episodes and materializes `LEARNING` nodes with `APPLIES_TO` links.
-- ⏳ Remaining in Phase 3: Qdrant-backed embedding retrieval path and stricter type-specific metadata validation contracts.
+- ✅ Added Qdrant-assisted entity hints in `episode_recall` via embedding similarity retrieval.
+- ✅ Added stricter type-specific metadata validation contracts in `episode_add` for DECISION/EDIT/TEST_RESULT/ERROR.
+- ✅ Phase 3 optimization follow-ups complete for current architecture.
 
 #### 3.1 New Engine: `EpisodeEngine`
 

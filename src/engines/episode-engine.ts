@@ -299,7 +299,11 @@ export default class EpisodeEngine {
   }
 
   private rowToEpisode(row: Record<string, any>, projectId: string): Episode | null {
-    const node = row.e || row.episode || row;
+    const rawNode = row.e || row.episode || row;
+    const node =
+      rawNode && typeof rawNode === "object" && rawNode.properties
+        ? rawNode.properties
+        : rawNode;
     if (!node || typeof node !== "object") {
       return null;
     }

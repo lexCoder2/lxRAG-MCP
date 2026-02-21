@@ -573,6 +573,86 @@ export class ToolHandlers {
     return null;
   }
 
+  private validateEpisodeInput(args: {
+    type: string;
+    outcome?: unknown;
+    entities?: string[];
+    metadata?: Record<string, unknown>;
+  }): string | null {
+    const type = String(args.type || "").toUpperCase();
+    const entities = Array.isArray(args.entities) ? args.entities : [];
+    const metadata = args.metadata || {};
+
+    if (type === "DECISION") {
+      const outcome = String(args.outcome || "").toLowerCase();
+      if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
+        return "DECISION episodes require outcome: success | failure | partial.";
+      }
+      if (
+        typeof metadata.rationale !== "string" &&
+        typeof metadata.reason !== "string"
+      ) {
+        return "DECISION episodes require metadata.rationale (or metadata.reason).";
+      }
+    }
+
+    if (type === "EDIT") {
+      if (!entities.length) {
+        return "EDIT episodes require at least one entity reference.";
+      }
+    }
+
+    if (type === "TEST_RESULT") {
+      const outcome = String(args.outcome || "").toLowerCase();
+      if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
+        return "TEST_RESULT episodes require outcome: success | failure | partial.";
+      }
+      if (
+        typeof metadata.testName !== "string" &&
+        typeof metadata.testFile !== "string"
+      ) {
+        return "TEST_RESULT episodes require metadata.testName or metadata.testFile.";
+      }
+    }
+
+    if (type === "ERROR") {
+      if (
+        typeof metadata.errorCode !== "string" &&
+        typeof metadata.stack !== "string"
+      ) {
+        return "ERROR episodes require metadata.errorCode or metadata.stack.";
+      }
+    }
+
+    return null;
+  }
+
+  private async inferEpisodeEntityHints(
+    query: string,
+    limit: number,
+  ): Promise<string[]> {
+    if (!this.embeddingEngine || !query.trim()) {
+      return [];
+    }
+
+    try {
+      await this.ensureEmbeddings();
+      const topK = Math.max(1, Math.min(limit, 10));
+      const [functions, classes, files] = await Promise.all([
+        this.embeddingEngine.findSimilar(query, "function", topK),
+        this.embeddingEngine.findSimilar(query, "class", topK),
+        this.embeddingEngine.findSimilar(query, "file", topK),
+      ]);
+
+      return [...functions, ...classes, ...files]
+        .map((item) => String(item.id || ""))
+        .filter(Boolean)
+        .slice(0, topK * 2);
+    } catch {
+      return [];
+    }
+  }
+
   private async resolveSinceAnchor(
     since: string,
     projectId: string,
@@ -2141,6 +2221,26 @@ export class ToolHandlers {
       );
     }
 
+    const normalizedType = String(type).toUpperCase();
+    const normalizedEntities = Array.isArray(entities)
+      ? entities.map((item) => String(item))
+      : [];
+    const normalizedMetadata =
+      metadata && typeof metadata === "object" ? metadata : undefined;
+    const validationError = this.validateEpisodeInput({
+      type: normalizedType,
+      outcome,
+      entities: normalizedEntities,
+      metadata: normalizedMetadata,
+    });
+    if (validationError) {
+      return this.errorEnvelope(
+        "EPISODE_ADD_INVALID_METADATA",
+        validationError,
+        true,
+      );
+    }
+
     try {
       const contextSessionId = this.getCurrentSessionId() || "session-unknown";
       const runtimeAgentId = String(agentId || process.env.CODE_GRAPH_AGENT_ID || "agent-local");
@@ -2148,12 +2248,12 @@ export class ToolHandlers {
 
       const episodeId = await this.episodeEngine!.add(
         {
-          type: String(type).toUpperCase() as EpisodeType,
+          type: normalizedType as EpisodeType,
           content: String(content),
-          entities: Array.isArray(entities) ? entities.map((item) => String(item)) : [],
+          entities: normalizedEntities,
           taskId: taskId ? String(taskId) : undefined,
           outcome,
-          metadata: metadata && typeof metadata === "object" ? metadata : undefined,
+          metadata: normalizedMetadata,
           sensitive: Boolean(sensitive),
           agentId: runtimeAgentId,
           sessionId: String(sessionId || contextSessionId),
@@ -2199,6 +2299,11 @@ export class ToolHandlers {
     try {
       const sinceMs = this.toEpochMillis(since);
       const { projectId } = this.getActiveProjectContext();
+      const explicitEntities = Array.isArray(entities)
+        ? entities.map((item) => String(item))
+        : [];
+      const embeddingEntityHints = await this.inferEpisodeEntityHints(query, limit);
+      const mergedEntities = [...new Set([...explicitEntities, ...embeddingEntityHints])];
       const episodes = await this.episodeEngine!.recall({
         query,
         projectId,
@@ -2207,9 +2312,7 @@ export class ToolHandlers {
         types: Array.isArray(types)
           ? types.map((item) => String(item).toUpperCase() as EpisodeType)
           : undefined,
-        entities: Array.isArray(entities)
-          ? entities.map((item) => String(item))
-          : undefined,
+        entities: mergedEntities.length ? mergedEntities : undefined,
         limit,
         since: sinceMs || undefined,
       });
@@ -2218,6 +2321,7 @@ export class ToolHandlers {
         {
           query,
           projectId,
+          entityHints: profile === "debug" ? embeddingEntityHints : undefined,
           count: episodes.length,
           episodes,
         },
