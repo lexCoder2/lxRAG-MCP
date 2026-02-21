@@ -23,6 +23,7 @@ import CoordinationEngine, {
 } from "../engines/coordination-engine.js";
 import CommunityDetector from "../engines/community-detector.js";
 import { runPPR } from "../graph/ppr.js";
+import HybridRetriever from "../graph/hybrid-retriever.js";
 import {
   estimateTokens,
   makeBudget,
@@ -52,6 +53,7 @@ export class ToolHandlers {
   private episodeEngine?: EpisodeEngine;
   private coordinationEngine?: CoordinationEngine;
   private communityDetector?: CommunityDetector;
+  private hybridRetriever?: HybridRetriever;
   private embeddingsReady = false;
   private lastGraphRebuildAt?: string;
   private lastGraphRebuildMode?: "full" | "incremental";
@@ -208,6 +210,10 @@ export class ToolHandlers {
     const port = parseInt(process.env.QDRANT_PORT || "6333", 10);
     this.qdrant = new QdrantClient(host, port);
     this.embeddingEngine = new EmbeddingEngine(this.context.index, this.qdrant);
+    this.hybridRetriever = new HybridRetriever(
+      this.context.index,
+      this.embeddingEngine,
+    );
 
     void this.qdrant.connect().catch((error) => {
       console.warn("[ToolHandlers] Qdrant connection skipped:", error);
@@ -412,36 +418,6 @@ export class ToolHandlers {
     }
   }
 
-  private routeNaturalToCypher(query: string, projectId: string): string {
-    const intent = this.classifyIntent(query);
-    const sanitized = query.replace(/["']/g, "");
-
-    if (intent === "structure") {
-      return `MATCH (f:FILE) WHERE f.projectId = '${projectId}' RETURN f.path, f.LOC ORDER BY f.path LIMIT 100`;
-    }
-
-    if (intent === "dependency") {
-      const tokenMatch =
-        /(\w+(?:Context|Service|Hook|Provider|Manager|Factory|State)?)/.exec(
-          sanitized,
-        );
-      const token = tokenMatch ? tokenMatch[1] : "";
-      return token
-        ? `MATCH (f:FILE)-[:IMPORTS]->(imp:IMPORT) WHERE f.projectId = '${projectId}' AND imp.projectId = '${projectId}' AND imp.source CONTAINS '${token}' RETURN f.path, imp.source ORDER BY f.path LIMIT 100`
-        : `MATCH (f:FILE)-[:IMPORTS]->(imp:IMPORT) WHERE f.projectId = '${projectId}' AND imp.projectId = '${projectId}' RETURN f.path, imp.source ORDER BY f.path LIMIT 100`;
-    }
-
-    if (intent === "test-impact") {
-      return `MATCH (t:TEST_CASE)-[:TESTS]->(n) WHERE t.projectId = '${projectId}' AND n.projectId = '${projectId}' RETURN t.name, labels(n)[0] AS targetType, n.name AS target ORDER BY t.name LIMIT 100`;
-    }
-
-    if (intent === "progress") {
-      return `MATCH (n:FEATURE|TASK) WHERE n.projectId = '${projectId}' RETURN labels(n)[0] AS type, n.id AS id, n.status AS status ORDER BY type, id LIMIT 100`;
-    }
-
-    return `MATCH (n) WHERE n.projectId = '${projectId}' RETURN labels(n)[0] as type, count(n) as count ORDER BY count DESC`;
-  }
-
   private toEpochMillis(asOf?: string): number | null {
     if (!asOf || typeof asOf !== "string") {
       return null;
@@ -530,12 +506,13 @@ export class ToolHandlers {
           if (queryMode === "global") {
             result = { data: globalRows };
           } else {
-            const localCypher = this.routeNaturalToCypher(query, projectId);
-            const localResult = asOfTs
-              ? await this.context.memgraph.executeCypher(
-                  `MATCH (n) WHERE n.projectId = '${projectId}' AND n.validFrom <= ${asOfTs} AND (n.validTo IS NULL OR n.validTo > ${asOfTs}) RETURN labels(n)[0] as type, count(n) as count ORDER BY count DESC`,
-                )
-              : await this.context.memgraph.executeCypher(localCypher);
+            const localResults = await this.hybridRetriever!.retrieve({
+              query,
+              projectId,
+              limit,
+              mode: "hybrid",
+            });
+            const filteredLocal = this.filterTemporalResults(localResults, asOfTs);
             result = {
               data: [
                 {
@@ -544,19 +521,20 @@ export class ToolHandlers {
                 },
                 {
                   section: "local",
-                  results: localResult.data,
+                  results: filteredLocal,
                 },
               ],
             };
           }
         } else {
-          const cypher = this.routeNaturalToCypher(query, projectId);
-          if (asOfTs) {
-            const temporalCypher = `MATCH (n) WHERE n.projectId = '${projectId}' AND n.validFrom <= ${asOfTs} AND (n.validTo IS NULL OR n.validTo > ${asOfTs}) RETURN labels(n)[0] as type, count(n) as count ORDER BY count DESC`;
-            result = await this.context.memgraph.executeCypher(temporalCypher);
-          } else {
-            result = await this.context.memgraph.executeCypher(cypher);
-          }
+          const localResults = await this.hybridRetriever!.retrieve({
+            query,
+            projectId,
+            limit,
+            mode: "hybrid",
+          });
+          const filteredLocal = this.filterTemporalResults(localResults, asOfTs);
+          result = { data: filteredLocal };
         }
       }
 
@@ -588,6 +566,38 @@ export class ToolHandlers {
     } catch (error) {
       return this.errorEnvelope("GRAPH_QUERY_EXCEPTION", String(error), true);
     }
+  }
+
+  private filterTemporalResults(
+    rows: Array<{ nodeId?: string }>,
+    asOfTs?: number | null,
+  ): Array<{ nodeId?: string }> {
+    if (!asOfTs) {
+      return rows;
+    }
+
+    return rows.filter((row) => {
+      if (!row.nodeId) {
+        return true;
+      }
+
+      const node = this.context.index.getNode(row.nodeId);
+      const validFrom = Number(node?.properties?.validFrom);
+      const validToRaw = node?.properties?.validTo;
+      const validTo =
+        validToRaw === null || validToRaw === undefined
+          ? undefined
+          : Number(validToRaw);
+
+      if (!Number.isFinite(validFrom)) {
+        return true;
+      }
+
+      return (
+        validFrom <= asOfTs &&
+        (!Number.isFinite(validTo) || (validTo !== undefined && validTo > asOfTs))
+      );
+    });
   }
 
   private async fetchGlobalCommunityRows(
