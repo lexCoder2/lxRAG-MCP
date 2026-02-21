@@ -230,11 +230,12 @@ export class ToolHandlers {
           .map((item) => item.trim())
           .filter(Boolean),
       },
-      async ({ projectId, workspaceRoot, sourceDir }) => {
+      async ({ projectId, workspaceRoot, sourceDir, changedFiles }) => {
         await this.runWatcherIncrementalRebuild({
           projectId,
           workspaceRoot,
           sourceDir,
+          changedFiles,
         });
       },
     );
@@ -244,7 +245,7 @@ export class ToolHandlers {
   }
 
   private async runWatcherIncrementalRebuild(
-    context: ProjectContext,
+    context: ProjectContext & { changedFiles?: string[] },
   ): Promise<void> {
     if (!this.orchestrator) {
       return;
@@ -273,6 +274,7 @@ export class ToolHandlers {
       workspaceRoot: context.workspaceRoot,
       projectId: context.projectId,
       sourceDir: context.sourceDir,
+      changedFiles: context.changedFiles,
       txId,
       txTimestamp,
       exclude: [

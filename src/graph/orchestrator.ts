@@ -28,6 +28,7 @@ export interface BuildOptions {
   projectId: string;
   sourceDir: string;
   exclude: string[];
+  changedFiles?: string[];
   txId?: string;
   txTimestamp?: number;
 }
@@ -124,23 +125,41 @@ export class GraphOrchestrator {
       let filesChanged = 0;
 
       if (opts.mode === "incremental") {
-        const hashes = await Promise.all(
-          files.map(async (f) => ({
-            path: f,
-            hash: await this.hashFile(f),
-            LOC: (fs.readFileSync(f, "utf-8").match(/\n/g) || []).length + 1,
-          })),
+        const scopedChangedFiles = this.normalizeChangedFiles(
+          opts.changedFiles,
+          opts.workspaceRoot,
         );
 
-        filesToProcess = hashes
-          .filter((f) => this.cache.hasChanged(f.path, f.hash))
-          .map((f) => f.path);
-        filesChanged = filesToProcess.length;
-
-        if (opts.verbose) {
-          console.log(
-            `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`,
+        if (scopedChangedFiles.length > 0) {
+          filesToProcess = scopedChangedFiles.filter(
+            (filePath) => fs.existsSync(filePath) && files.includes(filePath),
           );
+          filesChanged = scopedChangedFiles.length;
+
+          if (opts.verbose) {
+            console.log(
+              `[GraphOrchestrator] Incremental (explicit): ${filesToProcess.length} existing of ${filesChanged} changed file(s)`,
+            );
+          }
+        } else {
+          const hashes = await Promise.all(
+            files.map(async (f) => ({
+              path: f,
+              hash: await this.hashFile(f),
+              LOC: (fs.readFileSync(f, "utf-8").match(/\n/g) || []).length + 1,
+            })),
+          );
+
+          filesToProcess = hashes
+            .filter((f) => this.cache.hasChanged(f.path, f.hash))
+            .map((f) => f.path);
+          filesChanged = filesToProcess.length;
+
+          if (opts.verbose) {
+            console.log(
+              `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`,
+            );
+          }
         }
       } else {
         // Full rebuild
@@ -324,6 +343,25 @@ export class GraphOrchestrator {
 
     walk(basePath);
     return files;
+  }
+
+  private normalizeChangedFiles(
+    changedFiles: string[] | undefined,
+    workspaceRoot: string,
+  ): string[] {
+    if (!Array.isArray(changedFiles) || changedFiles.length === 0) {
+      return [];
+    }
+
+    return changedFiles
+      .map((entry) => String(entry || "").trim())
+      .filter(Boolean)
+      .map((entry) =>
+        path.isAbsolute(entry)
+          ? path.normalize(entry)
+          : path.resolve(workspaceRoot, entry),
+      )
+      .filter((filePath) => /\.(ts|tsx|py|go|rs|java)$/.test(filePath));
   }
 
   private async parseSourceFile(

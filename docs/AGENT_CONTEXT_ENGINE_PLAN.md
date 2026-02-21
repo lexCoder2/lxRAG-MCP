@@ -1945,7 +1945,7 @@ if (process.env.MCP_TRANSPORT === 'http' || process.env.CODE_GRAPH_ENABLE_WATCHE
 - ✅ Added `pendingChanges` and `watcherState` to `graph_set_workspace` response payload and `graph_health` output.
 - ✅ Added watcher-triggered incremental rebuild callback that records `GRAPH_TX` entries and updates rebuild metadata.
 - ✅ Added `chokidar` dependency for robust cross-platform file watching.
-- ℹ️ Current watcher-triggered rebuild path runs orchestrator incremental mode; explicit changed-file-only write optimization can be refined in a follow-up slice.
+- ✅ Added `BuildOptions.changedFiles` support in `src/graph/orchestrator.ts` and wired watcher callbacks to pass changed files, enabling O(changes) incremental processing for watcher-triggered rebuilds.
 
 ---
 
