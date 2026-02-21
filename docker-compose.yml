@@ -1,0 +1,100 @@
+services:
+  memgraph:
+    image: memgraph/memgraph:latest
+    container_name: code-graph-memgraph
+    ports:
+      - "7687:7687"
+      - "7444:7444"
+    environment:
+      - MEMGRAPH_ARGS=--log-level=WARNING
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+      - ./docker/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python3",
+          "-c",
+          "import socket; socket.create_connection(('localhost', 7687), timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: code-graph-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      - QDRANT_TELEMETRY_DISABLED=true
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  memgraph-lab:
+    image: memgraph/lab:latest
+    container_name: code-graph-memgraph-lab
+    ports:
+      - "3000:3000"
+    environment:
+      - QUICK_CONNECT_MG_HOST=memgraph
+      - QUICK_CONNECT_MG_PORT=7687
+    depends_on:
+      memgraph:
+        condition: service_healthy
+    restart: unless-stopped
+
+  graph-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: code-graph-server
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - NODE_ENV=development
+      - MCP_TRANSPORT=http
+      - MCP_PORT=9000
+      - MEMGRAPH_HOST=memgraph
+      - MEMGRAPH_PORT=7687
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - LOG_LEVEL=info
+      - CODE_GRAPH_WORKSPACE_ROOT=/workspace
+      - GRAPH_SOURCE_DIR=/workspace/src
+      - CODE_GRAPH_PROJECT_ID=${CODE_GRAPH_PROJECT_ID:-code-graph-default}
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+      - ./tsconfig.json:/app/tsconfig.json
+      - ${CODE_GRAPH_TARGET_WORKSPACE:-../stratSolver}:/workspace
+    depends_on:
+      memgraph:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:9001/health",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  memgraph_data:
+    name: code_graph_memgraph_data
+  qdrant_data:
+    name: code_graph_qdrant_data

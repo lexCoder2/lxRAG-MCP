@@ -1,0 +1,68 @@
+FROM node:24-alpine
+
+WORKDIR /app
+
+# Create project directory forvolume mount
+RUN mkdir -p /project
+
+# Install build dependencies
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    curl \
+    git
+
+# Copy package files (use simplified package for Docker)
+COPY package.json ./package.json
+
+# Create/copy tsconfig
+RUN if [ -f package.json ]; then echo "Found package"; fi && \
+    cat > tsconfig.json << 'EOF'
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "moduleResolution": "node"
+  },
+  rules: {
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/no-unused-expressions": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/explicit-module-boundary-types": "warn"
+  },
+  "include": ["src"],
+  "exclude": ["dist",
+    "node_modules",
+    "**/*.test.ts",
+    "src/test-harness.ts",
+    "src/index.ts",
+    "src/mcp-server.ts"]
+}
+EOF
+
+# Install dependencies (minimal set for MVP)
+RUN npm install
+
+# Copy source
+COPY src ./src
+
+# Create health check endpoint (use .cjs for CommonJS)
+RUN echo 'const express = require("express"); const app = express(); app.get("/health", (req, res) => res.json({ status: "ok", uptime: process.uptime(), service: "graph-server" })); const server = app.listen(9001, "0.0.0.0", () => console.log("[Health] Listening on port 9001"));' > health.cjs
+
+# Expose ports
+EXPOSE 9000 9001
+
+# Build TypeScript and start both servers
+CMD npm run build && (node health.cjs &) && node dist/server.js
