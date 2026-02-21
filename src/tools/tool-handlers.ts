@@ -1728,7 +1728,7 @@ export class ToolHandlers {
 
             const communityRun = await this.communityDetector!.run(projectId);
             console.error(
-              `[community] computed ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,
+              `[community] ${communityRun.mode}: ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,
             );
           }
         })
