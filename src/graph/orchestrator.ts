@@ -20,6 +20,7 @@ import GraphBuilder, { type CypherStatement } from "./builder.js";
 import GraphIndexManager from "./index.js";
 import CacheManager from "./cache.js";
 import MemgraphClient from "./client.js";
+import CodeSummarizer from "../response/summarizer.js";
 
 export interface BuildOptions {
   mode: "full" | "incremental";
@@ -54,6 +55,7 @@ export class GraphOrchestrator {
   private cache: CacheManager;
   private memgraph: MemgraphClient;
   private verbose: boolean;
+  private summarizer: CodeSummarizer;
 
   constructor(memgraph?: MemgraphClient, verbose = false) {
     this.parser = new TypeScriptParser();
@@ -67,6 +69,7 @@ export class GraphOrchestrator {
     this.cache = new CacheManager();
     this.memgraph = memgraph || new MemgraphClient();
     this.verbose = verbose;
+    this.summarizer = new CodeSummarizer(process.env.CODE_GRAPH_SUMMARIZER_URL);
   }
 
   /**
@@ -181,6 +184,7 @@ export class GraphOrchestrator {
       for (const filePath of filesToProcess) {
         try {
           const parsed = await this.parseSourceFile(filePath, opts.workspaceRoot);
+          await this.attachSummaries(parsed);
           parsedFiles.push({ filePath, parsed });
           const adaptedParsed = this.adaptParsedFile(parsed);
           const statements = this.builder.buildFromParsedFile(adaptedParsed);
@@ -386,6 +390,64 @@ export class GraphOrchestrator {
     });
   }
 
+  private async attachSummaries(parsed: ParsedFile): Promise<void> {
+    const fileHash = parsed.hash || "no-hash";
+    const relativePath = parsed.relativePath || parsed.filePath;
+
+    (parsed as ParsedFile & { summary?: string }).summary =
+      await this.summarizer.summarize({
+        kind: "file",
+        cacheKey: `file:${relativePath}:${fileHash}`,
+        name: path.basename(parsed.filePath),
+        path: relativePath,
+        language: parsed.language,
+        loc: parsed.LOC,
+        metadata: {
+          functionCount: parsed.functions.length,
+          classCount: parsed.classes.length,
+          importCount: parsed.imports.length,
+        },
+      });
+
+    for (const [index, fn] of parsed.functions.entries()) {
+      (fn as typeof fn & { summary?: string }).summary =
+        await this.summarizer.summarize({
+          kind: "function",
+          cacheKey: `function:${relativePath}:${fn.name}:${index}:${fileHash}`,
+          name: fn.name,
+          path: relativePath,
+          language: parsed.language,
+          loc: fn.LOC,
+          metadata: { startLine: fn.startLine, endLine: fn.endLine },
+        });
+    }
+
+    for (const [index, cls] of parsed.classes.entries()) {
+      (cls as typeof cls & { summary?: string }).summary =
+        await this.summarizer.summarize({
+          kind: "class",
+          cacheKey: `class:${relativePath}:${cls.name}:${index}:${fileHash}`,
+          name: cls.name,
+          path: relativePath,
+          language: parsed.language,
+          loc: cls.LOC,
+          metadata: { kind: cls.kind, extends: cls.extends },
+        });
+    }
+
+    for (const [index, imp] of parsed.imports.entries()) {
+      (imp as typeof imp & { summary?: string }).summary =
+        await this.summarizer.summarize({
+          kind: "import",
+          cacheKey: `import:${relativePath}:${imp.source}:${index}:${fileHash}`,
+          name: imp.source,
+          path: relativePath,
+          language: parsed.language,
+          metadata: { specifierCount: imp.specifiers.length },
+        });
+    }
+  }
+
   private adaptLanguageParseResult(
     filePath: string,
     workspaceRoot: string,
@@ -500,6 +562,7 @@ export class GraphOrchestrator {
       language: parsed.language,
       LOC: parsed.LOC,
       hash: parsed.hash,
+      summary: (parsed as ParsedFile & { summary?: string }).summary,
     });
 
     // FUNCTION nodes
@@ -512,6 +575,7 @@ export class GraphOrchestrator {
         LOC: fn.LOC,
         parameters: fn.parameters,
         isExported: fn.isExported,
+        summary: (fn as typeof fn & { summary?: string }).summary,
       });
       this.index.addRelationship(
         `contains:${fn.id}`,
@@ -531,6 +595,7 @@ export class GraphOrchestrator {
         LOC: cls.LOC,
         isExported: cls.isExported,
         extends: cls.extends,
+        summary: (cls as typeof cls & { summary?: string }).summary,
       });
       this.index.addRelationship(
         `contains:${cls.id}`,
@@ -545,6 +610,7 @@ export class GraphOrchestrator {
       this.index.addNode(imp.id, "IMPORT", {
         source: imp.source,
         specifiers: imp.specifiers,
+        summary: (imp as typeof imp & { summary?: string }).summary,
       });
       this.index.addRelationship(
         `imports:${imp.id}`,
@@ -580,11 +646,13 @@ export class GraphOrchestrator {
       language: parsed.language,
       LOC: parsed.LOC,
       hash: parsed.hash,
+      summary: (parsed as ParsedFile & { summary?: string }).summary,
       imports: parsed.imports.map((imp) => ({
         id: imp.id,
         source: imp.source,
         specifiers: imp.specifiers.map((spec) => spec.imported || spec.name),
         startLine: imp.startLine,
+        summary: (imp as typeof imp & { summary?: string }).summary,
       })),
       exports: parsed.exports.map((exp) => ({
         id: exp.id,
@@ -605,6 +673,7 @@ export class GraphOrchestrator {
         endLine: fn.endLine,
         LOC: fn.LOC,
         isExported: fn.isExported,
+        summary: (fn as typeof fn & { summary?: string }).summary,
       })),
       classes: parsed.classes.map((cls) => ({
         id: cls.id,
@@ -618,6 +687,7 @@ export class GraphOrchestrator {
         isExported: cls.isExported,
         implements: cls.implements,
         extends: cls.extends,
+        summary: (cls as typeof cls & { summary?: string }).summary,
       })),
       variables: parsed.variables || [],
     };

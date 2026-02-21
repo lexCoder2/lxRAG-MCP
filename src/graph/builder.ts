@@ -6,7 +6,8 @@ export interface ParsedFile {
   language?: string;
   LOC?: number;
   hash?: string;
-  imports: Array<{ source: string; specifiers: string[] }>;
+  summary?: string;
+  imports: Array<{ source: string; specifiers: string[]; summary?: string }>;
   exports: Array<{ name: string; type: string }>;
   functions: FunctionNode[];
   classes: ClassNode[];
@@ -34,6 +35,7 @@ interface FunctionNode {
   endLine?: number;
   LOC?: number;
   isExported?: boolean;
+  summary?: string;
 }
 
 interface ClassNode {
@@ -49,6 +51,7 @@ interface ClassNode {
   LOC?: number;
   extends?: string;
   isExported?: boolean;
+  summary?: string;
 }
 
 import * as path from "path";
@@ -153,6 +156,7 @@ export class GraphBuilder {
             f.path = $path,
             f.language = $language,
             f.LOC = $LOC,
+          f.summary = $summary,
             f.hash = $hash,
             f.relativePath = $relativePath,
             f.projectId = $projectId,
@@ -168,6 +172,7 @@ export class GraphBuilder {
         name: path.basename(parsedFile.filePath),
         language: parsedFile.language || "TypeScript",
         LOC: parsedFile.LOC || 0,
+        summary: parsedFile.summary || null,
         hash: parsedFile.hash || "",
         relativePath: relativePath,
         projectId: this.projectId,
@@ -255,6 +260,7 @@ export class GraphBuilder {
             func.startLine = $startLine,
             func.endLine = $endLine,
             func.LOC = $LOC,
+          func.summary = $summary,
             func.parameters = $parameters,
           func.validFrom = $validFrom,
           func.validTo = $validTo,
@@ -269,6 +275,7 @@ export class GraphBuilder {
         startLine: fn.startLine || fn.line || 0,
         endLine: fn.endLine || fn.line || 0,
         LOC: fn.LOC || 1,
+        summary: fn.summary || null,
         // Memgraph only supports lists of primitives as properties; serialize objects to JSON string
         parameters: JSON.stringify(fn.parameters),
         validFrom: this.txTimestamp,
@@ -317,6 +324,7 @@ export class GraphBuilder {
             cls.startLine = $startLine,
             cls.endLine = $endLine,
             cls.LOC = $LOC,
+          cls.summary = $summary,
           cls.validFrom = $validFrom,
           cls.validTo = $validTo,
           cls.createdAt = $createdAt,
@@ -330,6 +338,7 @@ export class GraphBuilder {
         startLine: cls.startLine || cls.line,
         endLine: cls.endLine || cls.line,
         LOC: cls.LOC || 1,
+        summary: cls.summary || null,
         validFrom: this.txTimestamp,
         validTo: null,
         createdAt: this.txTimestamp,
@@ -451,6 +460,7 @@ export class GraphBuilder {
         SET imp.source = $source,
             imp.specifiers = $specifiers,
             imp.startLine = $startLine,
+          imp.summary = $summary,
           imp.validFrom = $validFrom,
           imp.validTo = $validTo,
           imp.createdAt = $createdAt,
@@ -462,6 +472,7 @@ export class GraphBuilder {
         source: imp.source,
         specifiers: imp.specifiers,
         startLine: imp.startLine,
+        summary: imp.summary || null,
         validFrom: this.txTimestamp,
         validTo: null,
         createdAt: this.txTimestamp,

@@ -322,7 +322,9 @@ There is no way to say "what did the codebase look like when we started task T?"
 - ✅ Integrated `ToolHandlers` to use the shared shaper for success/error responses; `graph_query`, `graph_rebuild`, and `graph_health` now pass tool-specific summaries.
 - ✅ Verified compile (`npm run build`) and MCP chat smoke call (`graph_query`) after integration.
 - ✅ Expanded field-priority schema coverage across episode, coordination, workspace, and progress tools.
-- ⏳ Remaining in Phase 1: indexing-time summarization integration (`summarizer.ts` + builder wiring).
+- ✅ Added indexing-time summarization integration with `src/response/summarizer.ts` and summary persistence in graph writes (`FILE`/`FUNCTION`/`CLASS`/`IMPORT`).
+- ✅ `CODE_GRAPH_SUMMARIZER_URL` remains optional with local fallback summaries and cache-by-hash behavior.
+- ✅ Phase 1 acceptance criteria complete.
 
 #### 1.1 Context Budget System
 
