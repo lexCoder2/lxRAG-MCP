@@ -15,6 +15,10 @@ export default class CodeSummarizer {
 
   constructor(private endpointUrl?: string) {}
 
+  isConfigured(): boolean {
+    return !!this.endpointUrl;
+  }
+
   async summarize(input: SummaryInput): Promise<string> {
     const existing = this.cache.get(input.cacheKey);
     if (existing) {
