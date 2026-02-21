@@ -1936,6 +1936,14 @@ if (process.env.MCP_TRANSPORT === 'http' || process.env.CODE_GRAPH_ENABLE_WATCHE
 }
 ```
 
+**Implementation status (2026-02-21)**:
+- ✅ Added `src/graph/watcher.ts` with debounce-based file event batching (`add`/`change`/`unlink`) and state machine (`idle`/`detecting`/`debouncing`/`rebuilding`).
+- ✅ Integrated session-scoped watcher lifecycle in `graph_set_workspace` (`src/tools/tool-handlers.ts`), with auto-start for HTTP transport and opt-in start for stdio via `CODE_GRAPH_ENABLE_WATCHER=true`.
+- ✅ Added `pendingChanges` and `watcherState` to `graph_set_workspace` response payload and `graph_health` output.
+- ✅ Added watcher-triggered incremental rebuild callback that records `GRAPH_TX` entries and updates rebuild metadata.
+- ✅ Added `chokidar` dependency for robust cross-platform file watching.
+- ℹ️ Current watcher-triggered rebuild path runs orchestrator incremental mode; explicit changed-file-only write optimization can be refined in a follow-up slice.
+
 ---
 
 ## 4. New Tool Inventory (complete list)

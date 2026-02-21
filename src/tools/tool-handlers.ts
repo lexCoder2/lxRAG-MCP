@@ -24,6 +24,7 @@ import CoordinationEngine, {
 import CommunityDetector from "../engines/community-detector.js";
 import { runPPR } from "../graph/ppr.js";
 import HybridRetriever from "../graph/hybrid-retriever.js";
+import FileWatcher, { type WatcherState } from "../graph/watcher.js";
 import {
   estimateTokens,
   makeBudget,
@@ -59,6 +60,7 @@ export class ToolHandlers {
   private lastGraphRebuildMode?: "full" | "incremental";
   private defaultActiveProjectContext: ProjectContext;
   private sessionProjectContexts = new Map<string, ProjectContext>();
+  private sessionWatchers = new Map<string, FileWatcher>();
 
   constructor(private context: ToolContext) {
     this.defaultActiveProjectContext = this.defaultProjectContext();
@@ -180,6 +182,112 @@ export class ToolHandlers {
 
   private runtimePathFallbackAllowed(): boolean {
     return process.env.CODE_GRAPH_ALLOW_RUNTIME_PATH_FALLBACK === "true";
+  }
+
+  private watcherEnabledForRuntime(): boolean {
+    return (
+      process.env.MCP_TRANSPORT === "http" ||
+      process.env.CODE_GRAPH_ENABLE_WATCHER === "true"
+    );
+  }
+
+  private watcherKey(): string {
+    return this.getCurrentSessionId() || "__default__";
+  }
+
+  private getActiveWatcher(): FileWatcher | undefined {
+    return this.sessionWatchers.get(this.watcherKey());
+  }
+
+  private async stopActiveWatcher(): Promise<void> {
+    const key = this.watcherKey();
+    const existing = this.sessionWatchers.get(key);
+    if (!existing) {
+      return;
+    }
+
+    await existing.stop();
+    this.sessionWatchers.delete(key);
+  }
+
+  private async startActiveWatcher(context: ProjectContext): Promise<void> {
+    if (!this.watcherEnabledForRuntime()) {
+      return;
+    }
+
+    await this.stopActiveWatcher();
+
+    const watcher = new FileWatcher(
+      {
+        workspaceRoot: context.workspaceRoot,
+        sourceDir: context.sourceDir,
+        projectId: context.projectId,
+        debounceMs: 500,
+        ignorePatterns: (
+          process.env.CODE_GRAPH_IGNORE_PATTERNS || ""
+        )
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean),
+      },
+      async ({ projectId, workspaceRoot, sourceDir }) => {
+        await this.runWatcherIncrementalRebuild({
+          projectId,
+          workspaceRoot,
+          sourceDir,
+        });
+      },
+    );
+
+    watcher.start();
+    this.sessionWatchers.set(this.watcherKey(), watcher);
+  }
+
+  private async runWatcherIncrementalRebuild(
+    context: ProjectContext,
+  ): Promise<void> {
+    if (!this.orchestrator) {
+      return;
+    }
+
+    const txTimestamp = Date.now();
+    const txId = `tx-${txTimestamp}-${Math.random().toString(36).slice(2, 8)}`;
+
+    if (this.context.memgraph.isConnected()) {
+      await this.context.memgraph.executeCypher(
+        `CREATE (tx:GRAPH_TX {id: $id, projectId: $projectId, type: $type, timestamp: $timestamp, mode: $mode, sourceDir: $sourceDir})`,
+        {
+          id: txId,
+          projectId: context.projectId,
+          type: "incremental_rebuild",
+          timestamp: txTimestamp,
+          mode: "incremental",
+          sourceDir: context.sourceDir,
+        },
+      );
+    }
+
+    await this.orchestrator.build({
+      mode: "incremental",
+      verbose: false,
+      workspaceRoot: context.workspaceRoot,
+      projectId: context.projectId,
+      sourceDir: context.sourceDir,
+      txId,
+      txTimestamp,
+      exclude: [
+        "node_modules",
+        "dist",
+        ".next",
+        ".code-graph",
+        "__tests__",
+        "coverage",
+        ".git",
+      ],
+    });
+
+    this.lastGraphRebuildAt = new Date().toISOString();
+    this.lastGraphRebuildMode = "incremental";
   }
 
   private initializeEngines(): void {
@@ -1227,11 +1335,19 @@ export class ToolHandlers {
       }
 
       this.setActiveProjectContext(nextContext);
+      await this.startActiveWatcher(nextContext);
+
+      const watcher = this.getActiveWatcher();
 
       return this.formatSuccess(
         {
           success: true,
           projectContext: this.getActiveProjectContext(),
+          watcherEnabled: this.watcherEnabledForRuntime(),
+          watcherState: (watcher?.state || "not_started") as
+            | WatcherState
+            | "not_started",
+          pendingChanges: watcher?.pendingChanges ?? 0,
           runtimePathFallback: adapted.usedFallback,
           runtimePathFallbackReason: adapted.fallbackReason || null,
           message:
@@ -1424,6 +1540,7 @@ export class ToolHandlers {
       );
       const latestTxRow = latestTxResult.data?.[0] || {};
       const txCountRow = txCountResult.data?.[0] || {};
+      const watcher = this.getActiveWatcher();
 
       return this.formatSuccess(
         {
@@ -1456,6 +1573,8 @@ export class ToolHandlers {
             staleFileEstimate: null,
             note: "Use graph_rebuild incremental to refresh changed files.",
           },
+          pendingChanges: watcher?.pendingChanges ?? 0,
+          watcherState: watcher?.state || "not_started",
         },
         profile,
         "Graph health is OK.",
