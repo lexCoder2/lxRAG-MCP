@@ -749,6 +749,13 @@ RETURN n, null AS old, 'added' AS changeType
 - `reflect()` produces `REFLECTION` and `LEARNING` nodes from ≥ 3 episodes
 - Sensitive episodes (`sensitive: true`) excluded from default queries
 
+**Implementation status (2026-02-21)**:
+- ✅ Added `src/engines/episode-engine.ts` with persistent EPISODE writes to Memgraph, `NEXT_EPISODE` chaining, and `INVOLVES` links.
+- ✅ Added tool handlers in `src/tools/tool-handlers.ts`: `episode_add`, `episode_recall`, `decision_query`, and `reflect`.
+- ✅ Added Phase 3 tool schemas in both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`).
+- ✅ `reflect` now creates `REFLECTION` episodes and materializes `LEARNING` nodes with `APPLIES_TO` links.
+- ⏳ Remaining in Phase 3: Qdrant-backed embedding retrieval path and stricter type-specific metadata validation contracts.
+
 #### 3.1 New Engine: `EpisodeEngine`
 
 **File**: `src/engines/episode-engine.ts`

@@ -86,7 +86,9 @@ function createMcpServerInstance(): McpServer {
         asOf: z
           .string()
           .optional()
-          .describe("Optional ISO timestamp or epoch ms for temporal query mode (natural only)"),
+          .describe(
+            "Optional ISO timestamp or epoch ms for temporal query mode (natural only)",
+          ),
       }),
     },
     async (args: any) => {
@@ -404,7 +406,16 @@ function createMcpServerInstance(): McpServer {
       inputSchema: z.object({
         name: z.string().describe("Code name/identifier"),
         type: z
-          .enum(["component", "hook", "service", "context", "utility", "engine", "class", "module"])
+          .enum([
+            "component",
+            "hook",
+            "service",
+            "context",
+            "utility",
+            "engine",
+            "class",
+            "module",
+          ])
           .describe("Code type"),
         dependencies: z
           .array(z.string())
@@ -813,6 +824,176 @@ function createMcpServerInstance(): McpServer {
       }
       try {
         const result = await toolHandlers.callTool("suggest_tests", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // episode_add
+  mcpServer.registerTool(
+    "episode_add",
+    {
+      description: "Persist a structured episode in long-term agent memory",
+      inputSchema: z.object({
+        type: z
+          .enum([
+            "OBSERVATION",
+            "DECISION",
+            "EDIT",
+            "TEST_RESULT",
+            "ERROR",
+            "REFLECTION",
+            "LEARNING",
+          ])
+          .describe("Episode type"),
+        content: z.string().describe("Episode content"),
+        entities: z
+          .array(z.string())
+          .optional()
+          .describe("Related graph entity IDs"),
+        taskId: z.string().optional().describe("Related task ID"),
+        outcome: z
+          .enum(["success", "failure", "partial"])
+          .optional()
+          .describe("Outcome classification"),
+        metadata: z.record(z.any()).optional().describe("Extra metadata"),
+        sensitive: z
+          .boolean()
+          .optional()
+          .describe("Exclude from default recalls"),
+        agentId: z.string().optional().describe("Agent identifier"),
+        sessionId: z.string().optional().describe("Session identifier"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("episode_add", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // episode_recall
+  mcpServer.registerTool(
+    "episode_recall",
+    {
+      description: "Recall episodes by semantic, temporal, and entity relevance",
+      inputSchema: z.object({
+        query: z.string().describe("Recall query"),
+        agentId: z.string().optional().describe("Agent filter"),
+        taskId: z.string().optional().describe("Task filter"),
+        types: z.array(z.string()).optional().describe("Episode type filters"),
+        entities: z.array(z.string()).optional().describe("Entity filters"),
+        limit: z.number().default(5).describe("Result limit"),
+        since: z.string().optional().describe("ISO timestamp or epoch ms"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("episode_recall", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // decision_query
+  mcpServer.registerTool(
+    "decision_query",
+    {
+      description: "Query decision episodes for a target topic",
+      inputSchema: z.object({
+        query: z.string().describe("Decision query text"),
+        affectedFiles: z
+          .array(z.string())
+          .optional()
+          .describe("Related files/entities"),
+        taskId: z.string().optional().describe("Task filter"),
+        agentId: z.string().optional().describe("Agent filter"),
+        limit: z.number().default(5).describe("Result limit"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("decision_query", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // reflect
+  mcpServer.registerTool(
+    "reflect",
+    {
+      description: "Synthesize reflections and learning nodes from recent episodes",
+      inputSchema: z.object({
+        taskId: z.string().optional().describe("Task filter"),
+        agentId: z.string().optional().describe("Agent filter"),
+        limit: z.number().default(20).describe("Episodes to analyze"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("reflect", args);
         return { content: [{ type: "text", text: result }] };
       } catch (error: any) {
         return {

@@ -17,6 +17,7 @@ import EmbeddingEngine from "../vector/embedding-engine.js";
 import type { GraphNode } from "../graph/index.js";
 import { getRequestContext } from "../request-context.js";
 import { formatResponse, errorResponse } from "../response/shaper.js";
+import EpisodeEngine, { type EpisodeType } from "../engines/episode-engine.js";
 
 export interface ToolContext {
   index: GraphIndexManager;
@@ -38,6 +39,7 @@ export class ToolHandlers {
   private orchestrator?: GraphOrchestrator;
   private qdrant?: QdrantClient;
   private embeddingEngine?: EmbeddingEngine;
+  private episodeEngine?: EpisodeEngine;
   private embeddingsReady = false;
   private lastGraphRebuildAt?: string;
   private lastGraphRebuildMode?: "full" | "incremental";
@@ -177,6 +179,7 @@ export class ToolHandlers {
 
     this.testEngine = new TestEngine(this.context.index);
     this.progressEngine = new ProgressEngine(this.context.index);
+    this.episodeEngine = new EpisodeEngine(this.context.memgraph);
 
     // Initialize GraphOrchestrator if not provided
     this.orchestrator =
@@ -1497,6 +1500,189 @@ export class ToolHandlers {
       );
     } catch (error) {
       return this.errorEnvelope("SUGGEST_TESTS_FAILED", String(error), true);
+    }
+  }
+
+  // ============================================================================
+  // EPISODE MEMORY TOOLS (4)
+  // ============================================================================
+
+  async episode_add(args: any): Promise<string> {
+    const {
+      type,
+      content,
+      entities = [],
+      taskId,
+      outcome,
+      metadata,
+      sensitive = false,
+      profile = "compact",
+      agentId,
+      sessionId,
+    } = args || {};
+
+    if (!type || !content) {
+      return this.errorEnvelope(
+        "EPISODE_ADD_INVALID_INPUT",
+        "Fields 'type' and 'content' are required.",
+        true,
+        "Provide type (e.g. OBSERVATION) and content.",
+      );
+    }
+
+    try {
+      const contextSessionId = this.getCurrentSessionId() || "session-unknown";
+      const runtimeAgentId = String(agentId || process.env.CODE_GRAPH_AGENT_ID || "agent-local");
+      const { projectId } = this.getActiveProjectContext();
+
+      const episodeId = await this.episodeEngine!.add(
+        {
+          type: String(type).toUpperCase() as EpisodeType,
+          content: String(content),
+          entities: Array.isArray(entities) ? entities.map((item) => String(item)) : [],
+          taskId: taskId ? String(taskId) : undefined,
+          outcome,
+          metadata: metadata && typeof metadata === "object" ? metadata : undefined,
+          sensitive: Boolean(sensitive),
+          agentId: runtimeAgentId,
+          sessionId: String(sessionId || contextSessionId),
+        },
+        projectId,
+      );
+
+      return this.formatSuccess(
+        {
+          episodeId,
+          type: String(type).toUpperCase(),
+          projectId,
+          taskId: taskId || null,
+        },
+        profile,
+        `Episode ${episodeId} persisted.`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("EPISODE_ADD_FAILED", String(error), true);
+    }
+  }
+
+  async episode_recall(args: any): Promise<string> {
+    const {
+      query,
+      agentId,
+      taskId,
+      types,
+      entities,
+      limit = 5,
+      since,
+      profile = "compact",
+    } = args || {};
+
+    if (!query || typeof query !== "string") {
+      return this.errorEnvelope(
+        "EPISODE_RECALL_INVALID_INPUT",
+        "Field 'query' is required.",
+        true,
+      );
+    }
+
+    try {
+      const sinceMs = this.toEpochMillis(since);
+      const { projectId } = this.getActiveProjectContext();
+      const episodes = await this.episodeEngine!.recall({
+        query,
+        projectId,
+        agentId,
+        taskId,
+        types: Array.isArray(types)
+          ? types.map((item) => String(item).toUpperCase() as EpisodeType)
+          : undefined,
+        entities: Array.isArray(entities)
+          ? entities.map((item) => String(item))
+          : undefined,
+        limit,
+        since: sinceMs || undefined,
+      });
+
+      return this.formatSuccess(
+        {
+          query,
+          projectId,
+          count: episodes.length,
+          episodes,
+        },
+        profile,
+        `Recalled ${episodes.length} episode(s).`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("EPISODE_RECALL_FAILED", String(error), true);
+    }
+  }
+
+  async decision_query(args: any): Promise<string> {
+    const {
+      query,
+      affectedFiles = [],
+      limit = 5,
+      taskId,
+      agentId,
+      profile = "compact",
+    } = args || {};
+
+    if (!query || typeof query !== "string") {
+      return this.errorEnvelope(
+        "DECISION_QUERY_INVALID_INPUT",
+        "Field 'query' is required.",
+        true,
+      );
+    }
+
+    try {
+      const { projectId } = this.getActiveProjectContext();
+      const decisions = await this.episodeEngine!.decisionQuery({
+        query,
+        projectId,
+        taskId,
+        agentId,
+        entities: Array.isArray(affectedFiles)
+          ? affectedFiles.map((item) => String(item))
+          : undefined,
+        limit,
+      });
+
+      return this.formatSuccess(
+        {
+          query,
+          projectId,
+          count: decisions.length,
+          decisions,
+        },
+        profile,
+        `Found ${decisions.length} decision episode(s).`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("DECISION_QUERY_FAILED", String(error), true);
+    }
+  }
+
+  async reflect(args: any): Promise<string> {
+    const { taskId, agentId, limit = 20, profile = "compact" } = args || {};
+
+    try {
+      const { projectId } = this.getActiveProjectContext();
+      const result = await this.episodeEngine!.reflect({
+        taskId,
+        agentId,
+        limit,
+        projectId,
+      });
+
+      return this.formatSuccess(
+        result,
+        profile,
+        `Reflection completed with ${result.learningsCreated} learning(s).`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("REFLECT_FAILED", String(error), true);
     }
   }
 }
