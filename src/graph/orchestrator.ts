@@ -23,9 +23,14 @@ import {
 import {
   getTreeSitterTypeScriptParser,
   getTreeSitterTSXParser,
+  getTreeSitterJavaScriptParser,
+  getTreeSitterJSXParser,
   checkTsTreeSitterAvailability,
+  checkJsTreeSitterAvailability,
   type TreeSitterTypeScriptParser,
   type TreeSitterTSXParser,
+  type TreeSitterJavaScriptParser,
+  type TreeSitterJSXParser,
 } from "../parsers/tree-sitter-typescript-parser.js";
 import GraphBuilder, { type CypherStatement } from "./builder.js";
 import GraphIndexManager from "./index.js";
@@ -62,7 +67,10 @@ export class GraphOrchestrator {
   private parser: TypeScriptParser;
   private tsTsParser: TreeSitterTypeScriptParser | null = null;
   private tsTsxParser: TreeSitterTSXParser | null = null;
+  private tsJsParser: TreeSitterJavaScriptParser | null = null;
+  private tsJsxParser: TreeSitterJSXParser | null = null;
   private useTsTreeSitter: boolean;
+  private useJsTreeSitter: boolean;
   private parserRegistry: ParserRegistry;
   private builder: GraphBuilder;
   private index: GraphIndexManager;
@@ -91,6 +99,20 @@ export class GraphOrchestrator {
         tsAvailability.typescript || tsAvailability.tsx;
     }
 
+    // ── Tree-sitter JavaScript / JSX ───────────────────────────────────────
+    // Shares the same grammar (tree-sitter-javascript); both dialects load it.
+    const jsAvailability = checkJsTreeSitterAvailability();
+    this.useJsTreeSitter = false;
+    if (wantTsTs) {
+      if (jsAvailability.javascript) {
+        this.tsJsParser = getTreeSitterJavaScriptParser();
+      }
+      if (jsAvailability.jsx) {
+        this.tsJsxParser = getTreeSitterJSXParser();
+      }
+      this.useJsTreeSitter = jsAvailability.javascript;
+    }
+
     // ── Python / Go / Rust / Java ────────────────────────────────────────────
     // Register tree-sitter parsers (AST-accurate); fall back per language to
     // regex parsers when the native binding is unavailable.
@@ -116,9 +138,11 @@ export class GraphOrchestrator {
       else allFallback.push("typescript");
       if (tsAvailability.tsx) allAvailable.push("tsx");
       else allFallback.push("tsx");
+      if (jsAvailability.javascript) allAvailable.push("javascript", "jsx");
+      else allFallback.push("javascript", "jsx");
     } else {
-      // TS tree-sitter disabled by env — always regex
-      allFallback.push("typescript", "tsx");
+      // TS/JS tree-sitter disabled by env — always regex
+      allFallback.push("typescript", "tsx", "javascript", "jsx");
     }
     for (const [lang, ok] of Object.entries(availability)) {
       if (ok) allAvailable.push(lang);
@@ -405,7 +429,7 @@ export class GraphOrchestrator {
             walk(fullPath);
           } else if (
             entry.isFile() &&
-            /\.(ts|tsx|py|go|rs|java)$/.test(entry.name)
+            /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java)$/.test(entry.name)
           ) {
             files.push(fullPath);
           }
@@ -437,7 +461,7 @@ export class GraphOrchestrator {
           ? path.normalize(entry)
           : path.resolve(workspaceRoot, entry),
       )
-      .filter((filePath) => /\.(ts|tsx|py|go|rs|java)$/.test(filePath));
+      .filter((filePath) => /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java)$/.test(filePath));
   }
 
   private async parseSourceFile(
@@ -458,6 +482,31 @@ export class GraphOrchestrator {
         }
       }
       return this.parser.parseFile(filePath, { workspaceRoot });
+    }
+
+    if (
+      extension === ".js" ||
+      extension === ".jsx" ||
+      extension === ".mjs" ||
+      extension === ".cjs"
+    ) {
+      if (this.useJsTreeSitter) {
+        const jsParser = extension === ".jsx" ? this.tsJsxParser : this.tsJsParser;
+        if (jsParser?.isAvailable) {
+          const content = fs.readFileSync(filePath, "utf-8");
+          const result = await jsParser.parse(filePath, content);
+          if (result.symbols.length > 0) {
+            return this.adaptLanguageParseResult(filePath, workspaceRoot, content, result);
+          }
+        }
+      }
+      // Fallback: FILE node only (no regex parser for plain JS)
+      const content = fs.readFileSync(filePath, "utf-8");
+      return this.adaptLanguageParseResult(filePath, workspaceRoot, content, {
+        file: path.basename(filePath),
+        language: this.languageFromExtension(extension),
+        symbols: [],
+      });
     }
 
     const content = fs.readFileSync(filePath, "utf-8");
@@ -634,6 +683,10 @@ export class GraphOrchestrator {
       ".java": "java",
       ".ts": "typescript",
       ".tsx": "typescript",
+      ".js": "javascript",
+      ".jsx": "javascript",
+      ".mjs": "javascript",
+      ".cjs": "javascript",
     };
     return table[extension] || "unknown";
   }

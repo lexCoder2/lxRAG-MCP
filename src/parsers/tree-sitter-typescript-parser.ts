@@ -43,6 +43,18 @@ function tryRequire(name: string): unknown {
 }
 
 /**
+ * Load the `tree-sitter-javascript` Language object.
+ * The package exports the Language directly in some versions, or as `{ language }`.
+ */
+function loadJsGrammar(): unknown {
+  const mod = tryRequire("tree-sitter-javascript") as any;
+  if (!mod) return null;
+  if (typeof mod.language !== "undefined") return mod.language;
+  // Older releases export the Language object directly (not a constructor/function)
+  return mod;
+}
+
+/**
  * tree-sitter-typescript exports { typescript, tsx } where each value is
  * the Language object directly (NOT wrapped in { language }).
  * Handle both v0.20 (bare object) and v0.21 ({ language }) call conventions.
@@ -347,4 +359,92 @@ export function checkTsTreeSitterAvailability(): { typescript: boolean; tsx: boo
     typescript: getTreeSitterTypeScriptParser().isAvailable,
     tsx: getTreeSitterTSXParser().isAvailable,
   };
+}
+
+// ---------------------------------------------------------------------------
+// JavaScript / JSX — uses tree-sitter-javascript grammar
+// Both .js/.mjs/.cjs and .jsx share the same grammar; JSX syntax is built in.
+// ---------------------------------------------------------------------------
+abstract class JSDialectParser implements LanguageParser {
+  abstract readonly language: string;
+  abstract readonly extensions: string[];
+
+  private _parser: {
+    setLanguage(lang: unknown): void;
+    parse(source: string): { rootNode: TSNode };
+  } | null = null;
+
+  private _initialized = false;
+
+  protected init(): boolean {
+    if (this._initialized) return this._parser !== null;
+    this._initialized = true;
+
+    const TreeSitter = tryRequire("tree-sitter") as any;
+    if (!TreeSitter) return false;
+
+    const lang = loadJsGrammar();
+    if (!lang) return false;
+
+    try {
+      const p = new TreeSitter();
+      p.setLanguage(lang);
+      this._parser = p;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  get isAvailable(): boolean {
+    return this.init();
+  }
+
+  async parse(filePath: string, content: string): Promise<ParseResult> {
+    if (!this.init() || !this._parser) {
+      return { file: path.basename(filePath), language: this.language, symbols: [] };
+    }
+    try {
+      const tree = this._parser.parse(content);
+      return {
+        file: path.basename(filePath),
+        language: this.language,
+        // JS and TS share the same node-type names for all constructs we extract
+        symbols: extractSymbols(tree.rootNode),
+      };
+    } catch {
+      return { file: path.basename(filePath), language: this.language, symbols: [] };
+    }
+  }
+}
+
+export class TreeSitterJavaScriptParser extends JSDialectParser {
+  readonly language = "javascript";
+  readonly extensions = [".js", ".mjs", ".cjs"];
+}
+
+export class TreeSitterJSXParser extends JSDialectParser {
+  readonly language = "jsx";
+  readonly extensions = [".jsx"];
+}
+
+// Singletons
+let _jsParser: TreeSitterJavaScriptParser | null = null;
+let _jsxParser: TreeSitterJSXParser | null = null;
+
+export function getTreeSitterJavaScriptParser(): TreeSitterJavaScriptParser {
+  if (!_jsParser) _jsParser = new TreeSitterJavaScriptParser();
+  return _jsParser;
+}
+
+export function getTreeSitterJSXParser(): TreeSitterJSXParser {
+  if (!_jsxParser) _jsxParser = new TreeSitterJSXParser();
+  return _jsxParser;
+}
+
+/** Check whether tree-sitter JavaScript / JSX grammar is loadable. */
+export function checkJsTreeSitterAvailability(): { javascript: boolean; jsx: boolean } {
+  // Both parsers share the same grammar — one check suffices
+  const available = getTreeSitterJavaScriptParser().isAvailable;
+  return { javascript: available, jsx: available };
 }
