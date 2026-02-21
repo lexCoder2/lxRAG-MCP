@@ -27,6 +27,12 @@ export interface RetrievalResult {
 }
 
 export class HybridRetriever {
+  private _bm25Mode: "native" | "lexical_fallback" = "lexical_fallback";
+
+  get bm25Mode(): "native" | "lexical_fallback" {
+    return this._bm25Mode;
+  }
+
   constructor(
     private index: GraphIndexManager,
     private embeddingEngine?: EmbeddingEngine,
@@ -125,13 +131,16 @@ export class HybridRetriever {
         );
 
         if (!response.error && response.data.length > 0) {
+          this._bm25Mode = "native";
           return response.data
             .map((row: Record<string, unknown>) => ({
               nodeId: String(row.nodeId || ""),
               score: Number(row.score || 0),
               source: "bm25" as const,
             }))
-            .filter((row) => row.nodeId.length > 0 && Number.isFinite(row.score))
+            .filter(
+              (row) => row.nodeId.length > 0 && Number.isFinite(row.score),
+            )
             .slice(0, limit);
         }
       } catch {
@@ -139,7 +148,41 @@ export class HybridRetriever {
       }
     }
 
+    this._bm25Mode = "lexical_fallback";
     return this.lexicalFallback(query, opts.projectId, "bm25", limit);
+  }
+
+  async ensureBM25Index(): Promise<{
+    created: boolean;
+    alreadyExists: boolean;
+    error?: string;
+  }> {
+    if (!this.memgraph) {
+      return { created: false, alreadyExists: false, error: "no_memgraph_connection" };
+    }
+    try {
+      const check = await this.memgraph.executeCypher(
+        `CALL text_search.list_indices() YIELD name RETURN name`,
+        {},
+      );
+      const names: string[] = (check.data || []).map(
+        (r: Record<string, unknown>) => String(r["name"] ?? ""),
+      );
+      if (names.includes("symbol_index")) {
+        return { created: false, alreadyExists: true };
+      }
+      await this.memgraph.executeCypher(
+        `CALL text_search.create_index('symbol_index', 'FUNCTION|CLASS|FILE', ['name', 'summary', 'path'], {analyzer: 'standard'})`,
+        {},
+      );
+      return { created: true, alreadyExists: false };
+    } catch (err) {
+      return {
+        created: false,
+        alreadyExists: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   private async graphExpansion(
@@ -240,8 +283,7 @@ export class HybridRetriever {
 
     return nodes
       .filter(
-        (node) =>
-          String(node.properties.projectId || "") === String(projectId),
+        (node) => String(node.properties.projectId || "") === String(projectId),
       )
       .map((node) => ({
         nodeId: node.id,
@@ -254,7 +296,8 @@ export class HybridRetriever {
   }
 
   private scoreNode(node: GraphNode, tokens: string[]): number {
-    const haystack = `${node.id} ${node.properties.name || ""} ${node.properties.path || ""} ${node.properties.summary || ""}`.toLowerCase();
+    const haystack =
+      `${node.id} ${node.properties.name || ""} ${node.properties.path || ""} ${node.properties.summary || ""}`.toLowerCase();
     return tokens.reduce(
       (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
       0,
