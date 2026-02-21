@@ -1,0 +1,8 @@
+# docs_step_update
+
+- objective: Update documentation for planning step before coding. Graph method records plan context in graph; baseline updates markdown files.
+- context_boundary: Use only plan artifacts and repository docs.
+- documentation_targets: graph://docs/plan-context, docs/agent-mode-baseline-plan.md
+
+- content_hash: da39a3ee5e6b
+

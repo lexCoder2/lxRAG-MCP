@@ -1,0 +1,9 @@
+# implementation
+
+- objective: Implement planned feature with minimal scope and update context links to changed files for traceability.
+- context_boundary: Use plan + current code only; no hidden assumptions.
+- documentation_targets: graph://changes/*, docs/agent-mode-baseline-implementation.md
+
+- content_hash: a41e45b4e1a3
+
+Implemented synthetic feature file: tools/graph-server/benchmarks/agent_mode_artifacts/20260220T011208.271323+0000/baseline/synthetic_impl/feature_plan.ts

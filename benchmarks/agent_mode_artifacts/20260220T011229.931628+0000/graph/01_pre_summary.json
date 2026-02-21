@@ -1,0 +1,10 @@
+{
+  "phase": "pre_summary",
+  "objective": "Summarize current project state by reading documentation and codebase only. Do not use pending local changes as evidence.",
+  "context_boundary": "Fresh context: docs + codebase only.",
+  "documentation_targets": [
+    "docs/GRAPH_TOOLS_BENCHMARK_MATRIX.md"
+  ],
+  "content_hash": "24169a6efedb",
+  "content_preview": "name=structural-app\ndocs_md_files=26\nsrc_ts_files=527\nsrc_tsx_files=165\ntooling=dev,build,lint,tsc,fix,preview,test,test:watch,test:coverage,format,format:check,graph:build,graph:query,graph:validate,test:affected,graph:install-hooks,graph:uninstall-hooks,graph:docker:up,graph:docker:down,graph:docker:status\nreadme_head=# stratSolver\n\nA web-based structural engineering tool for designing and analyzing reinforced concrete buildings. Draw your floor plans on an interactive canvas, place columns, slabs, beams, and footings, then get code-compliant design calculations and a full 3D finite element analysis \u2014 all in the browser.\n\n## What It Does\n\n### Interactive Floor Plan D..."
+}
