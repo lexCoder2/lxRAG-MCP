@@ -429,6 +429,62 @@ const TOOLS: Tool[] = [
       },
     },
   },
+
+  {
+    name: "agent_claim",
+    description:
+      "Create a coordination claim for a task or code target with conflict detection.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        targetId: { type: "string" },
+        claimType: {
+          type: "string",
+          enum: ["task", "file", "function", "feature"],
+        },
+        intent: { type: "string" },
+        taskId: { type: "string" },
+        agentId: { type: "string" },
+        sessionId: { type: "string" },
+      },
+      required: ["targetId", "intent"],
+    },
+  },
+
+  {
+    name: "agent_release",
+    description: "Release an active claim.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        claimId: { type: "string" },
+        outcome: { type: "string" },
+      },
+      required: ["claimId"],
+    },
+  },
+
+  {
+    name: "agent_status",
+    description: "Get active claims and recent episodes for an agent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        agentId: { type: "string" },
+      },
+      required: ["agentId"],
+    },
+  },
+
+  {
+    name: "coordination_overview",
+    description:
+      "Fleet-wide claim view including active claims, stale claims, and conflicts.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 // Resource definitions

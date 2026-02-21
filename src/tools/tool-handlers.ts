@@ -18,6 +18,9 @@ import type { GraphNode } from "../graph/index.js";
 import { getRequestContext } from "../request-context.js";
 import { formatResponse, errorResponse } from "../response/shaper.js";
 import EpisodeEngine, { type EpisodeType } from "../engines/episode-engine.js";
+import CoordinationEngine, {
+  type ClaimType,
+} from "../engines/coordination-engine.js";
 
 export interface ToolContext {
   index: GraphIndexManager;
@@ -40,6 +43,7 @@ export class ToolHandlers {
   private qdrant?: QdrantClient;
   private embeddingEngine?: EmbeddingEngine;
   private episodeEngine?: EpisodeEngine;
+  private coordinationEngine?: CoordinationEngine;
   private embeddingsReady = false;
   private lastGraphRebuildAt?: string;
   private lastGraphRebuildMode?: "full" | "incremental";
@@ -180,6 +184,7 @@ export class ToolHandlers {
     this.testEngine = new TestEngine(this.context.index);
     this.progressEngine = new ProgressEngine(this.context.index);
     this.episodeEngine = new EpisodeEngine(this.context.memgraph);
+    this.coordinationEngine = new CoordinationEngine(this.context.memgraph);
 
     // Initialize GraphOrchestrator if not provided
     this.orchestrator =
@@ -962,8 +967,65 @@ export class ToolHandlers {
         );
       }
 
+      const postActions: Record<string, unknown> = {};
+      if (String(status || "").toLowerCase() === "completed") {
+        const sessionId = this.getCurrentSessionId() || "session-unknown";
+        const runtimeAgentId = String(
+          assignee || args?.agentId || process.env.CODE_GRAPH_AGENT_ID || "agent-local",
+        );
+        const { projectId } = this.getActiveProjectContext();
+
+        try {
+          await this.coordinationEngine!.onTaskCompleted(
+            String(taskId),
+            runtimeAgentId,
+            projectId,
+          );
+          postActions.claimsReleased = true;
+        } catch (error) {
+          postActions.claimsReleased = false;
+          postActions.claimReleaseError = String(error);
+        }
+
+        try {
+          const reflection = await this.episodeEngine!.reflect({
+            taskId: String(taskId),
+            agentId: runtimeAgentId,
+            projectId,
+            limit: 20,
+          });
+          postActions.reflection = {
+            reflectionId: reflection.reflectionId,
+            learningsCreated: reflection.learningsCreated,
+          };
+        } catch (error) {
+          postActions.reflectionError = String(error);
+        }
+
+        try {
+          const decisionEpisodeId = await this.episodeEngine!.add(
+            {
+              type: "DECISION",
+              content: `Task ${taskId} marked completed. ${notes ? `Notes: ${String(notes)}` : ""}`.trim(),
+              taskId: String(taskId),
+              outcome: "success",
+              agentId: runtimeAgentId,
+              sessionId,
+              metadata: {
+                source: "task_update",
+                status: String(status),
+              },
+            },
+            projectId,
+          );
+          postActions.decisionEpisodeId = decisionEpisodeId;
+        } catch (error) {
+          postActions.decisionEpisodeError = String(error);
+        }
+      }
+
       return this.formatSuccess(
-        { success: true, task: updated, notes },
+        { success: true, task: updated, notes, postActions },
         profile,
       );
     } catch (error) {
@@ -1174,6 +1236,16 @@ export class ToolHandlers {
             "coverage",
             ".git",
           ],
+        })
+        .then(async () => {
+          const invalidated = await this.coordinationEngine!.invalidateStaleClaims(
+            projectId,
+          );
+          if (invalidated > 0) {
+            console.error(
+              `[coordination] Invalidated ${invalidated} stale claim(s) post-rebuild for project ${projectId}`,
+            );
+          }
         })
         .catch((err) =>
           console.error("[GraphOrchestrator] Background build error:", err),
@@ -1683,6 +1755,141 @@ export class ToolHandlers {
       );
     } catch (error) {
       return this.errorEnvelope("REFLECT_FAILED", String(error), true);
+    }
+  }
+
+  // ============================================================================
+  // COORDINATION TOOLS (4)
+  // ============================================================================
+
+  async agent_claim(args: any): Promise<string> {
+    const {
+      targetId,
+      claimType = "task",
+      intent,
+      taskId,
+      agentId,
+      sessionId,
+      profile = "compact",
+    } = args || {};
+
+    if (!targetId || !intent) {
+      return this.errorEnvelope(
+        "AGENT_CLAIM_INVALID_INPUT",
+        "Fields 'targetId' and 'intent' are required.",
+        true,
+      );
+    }
+
+    try {
+      const runtimeSessionId = this.getCurrentSessionId() || "session-unknown";
+      const runtimeAgentId = String(
+        agentId || process.env.CODE_GRAPH_AGENT_ID || "agent-local",
+      );
+      const { projectId } = this.getActiveProjectContext();
+
+      const result = await this.coordinationEngine!.claim({
+        targetId: String(targetId),
+        claimType: String(claimType).toLowerCase() as ClaimType,
+        intent: String(intent),
+        taskId: taskId ? String(taskId) : undefined,
+        agentId: runtimeAgentId,
+        sessionId: String(sessionId || runtimeSessionId),
+        projectId,
+      });
+
+      return this.formatSuccess(
+        {
+          projectId,
+          ...result,
+        },
+        profile,
+        result.status === "CONFLICT"
+          ? `Conflict detected for target ${targetId}.`
+          : `Claim ${result.claimId} created for ${targetId}.`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("AGENT_CLAIM_FAILED", String(error), true);
+    }
+  }
+
+  async agent_release(args: any): Promise<string> {
+    const { claimId, outcome, profile = "compact" } = args || {};
+
+    if (!claimId) {
+      return this.errorEnvelope(
+        "AGENT_RELEASE_INVALID_INPUT",
+        "Field 'claimId' is required.",
+        true,
+      );
+    }
+
+    try {
+      await this.coordinationEngine!.release(String(claimId), outcome);
+
+      return this.formatSuccess(
+        {
+          claimId: String(claimId),
+          released: true,
+          outcome: outcome || null,
+        },
+        profile,
+        `Claim ${claimId} released.`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("AGENT_RELEASE_FAILED", String(error), true);
+    }
+  }
+
+  async agent_status(args: any): Promise<string> {
+    const { agentId, profile = "compact" } = args || {};
+
+    if (!agentId || typeof agentId !== "string") {
+      return this.errorEnvelope(
+        "AGENT_STATUS_INVALID_INPUT",
+        "Field 'agentId' is required.",
+        true,
+      );
+    }
+
+    try {
+      const { projectId } = this.getActiveProjectContext();
+      const status = await this.coordinationEngine!.status(agentId, projectId);
+
+      return this.formatSuccess(
+        {
+          projectId,
+          ...status,
+        },
+        profile,
+        `Agent ${agentId} has ${status.activeClaims.length} active claim(s).`,
+      );
+    } catch (error) {
+      return this.errorEnvelope("AGENT_STATUS_FAILED", String(error), true);
+    }
+  }
+
+  async coordination_overview(args: any): Promise<string> {
+    const { profile = "compact" } = args || {};
+
+    try {
+      const { projectId } = this.getActiveProjectContext();
+      const overview = await this.coordinationEngine!.overview(projectId);
+
+      return this.formatSuccess(
+        {
+          projectId,
+          ...overview,
+        },
+        profile,
+        `Coordination overview: ${overview.activeClaims.length} active claim(s), ${overview.staleClaims.length} stale claim(s).`,
+      );
+    } catch (error) {
+      return this.errorEnvelope(
+        "COORDINATION_OVERVIEW_FAILED",
+        String(error),
+        true,
+      );
     }
   }
 }

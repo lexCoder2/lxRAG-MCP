@@ -1003,6 +1003,13 @@ interface ReflectArgs {
 - `task_update(status: 'completed')` calls `EpisodeEngine.reflect()` and auto-releases open claims for that task
 - `GET /.well-known/agent.json` returns valid A2A Agent Card JSON-LD (HTTP mode)
 
+**Implementation status (2026-02-21)**:
+- ✅ Added `src/engines/coordination-engine.ts` with `claim`, `release`, `status`, `overview`, `invalidateStaleClaims`, and `onTaskCompleted`.
+- ✅ Added Phase 4 handlers in `src/tools/tool-handlers.ts`: `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`.
+- ✅ Integrated stale-claim invalidation after background `graph_rebuild` completion.
+- ✅ Integrated `task_update(status: 'completed')` to auto-release task claims, trigger `reflect`, and persist a `DECISION` episode.
+- ✅ Added Phase 4 tool schemas to both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`).
+
 #### 4.1 New Engine: `CoordinationEngine`
 
 **File**: `src/engines/coordination-engine.ts`

@@ -1004,6 +1004,144 @@ function createMcpServerInstance(): McpServer {
     },
   );
 
+  // agent_claim
+  mcpServer.registerTool(
+    "agent_claim",
+    {
+      description:
+        "Create a coordination claim for a task or code target with conflict detection",
+      inputSchema: z.object({
+        targetId: z.string().describe("Target task/code node id"),
+        claimType: z
+          .enum(["task", "file", "function", "feature"])
+          .default("task")
+          .describe("Claim target type"),
+        intent: z.string().describe("Natural language intent"),
+        taskId: z.string().optional().describe("Related task id"),
+        agentId: z.string().optional().describe("Agent identifier"),
+        sessionId: z.string().optional().describe("Session identifier"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("agent_claim", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // agent_release
+  mcpServer.registerTool(
+    "agent_release",
+    {
+      description: "Release an active claim",
+      inputSchema: z.object({
+        claimId: z.string().describe("Claim id"),
+        outcome: z.string().optional().describe("Optional outcome summary"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("agent_release", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // agent_status
+  mcpServer.registerTool(
+    "agent_status",
+    {
+      description: "Get active claims and recent episodes for an agent",
+      inputSchema: z.object({
+        agentId: z.string().describe("Agent identifier"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("agent_status", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // coordination_overview
+  mcpServer.registerTool(
+    "coordination_overview",
+    {
+      description:
+        "Fleet-wide claim view including active claims, stale claims, and conflicts",
+      inputSchema: z.object({
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("coordination_overview", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return mcpServer;
 }
 
@@ -1126,6 +1264,7 @@ async function main() {
         capabilities: [
           "code-graph",
           "agent-memory",
+          "agent-coordination",
           "multi-agent-coordination",
           "context-packing",
           "architecture-validation",
