@@ -1170,6 +1170,12 @@ This endpoint was already added in the cleanup phase. Phase 4 extends the `capab
 - Interface-consumer expansion includes at least 1 concrete implementation for any abstract seed
 - `activeBlockers` contains claims from other agents when present in graph
 
+**Implementation status (2026-02-21)**:
+- ✅ Added `src/graph/ppr.ts` with weighted graph traversal + Personalized PageRank-style scoring (`runPPR`).
+- ✅ Added `context_pack` handler in `src/tools/tool-handlers.ts` with seed selection, interface-seed expansion, PPR ranking, code-slice materialization, and blocker/decision/learning/episode aggregation.
+- ✅ Added budget-aware trimming and `tokenEstimate` in `context_pack` output prior to response shaping.
+- ✅ Added `context_pack` tool schemas to both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`) and response-priority schema (`src/response/schemas.ts`).
+
 #### 5.1 New router module: `src/graph/ppr.ts`
 
 ```typescript

@@ -485,6 +485,28 @@ const TOOLS: Tool[] = [
       properties: {},
     },
   },
+
+  {
+    name: "context_pack",
+    description:
+      "Build a single-call task briefing using PPR-ranked retrieval across code, decisions, learnings, and blockers.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string" },
+        taskId: { type: "string" },
+        agentId: { type: "string" },
+        includeDecisions: { type: "boolean" },
+        includeEpisodes: { type: "boolean" },
+        includeLearnings: { type: "boolean" },
+        profile: {
+          type: "string",
+          enum: ["compact", "balanced", "debug"],
+        },
+      },
+      required: ["task"],
+    },
+  },
 ];
 
 // Resource definitions

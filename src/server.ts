@@ -1142,6 +1142,44 @@ function createMcpServerInstance(): McpServer {
     },
   );
 
+  // context_pack
+  mcpServer.registerTool(
+    "context_pack",
+    {
+      description:
+        "Build a single-call task briefing using PPR-ranked retrieval across code, decisions, learnings, and blockers",
+      inputSchema: z.object({
+        task: z.string().describe("Task description"),
+        taskId: z.string().optional().describe("Optional task id"),
+        agentId: z.string().optional().describe("Agent identifier"),
+        includeDecisions: z.boolean().default(true).describe("Include decision episodes"),
+        includeEpisodes: z.boolean().default(true).describe("Include recent episodes"),
+        includeLearnings: z.boolean().default(true).describe("Include learnings"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("context_pack", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return mcpServer;
 }
 

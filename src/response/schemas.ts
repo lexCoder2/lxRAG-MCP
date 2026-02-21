@@ -88,6 +88,48 @@ export const TOOL_OUTPUT_SCHEMAS: Record<string, OutputField[]> = {
       description: "Follow-up hint",
     },
   ],
+  context_pack: [
+    {
+      key: "summary",
+      priority: "required",
+      description: "Task briefing summary",
+    },
+    {
+      key: "entryPoint",
+      priority: "required",
+      description: "Best entry file/symbol",
+    },
+    {
+      key: "coreSymbols",
+      priority: "high",
+      description: "Primary relevant symbols and code slices",
+    },
+    {
+      key: "activeBlockers",
+      priority: "high",
+      description: "Claims from other agents that block work",
+    },
+    {
+      key: "decisions",
+      priority: "medium",
+      description: "Relevant decision episodes",
+    },
+    {
+      key: "learnings",
+      priority: "medium",
+      description: "Relevant learnings",
+    },
+    {
+      key: "episodes",
+      priority: "low",
+      description: "Recent related episodes",
+    },
+    {
+      key: "pprScores",
+      priority: "low",
+      description: "Debug PPR score map",
+    },
+  ],
 };
 
 const PRIORITY_ORDER: FieldPriority[] = ["low", "medium", "high"];
