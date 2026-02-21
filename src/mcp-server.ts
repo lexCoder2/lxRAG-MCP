@@ -50,7 +50,8 @@ const TOOLS: Tool[] = [
         },
         asOf: {
           type: "string",
-          description: "Optional ISO timestamp or epoch ms for temporal query mode",
+          description:
+            "Optional ISO timestamp or epoch ms for temporal query mode",
         },
       },
       required: ["query"],
@@ -361,7 +362,8 @@ const TOOLS: Tool[] = [
       properties: {
         since: {
           type: "string",
-          description: "Anchor value: txId, ISO timestamp, git commit SHA, or agentId",
+          description:
+            "Anchor value: txId, ISO timestamp, git commit SHA, or agentId",
         },
         projectId: {
           type: "string",
@@ -421,7 +423,8 @@ const TOOLS: Tool[] = [
 
   {
     name: "episode_recall",
-    description: "Recall episodes using lexical, temporal, and graph-entity scoring.",
+    description:
+      "Recall episodes using lexical, temporal, and graph-entity scoring.",
     inputSchema: {
       type: "object",
       properties: {
@@ -439,7 +442,8 @@ const TOOLS: Tool[] = [
 
   {
     name: "decision_query",
-    description: "Recall decision episodes relevant to a query and affected files.",
+    description:
+      "Recall decision episodes relevant to a query and affected files.",
     inputSchema: {
       type: "object",
       properties: {
@@ -455,7 +459,8 @@ const TOOLS: Tool[] = [
 
   {
     name: "reflect",
-    description: "Synthesize reflections and learning nodes from recent episodes.",
+    description:
+      "Synthesize reflections and learning nodes from recent episodes.",
     inputSchema: {
       type: "object",
       properties: {

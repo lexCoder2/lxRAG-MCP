@@ -61,7 +61,11 @@ export interface CoordinationOverview {
     claimA: { claimId: string; agentId: string; intent: string; since: number };
     claimB: { claimId: string; agentId: string; intent: string; since: number };
   }>;
-  agentSummary: Array<{ agentId: string; claimCount: number; lastSeen: number }>;
+  agentSummary: Array<{
+    agentId: string;
+    claimCount: number;
+    lastSeen: number;
+  }>;
   totalClaims: number;
 }
 
@@ -209,28 +213,33 @@ export default class CoordinationEngine {
   }
 
   async overview(projectId: string): Promise<CoordinationOverview> {
-    const [activeResult, staleResult, conflictsResult, summaryResult, totalResult] =
-      await Promise.all([
-        this.memgraph.executeCypher(
-          `MATCH (c:CLAIM)
+    const [
+      activeResult,
+      staleResult,
+      conflictsResult,
+      summaryResult,
+      totalResult,
+    ] = await Promise.all([
+      this.memgraph.executeCypher(
+        `MATCH (c:CLAIM)
            WHERE c.projectId = $projectId
              AND c.validTo IS NULL
            RETURN c
            ORDER BY c.validFrom DESC`,
-          { projectId },
-        ),
-        this.memgraph.executeCypher(
-          `MATCH (c:CLAIM)-[:TARGETS]->(t)
+        { projectId },
+      ),
+      this.memgraph.executeCypher(
+        `MATCH (c:CLAIM)-[:TARGETS]->(t)
            WHERE c.projectId = $projectId
              AND c.validTo IS NULL
              AND t.projectId = $projectId
              AND t.validFrom > c.validFrom
            RETURN c
            ORDER BY c.validFrom DESC`,
-          { projectId },
-        ),
-        this.memgraph.executeCypher(
-          `MATCH (c1:CLAIM)-[:TARGETS]->(t)<-[:TARGETS]-(c2:CLAIM)
+        { projectId },
+      ),
+      this.memgraph.executeCypher(
+        `MATCH (c1:CLAIM)-[:TARGETS]->(t)<-[:TARGETS]-(c2:CLAIM)
            WHERE c1.projectId = $projectId
              AND c2.projectId = $projectId
              AND c1.validTo IS NULL
@@ -241,25 +250,25 @@ export default class CoordinationEngine {
                   c1.id AS claimAId, c1.agentId AS claimAAgent, c1.intent AS claimAIntent, c1.validFrom AS claimASince,
                   c2.id AS claimBId, c2.agentId AS claimBAgent, c2.intent AS claimBIntent, c2.validFrom AS claimBSince
            ORDER BY targetId`,
-          { projectId },
-        ),
-        this.memgraph.executeCypher(
-          `MATCH (c:CLAIM)
+        { projectId },
+      ),
+      this.memgraph.executeCypher(
+        `MATCH (c:CLAIM)
            WHERE c.projectId = $projectId
              AND c.validTo IS NULL
            RETURN c.agentId AS agentId,
                   count(c) AS claimCount,
                   max(c.validFrom) AS lastSeen
            ORDER BY claimCount DESC, lastSeen DESC`,
-          { projectId },
-        ),
-        this.memgraph.executeCypher(
-          `MATCH (c:CLAIM)
+        { projectId },
+      ),
+      this.memgraph.executeCypher(
+        `MATCH (c:CLAIM)
            WHERE c.projectId = $projectId
            RETURN count(c) AS totalClaims`,
-          { projectId },
-        ),
-      ]);
+        { projectId },
+      ),
+    ]);
 
     return {
       activeClaims: activeResult.data
@@ -309,7 +318,11 @@ export default class CoordinationEngine {
     return Number(staleResult.data?.[0]?.invalidated || 0);
   }
 
-  async onTaskCompleted(taskId: string, agentId: string, projectId: string): Promise<void> {
+  async onTaskCompleted(
+    taskId: string,
+    agentId: string,
+    projectId: string,
+  ): Promise<void> {
     await this.memgraph.executeCypher(
       `MATCH (c:CLAIM)
        WHERE c.projectId = $projectId
@@ -348,7 +361,10 @@ export default class CoordinationEngine {
 
     const row = result.data[0] || {};
     const sha =
-      row.contentHash || row.hash || row.gitCommit || `vf-${String(row.validFrom || Date.now())}`;
+      row.contentHash ||
+      row.hash ||
+      row.gitCommit ||
+      `vf-${String(row.validFrom || Date.now())}`;
 
     return {
       targetExists: true,

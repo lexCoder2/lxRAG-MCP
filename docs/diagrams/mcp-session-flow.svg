@@ -1,64 +1,104 @@
-<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">MCP HTTP Session Flow</title>
-  <desc id="desc">Sequence-style flow showing initialize, session header capture, workspace setup, rebuild, and query loop.</desc>
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="flow-title flow-desc">
+  <title id="flow-title">MCP HTTP Session Flow</title>
+  <desc id="flow-desc">Sequence diagram: initialize, mcp-session-id capture, graph_set_workspace, graph_rebuild, query loop with shaped response.</desc>
 
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
+    <!-- Background gradient — matches system-architecture -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="760" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F8FAFC"/>
-      <stop offset="1" stop-color="#EEF2FF"/>
+      <stop offset="1" stop-color="#F0F4FF"/>
     </linearGradient>
-    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#F8FAFC"/>
-    </linearGradient>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    <!-- Forward arrow (slate #475569) — matches system-architecture -->
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 Z" fill="#475569"/>
     </marker>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0F172A" flood-opacity="0.10"/>
+    <!-- Return arrow (violet #8B5CF6) — matches system-architecture -->
+    <marker id="arr-ret" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 Z" fill="#8B5CF6"/>
+    </marker>
+    <!-- Shadow — matches system-architecture (dy=4, stdDeviation=6, opacity=0.07) -->
+    <filter id="sh" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.07"/>
     </filter>
     <style>
-      .label { font: 600 18px Inter, Segoe UI, Arial, sans-serif; fill: #0F172A; }
-      .sub { font: 500 14px Inter, Segoe UI, Arial, sans-serif; fill: #334155; }
-      .step { font: 600 16px Inter, Segoe UI, Arial, sans-serif; fill: #0F172A; }
-      .meta { font: 500 13px Inter, Segoe UI, Arial, sans-serif; fill: #475569; }
-      .cap { font: 700 24px Inter, Segoe UI, Arial, sans-serif; fill: #111827; }
+      .title   { font: 700 26px Inter, "Segoe UI", Arial, sans-serif; fill: #0F172A; }
+      .caption { font: 500 14px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
+      .box-h   { font: 700 15px Inter, "Segoe UI", Arial, sans-serif; fill: #1E293B; }
+      .box-s   { font: 500 12px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
+      .step    { font: 600 13px Inter, "Segoe UI", Arial, sans-serif; fill: #1E293B; }
+      .ret-lbl { font: 600 13px Inter, "Segoe UI", Arial, sans-serif; fill: #7C3AED; }
+      .footer  { font: 500 13px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
     </style>
   </defs>
 
-  <rect x="0" y="0" width="1280" height="720" fill="url(#bg)"/>
-  <text x="60" y="68" class="cap">MCP HTTP Session Flow</text>
-  <text x="60" y="98" class="sub">Session-scoped workspace context with required mcp-session-id propagation</text>
+  <!-- Background -->
+  <rect width="1280" height="760" fill="url(#bg)"/>
 
-  <g filter="url(#shadow)">
-    <rect x="80" y="130" rx="16" ry="16" width="360" height="520" fill="url(#card)" stroke="#CBD5E1"/>
-    <rect x="840" y="130" rx="16" ry="16" width="360" height="520" fill="url(#card)" stroke="#CBD5E1"/>
+  <!-- Header -->
+  <text x="60" y="58" class="title">MCP HTTP Session Flow</text>
+  <text x="60" y="80" class="caption">Session-scoped workspace context &#xB7; required mcp-session-id propagation on every call</text>
+
+  <!-- Participant: MCP Client — blue accent bar, matches "Agent / Client" in system-architecture -->
+  <g filter="url(#sh)">
+    <rect x="80" y="106" width="256" height="76" rx="10" fill="#FFF" stroke="#93C5FD" stroke-width="2"/>
   </g>
+  <rect x="80" y="106" width="5" height="76" rx="2" fill="#3B82F6"/>
+  <text x="218" y="146" text-anchor="middle" class="box-h">MCP Client</text>
+  <text x="218" y="166" text-anchor="middle" class="box-s">Copilot &#xB7; agent &#xB7; MCP CLI</text>
 
-  <text x="240" y="180" text-anchor="middle" class="label">MCP Client</text>
-  <text x="1020" y="180" text-anchor="middle" class="label">Code Graph Server</text>
+  <!-- Participant: Code Graph Server — indigo accent bar, matches "MCP Server" in system-architecture -->
+  <g filter="url(#sh)">
+    <rect x="944" y="106" width="256" height="76" rx="10" fill="#FFF" stroke="#818CF8" stroke-width="2"/>
+  </g>
+  <rect x="944" y="106" width="5" height="76" rx="2" fill="#6366F1"/>
+  <text x="1082" y="146" text-anchor="middle" class="box-h">Code Graph Server</text>
+  <text x="1082" y="166" text-anchor="middle" class="box-s">HTTP &#xB7; stdio transport</text>
 
-  <line x1="260" y1="200" x2="260" y2="630" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 6"/>
-  <line x1="1020" y1="200" x2="1020" y2="630" stroke="#94A3B8" stroke-width="2" stroke-dasharray="6 6"/>
+  <!-- Lifelines -->
+  <line x1="208" y1="182" x2="208" y2="672" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="6 5"/>
+  <line x1="1072" y1="182" x2="1072" y2="672" stroke="#94A3B8" stroke-width="1.5" stroke-dasharray="6 5"/>
 
-  <line x1="300" y1="250" x2="980" y2="250" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="238" text-anchor="middle" class="step">1) POST initialize</text>
+  <!-- Step 1 request — POST initialize -->
+  <line x1="236" y1="222" x2="1044" y2="222"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="640" y="210" text-anchor="middle" class="step">1) POST initialize</text>
 
-  <line x1="980" y1="310" x2="300" y2="310" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="298" text-anchor="middle" class="step">2) Return mcp-session-id header</text>
+  <!-- Step 2 response — mcp-session-id -->
+  <line x1="1044" y1="282" x2="236" y2="282"
+        stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-ret)"/>
+  <text x="640" y="270" text-anchor="middle" class="ret-lbl">2) &#x2190; 200 OK + mcp-session-id header (capture and reuse)</text>
 
-  <line x1="300" y1="370" x2="980" y2="370" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="358" text-anchor="middle" class="step">3) graph_set_workspace (+ mcp-session-id)</text>
+  <!-- Step 3 request — graph_set_workspace -->
+  <line x1="236" y1="342" x2="1044" y2="342"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="640" y="330" text-anchor="middle" class="step">3) graph_set_workspace &#x2014; workspaceRoot, sourceDir, projectId  (+mcp-session-id)</text>
 
-  <line x1="980" y1="430" x2="300" y2="430" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="418" text-anchor="middle" class="step">4) graph_rebuild → status: QUEUED</text>
+  <!-- Step 3 response -->
+  <line x1="1044" y1="392" x2="236" y2="392"
+        stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-ret)"/>
+  <text x="640" y="380" text-anchor="middle" class="ret-lbl">&#x2190; workspace context registered</text>
 
-  <line x1="300" y1="490" x2="980" y2="490" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="478" text-anchor="middle" class="step">5) graph_query / graph_health</text>
+  <!-- Step 4 request — graph_rebuild (client call, not a server push) -->
+  <line x1="236" y1="452" x2="1044" y2="452"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="640" y="440" text-anchor="middle" class="step">4) graph_rebuild  (+mcp-session-id)</text>
 
-  <line x1="980" y1="550" x2="300" y2="550" stroke="#334155" stroke-width="3" marker-end="url(#arrow)"/>
-  <text x="640" y="538" text-anchor="middle" class="step">6) Shaped response (compact/balanced/debug)</text>
+  <!-- Step 4 response — async QUEUED -->
+  <line x1="1044" y1="502" x2="236" y2="502"
+        stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-ret)"/>
+  <text x="640" y="490" text-anchor="middle" class="ret-lbl">&#x2190; status: QUEUED (async rebuild, validate via graph_health)</text>
 
-  <rect x="60" y="662" width="1160" height="36" rx="10" fill="#E2E8F0"/>
-  <text x="640" y="685" text-anchor="middle" class="meta">All non-initialize MCP calls in HTTP mode must include the same mcp-session-id for that client session.</text>
+  <!-- Step 5 request — query loop -->
+  <line x1="236" y1="562" x2="1044" y2="562"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
+  <text x="640" y="550" text-anchor="middle" class="step">5) graph_query / graph_health / other tools  (+mcp-session-id)  &#x21BA; repeatable</text>
+
+  <!-- Step 6 response — shaped response -->
+  <line x1="1044" y1="622" x2="236" y2="622"
+        stroke="#8B5CF6" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-ret)"/>
+  <text x="640" y="610" text-anchor="middle" class="ret-lbl">6) &#x2190; shaped response (compact &#xB7; balanced &#xB7; debug)</text>
+
+  <!-- Footer — matches system-architecture style -->
+  <rect x="30" y="690" width="1220" height="44" rx="10" fill="#E2E8F0"/>
+  <text x="640" y="717" text-anchor="middle" class="footer">All non-initialize calls require mcp-session-id &#xB7; graph_rebuild is a client request returning async QUEUED status &#xB7; use graph_health to confirm index readiness.</text>
 </svg>

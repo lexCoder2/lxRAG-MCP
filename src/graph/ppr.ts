@@ -58,7 +58,10 @@ export async function runPPR(
   );
 
   const nodes = new Set<string>(seedIds);
-  const nodeMeta = new Map<string, { type: string; filePath: string; name: string }>();
+  const nodeMeta = new Map<
+    string,
+    { type: string; filePath: string; name: string }
+  >();
   const outgoing = new Map<string, Array<{ to: string; weight: number }>>();
 
   for (const row of edgeResult.data || []) {
@@ -139,7 +142,10 @@ export async function runPPR(
       for (const edge of inEdges) {
         const fromRank = rank.get(edge.from) || 0;
         const fromOutgoing = outgoing.get(edge.from) || [];
-        const sumWeights = fromOutgoing.reduce((sum, item) => sum + item.weight, 0);
+        const sumWeights = fromOutgoing.reduce(
+          (sum, item) => sum + item.weight,
+          0,
+        );
         if (sumWeights > 0) {
           propagated += (fromRank * edge.weight) / sumWeights;
         }

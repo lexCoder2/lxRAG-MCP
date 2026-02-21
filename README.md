@@ -132,7 +132,7 @@ Workspace context is session-scoped.
 
 ![MCP HTTP Session Flow](docs/diagrams/mcp-session-flow.svg)
 
-### Visual examples (no transport boilerplate)
+### Visual examples
 
 | Workflow                       | Minimal tool sequence                                  | Outcome                                        |
 | ------------------------------ | ------------------------------------------------------ | ---------------------------------------------- |

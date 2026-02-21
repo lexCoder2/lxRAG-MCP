@@ -90,7 +90,9 @@ function createMcpServerInstance(): McpServer {
         asOf: z
           .string()
           .optional()
-          .describe("Optional ISO timestamp or epoch ms for temporal query mode"),
+          .describe(
+            "Optional ISO timestamp or epoch ms for temporal query mode",
+          ),
       }),
     },
     async (args: any) => {
@@ -339,7 +341,9 @@ function createMcpServerInstance(): McpServer {
       inputSchema: z.object({
         since: z
           .string()
-          .describe("Anchor value: txId, ISO timestamp, git commit SHA, or agentId"),
+          .describe(
+            "Anchor value: txId, ISO timestamp, git commit SHA, or agentId",
+          ),
         projectId: z
           .string()
           .optional()
@@ -941,7 +945,8 @@ function createMcpServerInstance(): McpServer {
   mcpServer.registerTool(
     "episode_recall",
     {
-      description: "Recall episodes by semantic, temporal, and entity relevance",
+      description:
+        "Recall episodes by semantic, temporal, and entity relevance",
       inputSchema: z.object({
         query: z.string().describe("Recall query"),
         agentId: z.string().optional().describe("Agent filter"),
@@ -1018,7 +1023,8 @@ function createMcpServerInstance(): McpServer {
   mcpServer.registerTool(
     "reflect",
     {
-      description: "Synthesize reflections and learning nodes from recent episodes",
+      description:
+        "Synthesize reflections and learning nodes from recent episodes",
       inputSchema: z.object({
         taskId: z.string().optional().describe("Task filter"),
         agentId: z.string().optional().describe("Agent filter"),
@@ -1175,7 +1181,10 @@ function createMcpServerInstance(): McpServer {
         };
       }
       try {
-        const result = await toolHandlers.callTool("coordination_overview", args);
+        const result = await toolHandlers.callTool(
+          "coordination_overview",
+          args,
+        );
         return { content: [{ type: "text", text: result }] };
       } catch (error: any) {
         return {
@@ -1196,9 +1205,18 @@ function createMcpServerInstance(): McpServer {
         task: z.string().describe("Task description"),
         taskId: z.string().optional().describe("Optional task id"),
         agentId: z.string().optional().describe("Agent identifier"),
-        includeDecisions: z.boolean().default(true).describe("Include decision episodes"),
-        includeEpisodes: z.boolean().default(true).describe("Include recent episodes"),
-        includeLearnings: z.boolean().default(true).describe("Include learnings"),
+        includeDecisions: z
+          .boolean()
+          .default(true)
+          .describe("Include decision episodes"),
+        includeEpisodes: z
+          .boolean()
+          .default(true)
+          .describe("Include recent episodes"),
+        includeLearnings: z
+          .boolean()
+          .default(true)
+          .describe("Include learnings"),
         profile: z
           .enum(["compact", "balanced", "debug"])
           .default("compact")
@@ -1231,14 +1249,26 @@ function createMcpServerInstance(): McpServer {
       description:
         "Return relevant exact source lines with optional dependency and memory context",
       inputSchema: z.object({
-        file: z.string().optional().describe("Relative or absolute source file path"),
-        symbol: z.string().optional().describe("Symbol id/name (e.g. ToolHandlers.callTool)"),
-        query: z.string().optional().describe("Natural-language fallback query"),
+        file: z
+          .string()
+          .optional()
+          .describe("Relative or absolute source file path"),
+        symbol: z
+          .string()
+          .optional()
+          .describe("Symbol id/name (e.g. ToolHandlers.callTool)"),
+        query: z
+          .string()
+          .optional()
+          .describe("Natural-language fallback query"),
         context: z
           .enum(["signature", "body", "with-deps", "full"])
           .default("body")
           .describe("Slice detail mode"),
-        pprScore: z.number().optional().describe("Optional PPR score from context_pack pipeline"),
+        pprScore: z
+          .number()
+          .optional()
+          .describe("Optional PPR score from context_pack pipeline"),
         profile: z
           .enum(["compact", "balanced", "debug"])
           .default("compact")

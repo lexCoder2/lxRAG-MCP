@@ -1,119 +1,163 @@
-<svg width="1400" height="860" viewBox="0 0 1400 860" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Code Graph Server System Architecture</title>
-  <desc id="desc">Architecture diagram showing MCP client, MCP server, tool handlers, graph orchestrator, response shaper, Memgraph, vector store, and hybrid retriever flow.</desc>
+<svg width="1400" height="680" viewBox="0 0 1400 680" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">Code Graph Server - System Architecture</title>
+  <desc id="arch-desc">Node diagram: Client, MCP Server, Tool Handlers, Response Shaper, Graph Orchestrator, Hybrid Retriever, Memgraph, Vector Store.</desc>
 
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="860" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="680" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F8FAFC"/>
-      <stop offset="1" stop-color="#ECFEFF"/>
+      <stop offset="1" stop-color="#F0F4FF"/>
     </linearGradient>
-    <linearGradient id="box" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#F1F5F9"/>
-    </linearGradient>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 Z" fill="#475569"/>
     </marker>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0F172A" flood-opacity="0.12"/>
+    <marker id="arr-ret" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9 Z" fill="#8B5CF6"/>
+    </marker>
+    <filter id="sh" x="-15%" y="-15%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#0F172A" flood-opacity="0.07"/>
     </filter>
     <style>
-      .title { font: 700 30px Inter, Segoe UI, Arial, sans-serif; fill: #0F172A; }
-      .subtitle { font: 500 16px Inter, Segoe UI, Arial, sans-serif; fill: #334155; }
-      .label { font: 700 18px Inter, Segoe UI, Arial, sans-serif; fill: #0F172A; }
-      .sub { font: 500 13px Inter, Segoe UI, Arial, sans-serif; fill: #475569; }
-      .small { font: 600 12px Inter, Segoe UI, Arial, sans-serif; fill: #334155; }
+      .title   { font: 700 26px Inter, "Segoe UI", Arial, sans-serif; fill: #0F172A; }
+      .caption { font: 500 14px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
+      .zone    { font: 600 11px Inter, "Segoe UI", Arial, sans-serif; fill: #94A3B8; letter-spacing: 1.5px; }
+      .box-h   { font: 700 15px Inter, "Segoe UI", Arial, sans-serif; fill: #1E293B; }
+      .box-s   { font: 500 12px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
+      .ret-lbl { font: 600 11px Inter, "Segoe UI", Arial, sans-serif; fill: #7C3AED; }
+      .footer  { font: 500 13px Inter, "Segoe UI", Arial, sans-serif; fill: #64748B; }
     </style>
   </defs>
 
-  <rect x="0" y="0" width="1400" height="860" fill="url(#bg)"/>
-  <text x="60" y="70" class="title">Code Graph Server — System Architecture</text>
-  <text x="60" y="100" class="subtitle">MCP-native orchestration with graph memory, hybrid retrieval, and response shaping</text>
+  <!-- Background -->
+  <rect width="1400" height="680" fill="url(#bg)"/>
 
-  <!-- Client -->
-  <g filter="url(#shadow)">
-    <rect x="80" y="320" width="240" height="110" rx="16" fill="url(#box)" stroke="#CBD5E1"/>
+  <!-- Header -->
+  <text x="60" y="58" class="title">Code Graph Server &#x2014; System Architecture</text>
+  <text x="60" y="80" class="caption">MCP-native orchestration &#xB7; hybrid retrieval &#xB7; response shaping</text>
+
+  <!-- Zone: Client -->
+  <rect x="30"   y="104" width="242" height="476" rx="14" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="1.5"/>
+  <text x="151"  y="130" text-anchor="middle" class="zone">CLIENT</text>
+
+  <!-- Zone: MCP Layer -->
+  <rect x="284"  y="104" width="252" height="476" rx="14" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+  <text x="410"  y="130" text-anchor="middle" class="zone">MCP LAYER</text>
+
+  <!-- Zone: Processing -->
+  <rect x="548"  y="104" width="570" height="476" rx="14" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1.5"/>
+  <text x="833"  y="130" text-anchor="middle" class="zone">PROCESSING</text>
+
+  <!-- Zone: Storage -->
+  <rect x="1130" y="104" width="244" height="476" rx="14" fill="#ECFDF5" stroke="#6EE7B7" stroke-width="1.5"/>
+  <text x="1252" y="130" text-anchor="middle" class="zone">STORAGE</text>
+
+  <!-- Box: Client -->
+  <g filter="url(#sh)">
+    <rect x="51"  y="342" width="200" height="76" rx="10" fill="#FFF" stroke="#93C5FD" stroke-width="2"/>
   </g>
-  <text x="200" y="365" text-anchor="middle" class="label">Agent / Client</text>
-  <text x="200" y="390" text-anchor="middle" class="sub">Copilot, MCP CLI, orchestrator</text>
+  <rect x="51"  y="342" width="5" height="76" rx="2" fill="#3B82F6"/>
+  <text x="163" y="373" text-anchor="middle" class="box-h">Agent / Client</text>
+  <text x="163" y="394" text-anchor="middle" class="box-s">Copilot &#xB7; MCP CLI</text>
 
-  <!-- MCP Server -->
-  <g filter="url(#shadow)">
-    <rect x="390" y="300" width="260" height="150" rx="16" fill="url(#box)" stroke="#93C5FD"/>
+  <!-- Box: MCP Server (tall — bridges both processing rows) -->
+  <g filter="url(#sh)">
+    <rect x="304" y="308" width="212" height="144" rx="10" fill="#FFF" stroke="#818CF8" stroke-width="2"/>
   </g>
-  <text x="520" y="355" text-anchor="middle" class="label">MCP Server</text>
-  <text x="520" y="380" text-anchor="middle" class="sub">HTTP / stdio transport</text>
+  <rect x="304" y="308" width="5" height="144" rx="2" fill="#6366F1"/>
+  <text x="411" y="368" text-anchor="middle" class="box-h">MCP Server</text>
+  <text x="411" y="390" text-anchor="middle" class="box-s">HTTP / stdio transport</text>
+  <text x="411" y="410" text-anchor="middle" class="box-s">session-scoped context</text>
 
-  <!-- Tool Handlers -->
-  <g filter="url(#shadow)">
-    <rect x="730" y="210" width="260" height="120" rx="16" fill="url(#box)" stroke="#A7F3D0"/>
+  <!-- Box: Tool Handlers (top row) -->
+  <g filter="url(#sh)">
+    <rect x="568" y="256" width="212" height="76" rx="10" fill="#FFF" stroke="#4ADE80" stroke-width="2"/>
   </g>
-  <text x="860" y="255" text-anchor="middle" class="label">Tool Handlers</text>
-  <text x="860" y="280" text-anchor="middle" class="sub">Tool routing + execution</text>
+  <rect x="568" y="256" width="5" height="76" rx="2" fill="#22C55E"/>
+  <text x="675" y="287" text-anchor="middle" class="box-h">Tool Handlers</text>
+  <text x="675" y="308" text-anchor="middle" class="box-s">routing &#xB7; execution</text>
 
-  <!-- Response Shaper -->
-  <g filter="url(#shadow)">
-    <rect x="730" y="380" width="260" height="120" rx="16" fill="url(#box)" stroke="#DDD6FE"/>
+  <!-- Box: Response Shaper (bottom row) -->
+  <g filter="url(#sh)">
+    <rect x="568" y="428" width="212" height="76" rx="10" fill="#FFF" stroke="#C084FC" stroke-width="2"/>
   </g>
-  <text x="860" y="425" text-anchor="middle" class="label">Response Shaper</text>
-  <text x="860" y="450" text-anchor="middle" class="sub">compact / balanced / debug</text>
+  <rect x="568" y="428" width="5" height="76" rx="2" fill="#A855F7"/>
+  <text x="675" y="459" text-anchor="middle" class="box-h">Response Shaper</text>
+  <text x="675" y="480" text-anchor="middle" class="box-s">compact &#xB7; balanced &#xB7; debug</text>
 
-  <!-- Graph Orchestrator -->
-  <g filter="url(#shadow)">
-    <rect x="1060" y="210" width="260" height="120" rx="16" fill="url(#box)" stroke="#FDE68A"/>
+  <!-- Box: Graph Orchestrator (top row) -->
+  <g filter="url(#sh)">
+    <rect x="848" y="256" width="222" height="76" rx="10" fill="#FFF" stroke="#FCD34D" stroke-width="2"/>
   </g>
-  <text x="1190" y="255" text-anchor="middle" class="label">Graph Orchestrator</text>
-  <text x="1190" y="280" text-anchor="middle" class="sub">Indexing + rebuild pipeline</text>
+  <rect x="848" y="256" width="5" height="76" rx="2" fill="#F59E0B"/>
+  <text x="960" y="287" text-anchor="middle" class="box-h">Graph Orchestrator</text>
+  <text x="960" y="308" text-anchor="middle" class="box-s">indexing &#xB7; rebuild pipeline</text>
 
-  <!-- Hybrid Retriever -->
-  <g filter="url(#shadow)">
-    <rect x="1060" y="380" width="260" height="120" rx="16" fill="url(#box)" stroke="#FBCFE8"/>
+  <!-- Box: Hybrid Retriever (bottom row) -->
+  <g filter="url(#sh)">
+    <rect x="848" y="428" width="222" height="76" rx="10" fill="#FFF" stroke="#FB7185" stroke-width="2"/>
   </g>
-  <text x="1190" y="425" text-anchor="middle" class="label">Hybrid Retriever</text>
-  <text x="1190" y="450" text-anchor="middle" class="sub">Vector + BM25 + Graph + RRF</text>
+  <rect x="848" y="428" width="5" height="76" rx="2" fill="#F43F5E"/>
+  <text x="960" y="459" text-anchor="middle" class="box-h">Hybrid Retriever</text>
+  <text x="960" y="480" text-anchor="middle" class="box-s">Vector &#xB7; BM25 &#xB7; Graph &#xB7; RRF</text>
 
-  <!-- Memgraph -->
-  <g filter="url(#shadow)">
-    <rect x="1010" y="610" width="170" height="110" rx="55" fill="url(#box)" stroke="#10B981" stroke-width="2"/>
+  <!-- Box: Memgraph (top row) -->
+  <g filter="url(#sh)">
+    <rect x="1148" y="256" width="208" height="76" rx="10" fill="#FFF" stroke="#34D399" stroke-width="2"/>
   </g>
-  <text x="1095" y="660" text-anchor="middle" class="label">Memgraph</text>
-  <text x="1095" y="684" text-anchor="middle" class="small">Code + temporal graph</text>
+  <rect x="1148" y="256" width="5" height="76" rx="2" fill="#10B981"/>
+  <text x="1253" y="287" text-anchor="middle" class="box-h">Memgraph</text>
+  <text x="1253" y="308" text-anchor="middle" class="box-s">code + temporal graph</text>
 
-  <!-- Vector -->
-  <g filter="url(#shadow)">
-    <rect x="1210" y="610" width="170" height="110" rx="55" fill="url(#box)" stroke="#0EA5E9" stroke-width="2"/>
+  <!-- Box: Vector Store (bottom row) -->
+  <g filter="url(#sh)">
+    <rect x="1148" y="428" width="208" height="76" rx="10" fill="#FFF" stroke="#38BDF8" stroke-width="2"/>
   </g>
-  <text x="1295" y="660" text-anchor="middle" class="label">Vector Store</text>
-  <text x="1295" y="684" text-anchor="middle" class="small">Qdrant-compatible</text>
+  <rect x="1148" y="428" width="5" height="76" rx="2" fill="#0EA5E9"/>
+  <text x="1253" y="459" text-anchor="middle" class="box-h">Vector Store</text>
+  <text x="1253" y="480" text-anchor="middle" class="box-s">Qdrant-compatible</text>
 
-  <!-- arrows -->
-  <!-- Client -> MCP Server -->
-  <path d="M320 375 H390" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Arrows (forward flow, slate) -->
 
-  <!-- MCP Server -> Tool Handlers -->
-  <path d="M650 355 H690 V270 H730" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Client to MCP Server (horizontal) -->
+  <path d="M251 380 H304"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- MCP Server -> Response Shaper -->
-  <path d="M650 395 H730" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- MCP Server to Tool Handlers (elbow up) -->
+  <path d="M516 338 H542 V294 H568"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Tool Handlers -> Graph Orchestrator -->
-  <path d="M990 270 H1060" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- MCP Server to Response Shaper (elbow down) -->
+  <path d="M516 422 H542 V466 H568"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Tool Handlers -> Hybrid Retriever -->
-  <path d="M990 300 H1025 V440 H1060" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Tool Handlers to Graph Orchestrator (horizontal) -->
+  <path d="M780 294 H848"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Graph Orchestrator -> Memgraph -->
-  <path d="M1190 330 V560 H1095 V610" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Tool Handlers to Hybrid Retriever (elbow down) -->
+  <path d="M780 314 H814 V466 H848"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Hybrid Retriever -> Vector Store -->
-  <path d="M1190 500 V555 H1295 V610" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Graph Orchestrator to Memgraph (horizontal) -->
+  <path d="M1070 294 H1148"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Hybrid Retriever -> Memgraph -->
-  <path d="M1130 500 V555 H1095 V610" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Hybrid Retriever to Vector Store (horizontal) -->
+  <path d="M1070 466 H1148"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <!-- Response Shaper -> Client (return path) -->
-  <path d="M730 440 H690 V375 H320" stroke="#334155" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <!-- Hybrid Retriever to Memgraph (elbow up) -->
+  <path d="M1070 448 H1112 V294 H1148"
+        stroke="#475569" stroke-width="2.5" fill="none" marker-end="url(#arr)"/>
 
-  <rect x="60" y="790" width="1280" height="42" rx="12" fill="#E2E8F0"/>
-  <text x="700" y="816" text-anchor="middle" class="sub">Natural queries are fused via Hybrid Retriever; responses are shaped by profile budget before returning to the client.</text>
+  <!-- Return: Response Shaper to Client (dashed violet, bottom bypass) -->
+  <path d="M675 504 V558 H151 V418"
+        stroke="#8B5CF6" stroke-width="2" fill="none"
+        stroke-dasharray="6 4" marker-end="url(#arr-ret)"/>
+  <text x="406" y="576" text-anchor="middle" class="ret-lbl">shaped response</text>
+
+  <!-- Footer -->
+  <rect x="30" y="604" width="1340" height="44" rx="10" fill="#E2E8F0"/>
+  <text x="700" y="631" text-anchor="middle" class="footer">
+    Queries are fused via Hybrid Retriever (vector + BM25 + graph with RRF) &#xB7; responses are shaped by budget profile before returning to the client.
+  </text>
 </svg>

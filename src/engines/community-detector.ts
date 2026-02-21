@@ -10,7 +10,9 @@ interface CommunityMember {
 export default class CommunityDetector {
   constructor(private memgraph: MemgraphClient) {}
 
-  async run(projectId: string): Promise<{ communities: number; members: number }> {
+  async run(
+    projectId: string,
+  ): Promise<{ communities: number; members: number }> {
     const result = await this.memgraph.executeCypher(
       `MATCH (n)
        WHERE n.projectId = $projectId

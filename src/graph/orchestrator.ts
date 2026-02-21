@@ -183,7 +183,10 @@ export class GraphOrchestrator {
 
       for (const filePath of filesToProcess) {
         try {
-          const parsed = await this.parseSourceFile(filePath, opts.workspaceRoot);
+          const parsed = await this.parseSourceFile(
+            filePath,
+            opts.workspaceRoot,
+          );
           await this.attachSummaries(parsed);
           parsedFiles.push({ filePath, parsed });
           const adaptedParsed = this.adaptParsedFile(parsed);
@@ -380,7 +383,12 @@ export class GraphOrchestrator {
     const content = fs.readFileSync(filePath, "utf-8");
     const parsed = await this.parserRegistry.parse(filePath, content);
     if (parsed) {
-      return this.adaptLanguageParseResult(filePath, workspaceRoot, content, parsed);
+      return this.adaptLanguageParseResult(
+        filePath,
+        workspaceRoot,
+        content,
+        parsed,
+      );
     }
 
     return this.adaptLanguageParseResult(filePath, workspaceRoot, content, {
@@ -454,7 +462,9 @@ export class GraphOrchestrator {
     content: string,
     parsed: ParseResult,
   ): ParsedFile {
-    const relativePath = path.relative(workspaceRoot, filePath).replace(/\\/g, "/");
+    const relativePath = path
+      .relative(workspaceRoot, filePath)
+      .replace(/\\/g, "/");
     const hash = this.simpleHash(content);
     const LOC = content.split("\n").length;
 
@@ -474,7 +484,9 @@ export class GraphOrchestrator {
       }));
 
     const functions = parsed.symbols
-      .filter((symbol) => symbol.type === "function" || symbol.type === "method")
+      .filter(
+        (symbol) => symbol.type === "function" || symbol.type === "method",
+      )
       .map((symbol, index) => ({
         id: `${relativePath}:function:${symbol.name}:${index}`,
         name: symbol.name,
@@ -487,11 +499,16 @@ export class GraphOrchestrator {
       }));
 
     const classes = parsed.symbols
-      .filter((symbol) => symbol.type === "class" || symbol.type === "interface")
+      .filter(
+        (symbol) => symbol.type === "class" || symbol.type === "interface",
+      )
       .map((symbol, index) => ({
         id: `${relativePath}:class:${symbol.name}:${index}`,
         name: symbol.name,
-        kind: symbol.type === "interface" ? ("interface" as const) : ("class" as const),
+        kind:
+          symbol.type === "interface"
+            ? ("interface" as const)
+            : ("class" as const),
         startLine: symbol.startLine,
         endLine: symbol.endLine,
         LOC: Math.max(1, symbol.endLine - symbol.startLine + 1),

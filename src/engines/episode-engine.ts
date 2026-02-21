@@ -98,7 +98,12 @@ export default class EpisodeEngine {
       );
     }
 
-    await this.linkToPreviousEpisode(id, input.agentId, input.sessionId, projectId);
+    await this.linkToPreviousEpisode(
+      id,
+      input.agentId,
+      input.sessionId,
+      projectId,
+    );
     return id;
   }
 
@@ -298,7 +303,10 @@ export default class EpisodeEngine {
     );
   }
 
-  private rowToEpisode(row: Record<string, any>, projectId: string): Episode | null {
+  private rowToEpisode(
+    row: Record<string, any>,
+    projectId: string,
+  ): Episode | null {
     const rawNode = row.e || row.episode || row;
     const node =
       rawNode && typeof rawNode === "object" && rawNode.properties

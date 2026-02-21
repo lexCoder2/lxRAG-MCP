@@ -50,7 +50,10 @@ abstract class BaseRegexParser implements LanguageParser {
     return Math.min(lines.length, startLineIndex + 1);
   }
 
-  protected findPythonBlockEnd(lines: string[], startLineIndex: number): number {
+  protected findPythonBlockEnd(
+    lines: string[],
+    startLineIndex: number,
+  ): number {
     const startLine = lines[startLineIndex] || "";
     const indent = startLine.match(/^\s*/)?.[0].length || 0;
 
@@ -178,9 +181,8 @@ export class GoParser extends BaseRegexParser {
     const symbols: ParsedSymbol[] = [];
 
     lines.forEach((line, index) => {
-      const match = /^\s*type\s+([A-Za-z_][A-Za-z0-9_]*)\s+(struct|interface)/.exec(
-        line,
-      );
+      const match =
+        /^\s*type\s+([A-Za-z_][A-Za-z0-9_]*)\s+(struct|interface)/.exec(line);
       if (!match) {
         return;
       }
@@ -200,9 +202,8 @@ export class GoParser extends BaseRegexParser {
     const symbols: ParsedSymbol[] = [];
 
     lines.forEach((line, index) => {
-      const match = /^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(
-        line,
-      );
+      const match =
+        /^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][A-Za-z0-9_]*)\s*\(/.exec(line);
       if (!match) {
         return;
       }
@@ -247,9 +248,10 @@ export class RustParser extends BaseRegexParser {
     const symbols: ParsedSymbol[] = [];
 
     lines.forEach((line, index) => {
-      const match = /^\s*(?:pub\s+)?(struct|enum|trait)\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(
-        line,
-      );
+      const match =
+        /^\s*(?:pub\s+)?(struct|enum|trait)\s+([A-Za-z_][A-Za-z0-9_]*)/.exec(
+          line,
+        );
       if (!match) {
         return;
       }
