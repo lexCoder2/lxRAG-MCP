@@ -16,6 +16,10 @@ import {
   RustParser,
   JavaParser,
 } from "../parsers/regex-language-parsers.js";
+import {
+  getTreeSitterParsers,
+  checkTreeSitterAvailability,
+} from "../parsers/tree-sitter-parser.js";
 import GraphBuilder, { type CypherStatement } from "./builder.js";
 import GraphIndexManager from "./index.js";
 import CacheManager from "./cache.js";
@@ -60,10 +64,39 @@ export class GraphOrchestrator {
   constructor(memgraph?: MemgraphClient, verbose = false) {
     this.parser = new TypeScriptParser();
     this.parserRegistry = new ParserRegistry();
-    this.parserRegistry.register(new PythonParser());
-    this.parserRegistry.register(new GoParser());
-    this.parserRegistry.register(new RustParser());
-    this.parserRegistry.register(new JavaParser());
+
+    // Register tree-sitter parsers (AST-accurate); fall back per language to
+    // regex parsers when the native binding is unavailable.
+    const tsParsers = getTreeSitterParsers();
+    const availability = checkTreeSitterAvailability();
+    const regexFallbacks = [new PythonParser(), new GoParser(), new RustParser(), new JavaParser()];
+
+    const tsByLang = new Map(tsParsers.map((p) => [p.language, p]));
+    for (const fallback of regexFallbacks) {
+      const tsParser = tsByLang.get(fallback.language);
+      if (tsParser && availability[fallback.language]) {
+        this.parserRegistry.register(tsParser);
+      } else {
+        this.parserRegistry.register(fallback);
+      }
+    }
+
+    // Log availability once at construction
+    const available = Object.entries(availability)
+      .filter(([, ok]) => ok)
+      .map(([lang]) => lang);
+    const unavailable = Object.entries(availability)
+      .filter(([, ok]) => !ok)
+      .map(([lang]) => lang);
+    if (available.length > 0) {
+      console.error(`[parsers] tree-sitter active for: ${available.join(", ")}`);
+    }
+    if (unavailable.length > 0) {
+      console.error(
+        `[parsers] regex fallback for: ${unavailable.join(", ")} (install tree-sitter grammar packages for AST accuracy)`,
+      );
+    }
+
     this.builder = new GraphBuilder();
     this.index = new GraphIndexManager();
     this.cache = new CacheManager();
