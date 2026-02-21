@@ -324,6 +324,9 @@ There is no way to say "what did the codebase look like when we started task T?"
 - ✅ Expanded field-priority schema coverage across episode, coordination, workspace, and progress tools.
 - ✅ Added indexing-time summarization integration with `src/response/summarizer.ts` and summary persistence in graph writes (`FILE`/`FUNCTION`/`CLASS`/`IMPORT`).
 - ✅ `CODE_GRAPH_SUMMARIZER_URL` remains optional with local fallback summaries and cache-by-hash behavior.
+- ✅ Added `isConfigured(): boolean` accessor to `CodeSummarizer` for health-check visibility.
+- ✅ Added startup `console.warn` in `initializeVectorEngine` when `CODE_GRAPH_SUMMARIZER_URL` is unset, surfacing heuristic-only mode at server start.
+- ✅ `graph_health` now exposes `summarizer.configured` and `summarizer.endpoint` fields.
 - ✅ Phase 1 acceptance criteria complete.
 
 #### 1.1 Context Budget System
@@ -1183,6 +1186,8 @@ This endpoint was already added in the cleanup phase. Phase 4 extends the `capab
 - ✅ Added `context_pack` handler in `src/tools/tool-handlers.ts` with seed selection, interface-seed expansion, PPR ranking, code-slice materialization, and blocker/decision/learning/episode aggregation.
 - ✅ Added budget-aware trimming and `tokenEstimate` in `context_pack` output prior to response shaping.
 - ✅ Added `context_pack` tool schemas to both MCP surfaces (`src/server.ts`, `src/mcp-server.ts`) and response-priority schema (`src/response/schemas.ts`).
+- ✅ **Production hardening**: `ProgressEngine` constructor in `tool-handlers.ts` now receives `this.context.memgraph` (was always accepted but never passed — Memgraph writes were silently dead code).
+- ✅ `createFeature()` and `createTask()` are now `async` and issue a `MERGE` to Memgraph when connected, ensuring feature/task state survives server restarts.
 
 #### 5.1 New router module: `src/graph/ppr.ts`
 
@@ -1681,6 +1686,9 @@ All tools that called `routeNaturalToCypher` benefit automatically: `graph_query
 - ✅ Added temporal filtering over hybrid retrieval rows for `asOf` in natural mode.
 - ✅ Added optional Memgraph `text_search` BM25 path (`symbol_index`) in `HybridRetriever` with automatic fallback to in-memory lexical scoring when full-text index/module is unavailable.
 - ✅ Smoke-validated `graph_query` over MCP session flow (`initialize` + `mcp-session-id` + `graph_set_workspace`) on fresh build.
+- ✅ **Production hardening**: Added `private _bm25Mode` field + `bm25Mode` getter to `HybridRetriever` — every `bm25Search` call now records whether it ran via native Memgraph text_search or lexical fallback.
+- ✅ Added `ensureBM25Index()` to `HybridRetriever`; called during `graph_rebuild` full-mode pipeline — `symbol_index` is auto-created on first full rebuild if not present.
+- ✅ `graph_health` now exposes `retrieval.bm25IndexExists` and `retrieval.mode` fields.
 - ℹ️ BM25 now attempts Memgraph `text_search` first and falls back to in-memory lexical scoring (name/path/summary token matching) if the index/module is unavailable.
 
 ---
