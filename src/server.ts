@@ -1393,6 +1393,180 @@ function createMcpServerInstance(): McpServer {
     },
   );
 
+  // ref_query — query a reference repository on the same machine
+  mcpServer.registerTool(
+    "ref_query",
+    {
+      description:
+        "Query a reference repository on the same machine for architecture insights, design patterns, conventions, or code examples. Useful for borrowing context from a well-structured sibling repo when working on the current workspace.",
+      inputSchema: z.object({
+        repoPath: z
+          .string()
+          .describe(
+            "Absolute path to the reference repository on this machine",
+          ),
+        query: z
+          .string()
+          .default("")
+          .describe(
+            "What to look for — architecture patterns, conventions, a specific concept, or a code example",
+          ),
+        mode: z
+          .enum(["auto", "docs", "architecture", "code", "patterns", "all", "structure"])
+          .default("auto")
+          .describe(
+            "auto = infer from query; docs/architecture = markdown only; code/patterns = source files only; structure = dir tree only; all = everything",
+          ),
+        symbol: z
+          .string()
+          .optional()
+          .describe(
+            "Specific symbol name (function/class/interface) to locate in the reference repo",
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(20)
+          .default(10)
+          .describe("Max results to return"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("ref_query", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // init_project_setup — one-shot: set workspace + rebuild + copilot instructions
+  mcpServer.registerTool(
+    "init_project_setup",
+    {
+      description:
+        "One-shot project initialization: sets workspace context, triggers graph rebuild, and generates .github/copilot-instructions.md if not present. Use this as the first step when onboarding a new project or starting a fresh session.",
+      inputSchema: z.object({
+        workspaceRoot: z
+          .string()
+          .describe("Absolute path to the project root to initialize"),
+        sourceDir: z
+          .string()
+          .optional()
+          .describe(
+            "Source directory relative to workspaceRoot (default: src)",
+          ),
+        projectId: z
+          .string()
+          .optional()
+          .describe(
+            "Project identifier (default: basename of workspaceRoot)",
+          ),
+        rebuildMode: z
+          .enum(["incremental", "full"])
+          .default("incremental")
+          .describe(
+            "incremental = changed files only; full = rebuild entire graph",
+          ),
+        withDocs: z
+          .boolean()
+          .default(true)
+          .describe("Also index markdown docs during rebuild"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("init_project_setup", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // setup_copilot_instructions — generate .github/copilot-instructions.md
+  mcpServer.registerTool(
+    "setup_copilot_instructions",
+    {
+      description:
+        "Analyze a repository and generate a tailored .github/copilot-instructions.md file with tech-stack detection, key commands, required session flow, and tool-usage guidance. Makes it immediately efficient to work with the repo via Copilot or any AI assistant.",
+      inputSchema: z.object({
+        targetPath: z
+          .string()
+          .optional()
+          .describe(
+            "Absolute path to the target repository (defaults to the active workspace)",
+          ),
+        projectName: z
+          .string()
+          .optional()
+          .describe("Override the detected project name"),
+        dryRun: z
+          .boolean()
+          .default(false)
+          .describe(
+            "Return the generated content without writing the file",
+          ),
+        overwrite: z
+          .boolean()
+          .default(false)
+          .describe("Replace an existing copilot-instructions.md"),
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool(
+          "setup_copilot_instructions",
+          args,
+        );
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return mcpServer;
 }
 
@@ -1532,7 +1706,7 @@ async function main() {
       console.error("[MCP] Endpoints: POST / and POST /mcp");
       console.error("[MCP] A2A Agent Card: GET /.well-known/agent.json");
       console.error(
-        `[MCP] Available tools: 26 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs)`,
+        `[MCP] Available tools: 38 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs + 1 Reference + 2 Setup)`,
       );
     });
 
@@ -1545,7 +1719,7 @@ async function main() {
 
   console.error("[MCP] Server started on stdio transport");
   console.error(
-    `[MCP] Available tools: 26 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs)`,
+    `[MCP] Available tools: 38 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs + 1 Reference + 2 Setup)`,
   );
 }
 

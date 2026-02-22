@@ -26,6 +26,7 @@ import { runPPR } from "../graph/ppr.js";
 import HybridRetriever from "../graph/hybrid-retriever.js";
 import FileWatcher, { type WatcherState } from "../graph/watcher.js";
 import { DocsEngine } from "../engines/docs-engine.js";
+import { DocsParser, findMarkdownFiles, type ParsedSection } from "../parsers/docs-parser.js";
 import {
   estimateTokens,
   makeBudget,
@@ -3349,6 +3350,752 @@ export class ToolHandlers {
       return this.errorEnvelope(
         "SEARCH_DOCS_ERROR",
         err instanceof Error ? err.message : String(err),
+        true,
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // ref_query — query a reference repository on the same machine
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async ref_query(args: any): Promise<string> {
+    const {
+      repoPath,
+      query = "",
+      mode = "auto",
+      symbol,
+      limit = 10,
+      profile = "compact",
+    } = args ?? {};
+
+    if (!repoPath || typeof repoPath !== "string") {
+      return this.errorEnvelope(
+        "REF_REPO_MISSING",
+        "repoPath is required",
+        false,
+        "Provide the absolute path to the reference repository on this machine.",
+      );
+    }
+
+    const resolvedRepo = path.resolve(repoPath);
+    if (!fs.existsSync(resolvedRepo)) {
+      return this.errorEnvelope(
+        "REF_REPO_NOT_FOUND",
+        `Path does not exist: ${resolvedRepo}`,
+        false,
+        "Ensure the repository is cloned and the path is accessible from this machine/container.",
+      );
+    }
+
+    try {
+      const repoName = path.basename(resolvedRepo);
+      const findings: any[] = [];
+
+      // Determine effective mode
+      const effectiveMode =
+        mode === "auto" ? this.inferRefMode(query, symbol) : mode;
+
+      // --- DOCS / ARCHITECTURE: parse markdown files ---
+      if (
+        effectiveMode === "docs" ||
+        effectiveMode === "architecture" ||
+        effectiveMode === "all"
+      ) {
+        const parser = new DocsParser();
+        const mdFiles = findMarkdownFiles(resolvedRepo);
+        const queryTerms = query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t: string) => t.length > 2);
+
+        for (const mdFile of mdFiles.slice(0, 60)) {
+          try {
+            const doc = parser.parseFile(mdFile, resolvedRepo);
+            for (const sec of doc.sections) {
+              const score = this.scoreRefSection(sec, queryTerms, symbol);
+              if (score > 0 || queryTerms.length === 0) {
+                findings.push({
+                  type: "doc",
+                  file: doc.relativePath,
+                  kind: doc.kind,
+                  heading: sec.heading || doc.title,
+                  score,
+                  excerpt: sec.content.slice(0, 300).trim(),
+                  line: sec.startLine,
+                });
+              }
+            }
+          } catch {
+            // skip unreadable files
+          }
+        }
+      }
+
+      // --- CODE / PATTERNS: scan source files ---
+      if (
+        effectiveMode === "code" ||
+        effectiveMode === "patterns" ||
+        effectiveMode === "all"
+      ) {
+        const sourceExts = [
+          ".ts",
+          ".tsx",
+          ".js",
+          ".mjs",
+          ".cjs",
+          ".py",
+          ".go",
+          ".java",
+          ".rs",
+          ".rb",
+          ".cs",
+        ];
+        const sourceFiles = this.scanRefSourceFiles(resolvedRepo, sourceExts);
+        const queryTerms = query
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((t: string) => t.length > 2);
+
+        for (const filePath of sourceFiles.slice(0, 120)) {
+          try {
+            const content = fs.readFileSync(filePath, "utf-8");
+            const relPath = path.relative(resolvedRepo, filePath);
+            const score = this.scoreRefCode(
+              content,
+              queryTerms,
+              symbol,
+              relPath,
+            );
+            if (score > 0) {
+              const excerpt = this.extractRefExcerpt(
+                content,
+                queryTerms,
+                symbol,
+                6,
+              );
+              findings.push({
+                type: "code",
+                file: relPath,
+                score,
+                excerpt: excerpt || content.slice(0, 300),
+              });
+            }
+          } catch {
+            // skip unreadable files
+          }
+        }
+      }
+
+      // --- STRUCTURE: always included for mode "all" or when no query ---
+      if (effectiveMode === "all" || effectiveMode === "structure") {
+        const tree = this.buildRefDirTree(resolvedRepo, 3);
+        findings.push({ type: "structure", file: ".", score: 0, tree });
+      }
+
+      // Sort by score (structure last), slice to limit
+      const sorted = findings
+        .sort((a, b) => {
+          if (a.type === "structure") return 1;
+          if (b.type === "structure") return -1;
+          return (b.score ?? 0) - (a.score ?? 0);
+        })
+        .slice(0, limit);
+
+      return this.formatSuccess(
+        {
+          repoName,
+          repoPath: resolvedRepo,
+          query,
+          symbol: symbol ?? null,
+          mode: effectiveMode,
+          resultCount: sorted.length,
+          findings: sorted,
+        },
+        profile,
+        `${sorted.length} result(s) from reference repo ${repoName}`,
+        "ref_query",
+      );
+    } catch (error) {
+      return this.errorEnvelope(
+        "REF_QUERY_FAILED",
+        error instanceof Error ? error.message : String(error),
+        true,
+      );
+    }
+  }
+
+  // ── private helpers for ref_query ────────────────────────────────────────
+
+  private inferRefMode(
+    query: string,
+    symbol?: string,
+  ): "docs" | "code" | "architecture" | "patterns" | "all" {
+    if (symbol) return "code";
+    const lower = (query || "").toLowerCase();
+    if (
+      /(architect|structure|pattern|design|layer|module|overview|convention|best.?practice)/.test(
+        lower,
+      )
+    )
+      return "architecture";
+    if (/(how to|example|guide|decision|adr|changelog)/.test(lower))
+      return "docs";
+    if (
+      /(function|class|method|import|export|interface|type|impl|usage)/.test(
+        lower,
+      )
+    )
+      return "code";
+    return "all";
+  }
+
+  private scoreRefSection(
+    section: ParsedSection,
+    queryTerms: string[],
+    symbol?: string,
+  ): number {
+    let score = 0;
+    const text = `${section.heading} ${section.content}`.toLowerCase();
+    for (const term of queryTerms) {
+      const re = new RegExp(
+        term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "g",
+      );
+      const count = (text.match(re) ?? []).length;
+      if (count > 0) {
+        score +=
+          count *
+          (section.heading.toLowerCase().includes(term) ? 3 : 1);
+      }
+    }
+    if (symbol) {
+      const symLower = symbol.toLowerCase();
+      if (
+        section.backtickRefs.some((r) =>
+          r.toLowerCase().includes(symLower),
+        )
+      )
+        score += 10;
+      else if (text.includes(symLower)) score += 5;
+    }
+    return score;
+  }
+
+  private scoreRefCode(
+    content: string,
+    queryTerms: string[],
+    symbol: string | undefined,
+    relPath: string,
+  ): number {
+    let score = 0;
+    const lower = content.toLowerCase();
+    const pathLower = relPath.toLowerCase();
+    for (const term of queryTerms) {
+      const re = new RegExp(
+        term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "g",
+      );
+      const count = (lower.match(re) ?? []).length;
+      score += count;
+      if (pathLower.includes(term)) score += 3;
+    }
+    if (symbol) {
+      const symLower = symbol.toLowerCase();
+      const symCount = (
+        lower.match(
+          new RegExp(
+            symLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+            "g",
+          ),
+        ) ?? []
+      ).length;
+      score += symCount * 5;
+    }
+    return score;
+  }
+
+  private extractRefExcerpt(
+    content: string,
+    queryTerms: string[],
+    symbol: string | undefined,
+    contextLines: number,
+  ): string {
+    const lines = content.split("\n");
+    let bestLine = 0;
+    let bestScore = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const lower = lines[i].toLowerCase();
+      let score = 0;
+      if (symbol && lower.includes(symbol.toLowerCase())) score += 10;
+      for (const term of queryTerms) {
+        if (lower.includes(term)) score++;
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestLine = i;
+      }
+    }
+    if (bestScore === 0) return lines.slice(0, contextLines * 2).join("\n");
+    const start = Math.max(0, bestLine - contextLines);
+    const end = Math.min(lines.length, bestLine + contextLines + 1);
+    return lines.slice(start, end).join("\n");
+  }
+
+  private scanRefSourceFiles(
+    rootPath: string,
+    extensions: string[],
+  ): string[] {
+    const results: string[] = [];
+    const ignoreDirs = new Set([
+      "node_modules",
+      "dist",
+      ".git",
+      ".next",
+      "coverage",
+      "__pycache__",
+      ".venv",
+      "vendor",
+      "build",
+      ".turbo",
+    ]);
+
+    const walk = (dir: string, depth: number) => {
+      if (depth > 7) return;
+      try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            if (
+              !ignoreDirs.has(entry.name) &&
+              !entry.name.startsWith(".")
+            ) {
+              walk(path.join(dir, entry.name), depth + 1);
+            }
+          } else if (entry.isFile()) {
+            const ext = path.extname(entry.name).toLowerCase();
+            if (extensions.includes(ext)) {
+              results.push(path.join(dir, entry.name));
+            }
+          }
+        }
+      } catch {
+        // skip permission errors
+      }
+    };
+
+    walk(rootPath, 0);
+    return results;
+  }
+
+  private buildRefDirTree(rootPath: string, maxDepth: number): any {
+    const ignoreDirs = new Set([
+      "node_modules",
+      "dist",
+      ".git",
+      ".next",
+      "coverage",
+      "__pycache__",
+      ".venv",
+      "vendor",
+      "build",
+      ".turbo",
+    ]);
+
+    const walk = (dir: string, depth: number): any => {
+      if (depth > maxDepth) return null;
+      const name = path.basename(dir);
+      const children: any[] = [];
+      try {
+        const entries = fs
+          .readdirSync(dir, { withFileTypes: true })
+          .slice(0, 40);
+        for (const entry of entries) {
+          if (
+            entry.isDirectory() &&
+            !ignoreDirs.has(entry.name) &&
+            !entry.name.startsWith(".")
+          ) {
+            const child = walk(path.join(dir, entry.name), depth + 1);
+            if (child) children.push(child);
+          } else if (entry.isFile()) {
+            children.push({ name: entry.name });
+          }
+        }
+      } catch {
+        // skip
+      }
+      return children.length > 0 ? { name, children } : { name };
+    };
+
+    return walk(rootPath, 0);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // init_project_setup — one-shot initialization: set workspace + rebuild
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async init_project_setup(args: any): Promise<string> {
+    const {
+      workspaceRoot,
+      sourceDir,
+      projectId,
+      rebuildMode = "incremental",
+      withDocs = true,
+      profile = "compact",
+    } = args ?? {};
+
+    if (!workspaceRoot || typeof workspaceRoot !== "string") {
+      return this.errorEnvelope(
+        "INIT_MISSING_WORKSPACE",
+        "workspaceRoot is required",
+        false,
+        "Provide the absolute path to the project you want to initialize.",
+      );
+    }
+
+    const resolvedRoot = path.resolve(workspaceRoot);
+    if (!fs.existsSync(resolvedRoot)) {
+      return this.errorEnvelope(
+        "INIT_WORKSPACE_NOT_FOUND",
+        `Workspace path does not exist: ${resolvedRoot}`,
+        false,
+        "Ensure the project is accessible from this machine/container.",
+      );
+    }
+
+    const steps: Array<{ step: string; status: string; detail?: string }> = [];
+
+    try {
+      // Step 1 — graph_set_workspace
+      const setArgs: any = { workspaceRoot: resolvedRoot, profile };
+      if (sourceDir) setArgs.sourceDir = sourceDir;
+      if (projectId) setArgs.projectId = projectId;
+
+      let setResult: string;
+      try {
+        setResult = await this.graph_set_workspace(setArgs);
+        const setJson = JSON.parse(setResult);
+        if (setJson?.error) {
+          steps.push({ step: "graph_set_workspace", status: "failed", detail: setJson.error });
+          return this.formatSuccess({ steps, abortedAt: "graph_set_workspace" }, profile, "Initialization aborted at workspace setup", "init_project_setup");
+        }
+        const ctx = setJson?.data?.projectContext ?? setJson?.data ?? {};
+        steps.push({ step: "graph_set_workspace", status: "ok", detail: `projectId=${ctx.projectId ?? "?"}, sourceDir=${ctx.sourceDir ?? "?"}` });
+      } catch (err) {
+        steps.push({ step: "graph_set_workspace", status: "failed", detail: String(err) });
+        return this.formatSuccess({ steps, abortedAt: "graph_set_workspace" }, profile, "Initialization aborted at workspace setup", "init_project_setup");
+      }
+
+      // Step 2 — graph_rebuild
+      const rebuildArgs: any = {
+        workspaceRoot: resolvedRoot,
+        mode: rebuildMode,
+        indexDocs: withDocs,
+        profile,
+      };
+      if (sourceDir) rebuildArgs.sourceDir = sourceDir;
+      if (projectId) rebuildArgs.projectId = projectId;
+
+      try {
+        const rebuildResult = await this.graph_rebuild(rebuildArgs);
+        const rebuildJson = JSON.parse(rebuildResult);
+        if (rebuildJson?.error) {
+          steps.push({ step: "graph_rebuild", status: "failed", detail: rebuildJson.error });
+        } else {
+          steps.push({ step: "graph_rebuild", status: "queued", detail: `mode=${rebuildMode}, indexDocs=${withDocs}` });
+        }
+      } catch (err) {
+        steps.push({ step: "graph_rebuild", status: "failed", detail: String(err) });
+      }
+
+      // Step 3 — setup_copilot_instructions (generate if not present)
+      const copilotPath = path.join(resolvedRoot, ".github", "copilot-instructions.md");
+      if (!fs.existsSync(copilotPath)) {
+        try {
+          await this.setup_copilot_instructions({
+            targetPath: resolvedRoot,
+            dryRun: false,
+            overwrite: false,
+            profile: "compact",
+          });
+          steps.push({ step: "setup_copilot_instructions", status: "created", detail: ".github/copilot-instructions.md" });
+        } catch (err) {
+          steps.push({ step: "setup_copilot_instructions", status: "skipped", detail: String(err) });
+        }
+      } else {
+        steps.push({ step: "setup_copilot_instructions", status: "exists", detail: "File already present — skipped" });
+      }
+
+      const ctx = this.resolveProjectContext({
+        workspaceRoot: resolvedRoot,
+        ...(sourceDir ? { sourceDir } : {}),
+        ...(projectId ? { projectId } : {}),
+      });
+
+      return this.formatSuccess(
+        {
+          projectId: ctx.projectId,
+          workspaceRoot: ctx.workspaceRoot,
+          sourceDir: ctx.sourceDir,
+          steps,
+          nextAction: "Call graph_health to confirm the rebuild completed, then graph_query to start exploring.",
+        },
+        profile,
+        `Project ${ctx.projectId} initialized — graph rebuild queued`,
+        "init_project_setup",
+      );
+    } catch (error) {
+      return this.errorEnvelope(
+        "INIT_PROJECT_FAILED",
+        error instanceof Error ? error.message : String(error),
+        true,
+      );
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // setup_copilot_instructions — generate .github/copilot-instructions.md
+  // ──────────────────────────────────────────────────────────────────────────
+
+  async setup_copilot_instructions(args: any): Promise<string> {
+    const {
+      targetPath,
+      projectName: forceProjectName,
+      dryRun = false,
+      overwrite = false,
+      profile = "compact",
+    } = args ?? {};
+
+    // Resolve target (defaults to active workspace root)
+    let resolvedTarget: string;
+    if (targetPath && typeof targetPath === "string") {
+      resolvedTarget = path.resolve(targetPath);
+    } else {
+      const ctx = this.resolveProjectContext({});
+      resolvedTarget = ctx.workspaceRoot;
+    }
+
+    if (!fs.existsSync(resolvedTarget)) {
+      return this.errorEnvelope(
+        "COPILOT_INSTR_TARGET_NOT_FOUND",
+        `Target path does not exist: ${resolvedTarget}`,
+        false,
+        "Provide an accessible absolute path via targetPath parameter.",
+      );
+    }
+
+    const destFile = path.join(resolvedTarget, ".github", "copilot-instructions.md");
+    if (fs.existsSync(destFile) && !overwrite && !dryRun) {
+      return this.formatSuccess(
+        {
+          status: "already_exists",
+          path: destFile,
+          hint: "Pass overwrite=true to replace it.",
+        },
+        profile,
+        ".github/copilot-instructions.md already exists — skipped",
+        "setup_copilot_instructions",
+      );
+    }
+
+    try {
+      // ------ Gather project intelligence ------
+      const repoName = forceProjectName || path.basename(resolvedTarget);
+      const pkgPath = path.join(resolvedTarget, "package.json");
+      const pkgJson: any = fs.existsSync(pkgPath)
+        ? JSON.parse(fs.readFileSync(pkgPath, "utf-8"))
+        : null;
+
+      const name = forceProjectName || pkgJson?.name || repoName;
+      const description = pkgJson?.description || "";
+      const deps: Record<string, string> = {
+        ...(pkgJson?.dependencies ?? {}),
+        ...(pkgJson?.devDependencies ?? {}),
+      };
+
+      // Detect stack
+      const stack: string[] = [];
+      const isTypeScript =
+        fs.existsSync(path.join(resolvedTarget, "tsconfig.json")) ||
+        !!deps["typescript"];
+      const isNode =
+        !!pkgJson ||
+        fs.existsSync(path.join(resolvedTarget, "package.json"));
+      const isPython =
+        fs.existsSync(path.join(resolvedTarget, "pyproject.toml")) ||
+        fs.existsSync(path.join(resolvedTarget, "setup.py")) ||
+        fs.existsSync(path.join(resolvedTarget, "requirements.txt"));
+      const isGo = fs.existsSync(path.join(resolvedTarget, "go.mod"));
+      const isRust = fs.existsSync(path.join(resolvedTarget, "Cargo.toml"));
+      const isJava =
+        fs.existsSync(path.join(resolvedTarget, "pom.xml")) ||
+        fs.existsSync(path.join(resolvedTarget, "build.gradle"));
+      const isReact = !!deps["react"];
+      const isNextJs = !!deps["next"];
+      const isDocker =
+        fs.existsSync(path.join(resolvedTarget, "Dockerfile")) ||
+        fs.existsSync(path.join(resolvedTarget, "docker-compose.yml"));
+
+      if (isTypeScript) stack.push("TypeScript");
+      else if (isNode) stack.push("JavaScript / Node.js");
+      if (isPython) stack.push("Python");
+      if (isGo) stack.push("Go");
+      if (isRust) stack.push("Rust");
+      if (isJava) stack.push("Java");
+      if (isNextJs) stack.push("Next.js");
+      else if (isReact) stack.push("React");
+      if (isDocker) stack.push("Docker");
+
+      // Key scripts
+      const scripts = pkgJson?.scripts
+        ? Object.entries(pkgJson.scripts)
+            .slice(0, 10)
+            .map(([k, v]) => `- \`${k}\`: \`${v}\``)
+            .join("\n")
+        : "";
+
+      // Detect source dir
+      const candidateSrcDirs = ["src", "lib", "app", "packages", "source"];
+      const srcDir =
+        candidateSrcDirs.find((d) =>
+          fs.existsSync(path.join(resolvedTarget, d)),
+        ) ?? "src";
+
+      // Detect key sub-dirs
+      const srcPath = path.join(resolvedTarget, srcDir);
+      let subDirs: string[] = [];
+      if (fs.existsSync(srcPath)) {
+        try {
+          subDirs = fs
+            .readdirSync(srcPath, { withFileTypes: true })
+            .filter((e) => e.isDirectory())
+            .map((e) => e.name)
+            .slice(0, 10);
+        } catch { /* ignore */ }
+      }
+
+      // MCP endpoint detection
+      const isMcpServer =
+        !!deps["@modelcontextprotocol/sdk"] ||
+        fs.existsSync(path.join(resolvedTarget, "src", "mcp-server.ts")) ||
+        fs.existsSync(path.join(resolvedTarget, "src", "server.ts"));
+
+      // Compose the instructions doc
+      const lines: string[] = [
+        `# Copilot Instructions for ${name}`,
+        "",
+      ];
+      if (description) {
+        lines.push(description, "");
+      }
+
+      lines.push("## Primary Goal", "");
+      lines.push(
+        "Understand the codebase before making changes. Use graph-backed tools first for code intelligence, then fall back to file reads only when needed.",
+        "",
+      );
+
+      if (stack.length > 0) {
+        lines.push("## Runtime Truths", "");
+        lines.push(`- **Stack**: ${stack.join(", ")}`);
+        lines.push(`- **Source root**: \`${srcDir}/\``);
+        if (subDirs.length > 0) {
+          lines.push(`- **Key directories**: ${subDirs.map((d) => `\`${srcDir}/${d}\``).join(", ")}`);
+        }
+      }
+      if (scripts) {
+        lines.push("", "## Available Commands", "", scripts);
+      }
+
+      if (isMcpServer) {
+        lines.push(
+          "",
+          "## Required Session Flow (HTTP)",
+          "",
+          "1. Send `initialize`",
+          "2. Capture `mcp-session-id` from response header",
+          "3. Include `mcp-session-id` on all subsequent requests",
+          "4. Call `graph_set_workspace` — or use `init_project_setup` for a one-shot setup",
+          "5. Call `graph_rebuild`",
+          "6. Validate via `graph_health` and `graph_query`",
+        );
+      } else {
+        lines.push(
+          "",
+          "## Required Session Flow",
+          "",
+          "1. Call `init_project_setup` with the workspace path — this sets context, triggers graph rebuild, and creates copilot instructions in one step.",
+          "2. Validate with `graph_health`",
+          "3. Explore with `graph_query`",
+        );
+      }
+
+      lines.push(
+        "",
+        "## Tool Priority",
+        "",
+        "- Discovery/counts/listing: `graph_query`",
+        "- Dependency context: `code_explain`",
+        "- Architecture checks: `arch_validate`, `arch_suggest`",
+        "- Test impact: `impact_analyze`, `test_select`",
+        "- Similarity/search: `semantic_search`, `find_similar_code`",
+        "- Reference patterns: `ref_query` — query another repo on the same machine",
+        "- Docs: `search_docs`, `index_docs`",
+        "- Init: `init_project_setup` — one-shot workspace initialization",
+      );
+
+      lines.push(
+        "",
+        "## Output Requirements",
+        "",
+        "Always include:",
+        "",
+        "1. Active context (`projectId`, `workspaceRoot`)",
+        "2. Whether results are final or pending async rebuild",
+        "3. The single best next action",
+      );
+
+      lines.push("", `## Source of Truth`, "", `For configuration and setup details, see \`README.md\` and \`QUICK_START.md\`.`);
+
+      const content = lines.join("\n") + "\n";
+
+      if (dryRun) {
+        return this.formatSuccess(
+          {
+            dryRun: true,
+            targetPath: destFile,
+            content,
+          },
+          profile,
+          "Dry run — copilot-instructions.md content generated (not written)",
+          "setup_copilot_instructions",
+        );
+      }
+
+      // Write the file
+      const githubDir = path.join(resolvedTarget, ".github");
+      if (!fs.existsSync(githubDir)) {
+        fs.mkdirSync(githubDir, { recursive: true });
+      }
+      fs.writeFileSync(destFile, content, "utf-8");
+
+      return this.formatSuccess(
+        {
+          status: "created",
+          path: destFile,
+          projectName: name,
+          stackDetected: stack,
+          overwritten: overwrite && fs.existsSync(destFile),
+        },
+        profile,
+        `Copilot instructions written to ${path.relative(resolvedTarget, destFile)}`,
+        "setup_copilot_instructions",
+      );
+    } catch (error) {
+      return this.errorEnvelope(
+        "SETUP_COPILOT_FAILED",
+        error instanceof Error ? error.message : String(error),
         true,
       );
     }

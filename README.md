@@ -16,7 +16,7 @@ LexRAG Server is your MCP-native memory and code intelligence layer for smarter,
 Turn your repository into a queryable graph so your agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn — and so you can stop wasting context budget on files that haven't changed.
 
 **[→ QUICK_START.md](QUICK_START.md)** — deploy, connect your editor, wire Copilot or Claude, first query (~5 min).  
-**[→ QUICK_REFERENCE.md](QUICK_REFERENCE.md)** — all 35 tools with parameters.
+**[→ QUICK_REFERENCE.md](QUICK_REFERENCE.md)** — all 38 tools with parameters.
 
 ---
 
@@ -110,7 +110,7 @@ When you call `graph_query` in natural mode, retrieval runs as hybrid fusion:
 
 ## Tooling surface
 
-The server exposes **35 MCP tools** across:
+The server exposes **38 MCP tools** across:
 
 - Graph/querying (4): `graph_set_workspace`, `graph_rebuild`, `graph_health`, `graph_query`
 - Code intelligence (5): `code_explain`, `find_pattern`, `semantic_slice`, `context_pack`, `diff_since`
@@ -121,6 +121,8 @@ The server exposes **35 MCP tools** across:
 - Memory/coordination (8): `episode_add`, `episode_recall`, `decision_query`, `reflect`, `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
 - Runtime controls (1): `contract_validate`
 - Documentation (2): `index_docs`, `search_docs`
+- Reference (1): `ref_query` — query a sibling repo for architecture insights, patterns, and code examples
+- Setup (2): `init_project_setup`, `setup_copilot_instructions` — one-shot onboarding and AI assistant scaffolding
 
 ## Quick start
 
