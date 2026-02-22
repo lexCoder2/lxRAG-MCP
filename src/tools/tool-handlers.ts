@@ -1798,22 +1798,65 @@ export class ToolHandlers {
     const profile = args?.profile || "compact";
 
     try {
-      const stats = this.context.index.getStatistics();
-      const functionCount =
-        this.context.index.getNodesByType("FUNCTION").length;
-      const classCount = this.context.index.getNodesByType("CLASS").length;
-      const fileCount = this.context.index.getNodesByType("FILE").length;
-      const indexedSymbols = functionCount + classCount + fileCount;
+      const { workspaceRoot, sourceDir, projectId } = this.getActiveProjectContext();
 
-      const embeddingCount =
-        this.embeddingEngine?.getAllEmbeddings().length || 0;
+      // Query Memgraph for authoritative node and relationship counts
+      const nodeCountResult = await this.context.memgraph.executeCypher(
+        "MATCH (n {projectId: $projectId}) RETURN count(n) AS totalNodes",
+        { projectId },
+      );
+
+      const relCountResult = await this.context.memgraph.executeCypher(
+        "MATCH (n1 {projectId: $projectId})-[r]->(n2 {projectId: $projectId}) RETURN count(r) AS totalRels",
+        { projectId },
+      );
+
+      const fileCountResult = await this.context.memgraph.executeCypher(
+        "MATCH (f:FILE {projectId: $projectId}) RETURN count(f) AS fileCount",
+        { projectId },
+      );
+
+      const funcCountResult = await this.context.memgraph.executeCypher(
+        "MATCH (f:FUNCTION {projectId: $projectId}) RETURN count(f) AS funcCount",
+        { projectId },
+      );
+
+      const classCountResult = await this.context.memgraph.executeCypher(
+        "MATCH (c:CLASS {projectId: $projectId}) RETURN count(c) AS classCount",
+        { projectId },
+      );
+
+      // Extract values from Memgraph queries
+      const memgraphNodeCount = nodeCountResult.data?.[0]?.totalNodes || 0;
+      const memgraphRelCount = relCountResult.data?.[0]?.totalRels || 0;
+      const memgraphFileCount = fileCountResult.data?.[0]?.fileCount || 0;
+      const memgraphFuncCount = funcCountResult.data?.[0]?.funcCount || 0;
+      const memgraphClassCount = classCountResult.data?.[0]?.classCount || 0;
+
+      // Get index statistics for comparison
+      const indexStats = this.context.index.getStatistics();
+      const indexFileCount = this.context.index.getNodesByType("FILE").length;
+      const indexFuncCount = this.context.index.getNodesByType("FUNCTION").length;
+      const indexClassCount = this.context.index.getNodesByType("CLASS").length;
+      const indexedSymbols = indexFileCount + indexFuncCount + indexClassCount;
+
+      // Get embedding statistics
+      const embeddingCount = this.embeddingEngine?.getAllEmbeddings().length || 0;
       const embeddingCoverage =
-        indexedSymbols > 0
-          ? Number((embeddingCount / indexedSymbols).toFixed(3))
+        memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
+          ? Number(
+              (
+                embeddingCount /
+                (memgraphFuncCount + memgraphClassCount + memgraphFileCount)
+              ).toFixed(3),
+            )
           : 0;
-      const { workspaceRoot, sourceDir, projectId } =
-        this.getActiveProjectContext();
 
+      // Detect drift between systems
+      const indexDrift = indexStats.totalNodes !== memgraphNodeCount;
+      const embeddingDrift = embeddingCount < indexedSymbols;
+
+      // Get rebuild metadata
       const latestTxResult = await this.context.memgraph.executeCypher(
         "MATCH (tx:GRAPH_TX {projectId: $projectId}) RETURN tx.id AS id, tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
         { projectId },
@@ -1826,25 +1869,48 @@ export class ToolHandlers {
       const txCountRow = txCountResult.data?.[0] || {};
       const watcher = this.getActiveWatcher();
 
+      // Build recommendations
+      const recommendations: string[] = [];
+      if (indexDrift) {
+        recommendations.push("Index is out of sync with Memgraph - run graph_rebuild to synchronize");
+      }
+      if (embeddingDrift && this.embeddingsReady) {
+        recommendations.push("Some entities don't have embeddings - run semantic_search or graph_rebuild to generate them");
+      }
+
       return this.formatSuccess(
         {
-          status: "ok",
+          status: indexDrift ? "drift_detected" : "ok",
           projectId,
           workspaceRoot,
           sourceDir,
           memgraphConnected: this.context.memgraph.isConnected(),
           qdrantConnected: this.qdrant?.isConnected() || false,
           graphIndex: {
-            totalNodes: stats.totalNodes,
-            totalRelationships: stats.totalRelationships,
-            indexedFiles: fileCount,
-            indexedFunctions: functionCount,
-            indexedClasses: classCount,
+            totalNodes: memgraphNodeCount,
+            totalRelationships: memgraphRelCount,
+            indexedFiles: memgraphFileCount,
+            indexedFunctions: memgraphFuncCount,
+            indexedClasses: memgraphClassCount,
+          },
+          indexHealth: {
+            driftDetected: indexDrift,
+            memgraphNodes: memgraphNodeCount,
+            cachedNodes: indexStats.totalNodes,
+            memgraphRels: memgraphRelCount,
+            cachedRels: indexStats.totalRelationships,
+            recommendation: indexDrift
+              ? "Index out of sync - run graph_rebuild to refresh"
+              : "Index synchronized",
           },
           embeddings: {
             ready: this.embeddingsReady,
             generated: embeddingCount,
             coverage: embeddingCoverage,
+            driftDetected: embeddingDrift,
+            recommendation: embeddingDrift
+              ? "Embeddings incomplete - run semantic_search or rebuild to regenerate"
+              : "Embeddings complete",
           },
           retrieval: {
             bm25IndexExists: this.hybridRetriever?.bm25Mode === "native",
@@ -1867,9 +1933,10 @@ export class ToolHandlers {
           },
           pendingChanges: watcher?.pendingChanges ?? 0,
           watcherState: watcher?.state || "not_started",
+          recommendations,
         },
         profile,
-        "Graph health is OK.",
+        indexDrift ? "Graph drift detected - see recommendations" : "Graph health is OK.",
         "graph_health",
       );
     } catch (error) {
