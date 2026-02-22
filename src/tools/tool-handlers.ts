@@ -302,6 +302,12 @@ export class ToolHandlers {
       ],
     });
 
+    // Phase 2a: Reset embeddings for watcher-driven incremental builds
+    this.embeddingsReady = false;
+    console.log(
+      `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`,
+    );
+
     this.lastGraphRebuildAt = new Date().toISOString();
     this.lastGraphRebuildMode = "incremental";
   }
@@ -1739,7 +1745,33 @@ export class ToolHandlers {
             );
           }
 
-          if (mode === "full") {
+          if (mode === "incremental") {
+            // Phase 2a: Reset embeddings for incremental builds
+            // This ensures embeddings are regenerated for changed code on next semantic query
+            this.embeddingsReady = false;
+            console.log(
+              `[Phase2a] Embeddings flag reset for incremental rebuild of project ${projectId}`,
+            );
+          } else if (mode === "full") {
+            // Phase 2b: Auto-generate embeddings during full rebuild
+            // Make embeddings available immediately after full rebuild completes
+            try {
+              const generated = await this.embeddingEngine?.generateAllEmbeddings();
+              if (generated && generated.functions + generated.classes + generated.files > 0) {
+                await this.embeddingEngine?.storeInQdrant();
+                this.embeddingsReady = true;
+                console.log(
+                  `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
+                );
+              }
+            } catch (embeddingError) {
+              console.error(
+                `[Phase2b] Embedding generation failed during full rebuild for project ${projectId}:`,
+                embeddingError,
+              );
+              // Continue even if embeddings fail - not a critical error
+            }
+
             const bm25Result = await this.hybridRetriever?.ensureBM25Index();
             if (bm25Result?.created) {
               console.error(
