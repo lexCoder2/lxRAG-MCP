@@ -94,7 +94,8 @@ export class DocsEngine {
   ): Promise<DocsIndexResult> {
     const t0 = Date.now();
     const incremental = opts.incremental ?? true;
-    const withEmbeddings = opts.withEmbeddings ?? false;
+    // Phase 3.2: Enable doc embeddings by default
+    const withEmbeddings = opts.withEmbeddings ?? true;
     const txId = opts.txId ?? `doc-tx-${Date.now()}`;
 
     const files = findMarkdownFiles(workspaceRoot);
@@ -132,9 +133,20 @@ export class DocsEngine {
           continue;
         }
 
-        // Optional: embed sections into Qdrant
+        // Phase 3.2: Embed sections into Qdrant
         if (withEmbeddings && this.qdrant?.isConnected()) {
-          await this.embedDoc(doc, projectId);
+          try {
+            await this.embedDoc(doc, projectId);
+            console.log(
+              `[Phase3.2] Generated embeddings for documentation: ${doc.relativePath}`,
+            );
+          } catch (embeddingError) {
+            console.error(
+              `[Phase3.2] Failed to embed documentation ${doc.relativePath}:`,
+              embeddingError,
+            );
+            // Continue even if embeddings fail
+          }
         }
 
         result.indexed++;
