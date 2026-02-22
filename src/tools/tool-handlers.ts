@@ -1508,6 +1508,19 @@ export class ToolHandlers {
         );
       }
 
+      // Gap fix: Persist task update to Memgraph (Phase 2d compliance)
+      if (status || assignee || dueDate) {
+        const persistedSuccessfully = await this.progressEngine!.persistTaskUpdate(
+          taskId,
+          { status, assignee, dueDate },
+        );
+        if (!persistedSuccessfully) {
+          console.warn(
+            `[task_update] Failed to persist task update to Memgraph for ${taskId}`,
+          );
+        }
+      }
+
       const postActions: Record<string, unknown> = {};
       if (String(status || "").toLowerCase() === "completed") {
         const sessionId = this.getCurrentSessionId() || "session-unknown";
