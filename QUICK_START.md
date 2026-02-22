@@ -4,12 +4,14 @@ Everything you need to go from zero to a fully wired LexRAG instance: infrastruc
 
 The server supports two transports — pick the one that matches your client:
 
-| Transport | Best for                                               | Command              |
-| --------- | ------------------------------------------------------ | -------------------- |
-| **HTTP**  | VS Code Copilot, Claude extension, curl, remote agents | `npm run start:http` |
-| **stdio** | Claude Desktop, Claude Code, any stdio MCP client      | `npm run start`      |
+| Transport                | Best for                                                           | Command              |
+| ------------------------ | ------------------------------------------------------------------ | -------------------- |
+| **stdio** ✅ recommended | Claude Desktop, VS Code Copilot, Claude Code, any stdio MCP client | `npm run start`      |
+| **HTTP**                 | Remote agents, curl, multi-client fleets                           | `npm run start:http` |
 
-Both transports expose all 35 tools and require the same infrastructure (Memgraph + Qdrant).
+Both transports expose all 38 tools and require the same infrastructure (Memgraph + Qdrant).
+
+> **Recommended setup:** run the databases in Docker, run the MCP server directly on your host via stdio. No port management, no session ID headers — your editor spawns and owns the process.
 
 ---
 
@@ -38,9 +40,27 @@ export CODE_GRAPH_USE_TREE_SITTER=true
 
 ## 2. Start infrastructure
 
-### Option A — Full Docker Compose (recommended)
+### Option A — DBs in Docker, server on host ✅ recommended
 
-All four services start as containers. The graph server indexes the project mounted at `CODE_GRAPH_TARGET_WORKSPACE`.
+Run only Memgraph and Qdrant in Docker. The MCP server runs on your host and is managed by your editor via stdio — no image rebuilds, native paths, easy restarts.
+
+```bash
+# Start only the databases
+docker compose up -d memgraph qdrant
+docker compose ps   # wait for memgraph to show "healthy" (~30 s)
+```
+
+| Service         | URL                                                                       |
+| --------------- | ------------------------------------------------------------------------- |
+| Memgraph        | `bolt://localhost:7687`                                                   |
+| Qdrant REST API | `http://localhost:6333`                                                   |
+| Memgraph Lab UI | `http://localhost:3000` (optional — add `memgraph-lab` to the up command) |
+
+Then configure your editor to spawn the server process (see Routes below). Use native absolute host paths in `graph_set_workspace`.
+
+### Option B — Full Docker Compose
+
+All services start as containers including the MCP HTTP server. Good for remote access or team deployments.
 
 ```bash
 export CODE_GRAPH_TARGET_WORKSPACE=/absolute/path/to/your-project
@@ -56,32 +76,6 @@ docker compose ps   # wait for "healthy" on all services (~30 s)
 | Qdrant REST API | `http://localhost:6333`        |
 
 > **Docker path note:** your project is mounted at `/workspace` inside the container. Use `/workspace` (not the host path) when calling `graph_set_workspace` in Docker mode.
-
-### Option B — DBs in Docker, server on host
-
-Better for development — edit TypeScript and restart without rebuilding an image.
-
-```bash
-# Start only the databases
-docker compose up -d memgraph qdrant
-docker compose ps   # wait for memgraph to be healthy
-
-# Start the server on the host
-export MEMGRAPH_HOST=localhost
-export MEMGRAPH_PORT=7687
-export QDRANT_HOST=localhost
-export QDRANT_PORT=6333
-
-npm run start:http
-# [CodeGraphServer] MCP HTTP server started on port 9000
-```
-
-```bash
-curl http://localhost:9000/health
-# {"status":"ok"}
-```
-
-> In host mode use native absolute paths in `graph_set_workspace` (e.g. `/home/you/your-project`).
 
 ---
 
@@ -154,14 +148,41 @@ curl -s -X POST http://localhost:9000/mcp \
         "arguments":{"symbol":"GraphOrchestrator","depth":2}}}'
 ```
 
-### Connect VS Code Copilot (HTTP)
+### Connect VS Code Copilot ✅ recommended — stdio
 
-Create `.vscode/mcp.json` in the root of **your project** and commit it so every contributor gets the integration:
+Create `.vscode/mcp.json` in the root of **your project** and commit it. VS Code spawns the server process automatically — no HTTP port needed.
 
 ```json
 {
   "servers": {
-    "code-graph": {
+    "lexrag": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/lexRAG-MCP/dist/server.js"],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "MEMGRAPH_HOST": "localhost",
+        "MEMGRAPH_PORT": "7687",
+        "QDRANT_HOST": "localhost",
+        "QDRANT_PORT": "6333",
+        "CODE_GRAPH_WORKSPACE_ROOT": "${workspaceFolder}",
+        "CODE_GRAPH_PROJECT_ID": "my-repo"
+      }
+    }
+  }
+}
+```
+
+Open Copilot Chat → switch to **Agent** mode → the 38 tools are available immediately.
+
+> With stdio, VS Code owns the server lifecycle. You still need to call `graph_set_workspace` + `graph_rebuild` once per session (or use `init_project_setup` to do both in one step).
+
+#### Alternative — HTTP (if you prefer a persistent server process)
+
+```json
+{
+  "servers": {
+    "lexrag": {
       "type": "http",
       "url": "http://localhost:9000/mcp"
     }
@@ -173,18 +194,16 @@ Or add it globally via **VS Code Settings** (`Cmd/Ctrl+,`) → search `mcp`:
 
 ```json
 "github.copilot.chat.mcp.servers": {
-  "code-graph": {
+  "lexrag": {
     "type": "http",
     "url": "http://localhost:9000/mcp"
   }
 }
 ```
 
-Open Copilot Chat → switch to **Agent** mode → the 35 tools are available immediately.
+### Connect the Claude VS Code extension
 
-### Connect the Claude VS Code extension (HTTP)
-
-The Claude extension reads the same `.vscode/mcp.json`. No extra config needed once the file is in place.
+The Claude extension reads the same `.vscode/mcp.json`. The stdio config above works as-is — no extra configuration needed.
 
 ---
 
@@ -226,32 +245,9 @@ Edit the config file for your OS:
 
 Restart Claude Desktop. The `code-graph` tools appear in the tool panel automatically.
 
-### Connect VS Code Copilot (stdio process mode)
+### Connect VS Code Copilot (stdio)
 
-Add to `.vscode/mcp.json` in your project:
-
-```json
-{
-  "servers": {
-    "code-graph": {
-      "type": "stdio",
-      "command": "node",
-      "args": ["/absolute/path/to/code-graph-server/dist/server.js"],
-      "env": {
-        "MCP_TRANSPORT": "stdio",
-        "MEMGRAPH_HOST": "localhost",
-        "MEMGRAPH_PORT": "7687",
-        "QDRANT_HOST": "localhost",
-        "QDRANT_PORT": "6333",
-        "CODE_GRAPH_WORKSPACE_ROOT": "${workspaceFolder}",
-        "CODE_GRAPH_PROJECT_ID": "my-repo"
-      }
-    }
-  }
-}
-```
-
-> With stdio, the client sends `initialize` and manages the session internally. You still need to call `graph_set_workspace` and `graph_rebuild` once per session.
+Use the `.vscode/mcp.json` config shown in **Route A** above — it already uses stdio by default.
 
 ---
 

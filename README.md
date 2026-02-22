@@ -20,6 +20,8 @@ LexRAG Server is your MCP-native memory and code intelligence layer for smarter,
 
 Turn your repository into a queryable graph so your agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn — and so you can stop wasting context budget on files that haven't changed.
 
+If you find this project helpful (I hope you do) consider [buying me a coffee ☕](https://buymeacoffee.com/hi8g)
+
 ---
 
 ## At a glance
@@ -128,6 +130,8 @@ The server exposes **38 MCP tools** across:
 
 ## Quick start
 
+> **Recommended setup:** run Memgraph and Qdrant in Docker (`docker compose up -d memgraph qdrant`), then run the MCP server on your host via stdio. Your editor spawns the process directly — native filesystem paths, no HTTP port, no session headers.
+
 ### Prerequisites
 
 - Node.js 24+
@@ -135,7 +139,7 @@ The server exposes **38 MCP tools** across:
 
 > See [QUICK_START.md](QUICK_START.md) for full VS Code + Copilot/Claude wiring instructions.
 
-### 1) Install and build
+### 1) Clone and build
 
 ```bash
 git clone https://github.com/lexCoder2/lexRAG-MCP.git
@@ -143,30 +147,81 @@ cd lexRAG-MCP
 npm install && npm run build
 ```
 
-### 2) Start infrastructure and server
+### 2) Start the databases
+
+Launch only Memgraph and Qdrant — the MCP server runs locally via stdio, not in Docker:
 
 ```bash
-export CODE_GRAPH_TARGET_WORKSPACE=/path/to/your-project
-docker compose up -d
+docker compose up -d memgraph qdrant
 ```
 
-Verify everything is healthy:
+Verify they are healthy:
 
 ```bash
-docker compose ps          # all services should show "healthy"
-curl http://localhost:9000/health   # {"status":"ok"}
+docker compose ps memgraph qdrant   # both should show "healthy" / "running"
 ```
 
-### 3) MCP session flow
+### 3) Configure stdio in your editor
 
-Every client session needs this one-time sequence before tools return results:
+**VS Code** — add to your `.vscode/mcp.json` (or user `settings.json`):
 
-1. `initialize` — capture the `mcp-session-id` from the response header
-2. `graph_set_workspace` — point the server at your project
-3. `graph_rebuild` — index your code (async; usually 5–30 s)
-4. `graph_query` / any other tool — you're ready
+```json
+{
+  "servers": {
+    "lexrag": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/lexRAG-MCP/dist/server.js"],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "MEMGRAPH_HOST": "localhost",
+        "MEMGRAPH_PORT": "7687",
+        "QDRANT_HOST": "localhost",
+        "QDRANT_PORT": "6333"
+      }
+    }
+  }
+}
+```
 
-### MCP session flow diagram
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "lexrag": {
+      "command": "node",
+      "args": ["/absolute/path/to/lexRAG-MCP/dist/server.js"],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "MEMGRAPH_HOST": "localhost",
+        "MEMGRAPH_PORT": "7687",
+        "QDRANT_HOST": "localhost",
+        "QDRANT_PORT": "6333"
+      }
+    }
+  }
+}
+```
+
+### 4) Initialize your project
+
+Once the server is connected in your editor, run this single tool call to set context, index the graph, and generate copilot instructions in one step:
+
+```json
+{
+  "name": "init_project_setup",
+  "arguments": {
+    "workspaceRoot": "/absolute/path/to/your-project",
+    "sourceDir": "src",
+    "projectId": "my-repo"
+  }
+}
+```
+
+That's it — the graph rebuild runs in the background and your project is ready to query.
+
+### Session flow diagram
 
 ![MCP HTTP Session Flow](docs/diagrams/mcp-session-flow.svg)
 
@@ -222,14 +277,14 @@ Every client session needs this one-time sequence before tools return results:
 
 ## Runtime modes
 
-- **stdio**: best for local editor integrations and short-lived sessions
-- **http**: best for multi-client agent fleets and remote orchestration
+- **stdio** ✅ recommended for local editor integrations (VS Code, Claude Desktop, Cursor) — simplest setup, no HTTP port or session headers needed
+- **http** — for multi-client agent fleets, remote access, or automation pipelines that need concurrent sessions
 
 ### Useful scripts
 
 ```bash
-npm run start          # stdio server entry point
-npm run start:http     # HTTP supervisor (recommended)
+npm run start          # stdio server (recommended for editor use)
+npm run start:http     # HTTP supervisor (multi-session / remote)
 npm run build          # compile TypeScript
 npm test               # run all 109 tests
 ```
