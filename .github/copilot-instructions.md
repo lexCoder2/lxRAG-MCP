@@ -1,62 +1,62 @@
-# Copilot Instructions for lexRAG MCP
-
-You are working in the lexRAG MCP repository.
+# Copilot Instructions for lexRAG MCP (code-graph-server)
 
 ## Primary Goal
 
 Use graph-backed tools first for code intelligence, then fall back to file reads only when needed.
+This server powers the StratsOlver graphExpert agent used by all sibling projects.
 
 ## Runtime Truths
 
-- MCP HTTP endpoints: `POST /` and `POST /mcp`
-- Health endpoint: `GET /health`
-- Workspace context is session-scoped (per MCP session)
-- Graph rebuild is asynchronous (`status: QUEUED`)
-- Docker image: `memgraph/memgraph-mage:latest` (provides Leiden, PageRank PPR, text_search)
-- Set `CODE_GRAPH_USE_TREE_SITTER=true` to enable AST-accurate parsers for TS/TSX/JS/JSX/Python/Go/Rust/Java
+- **Transport**: stdio (Node.js `dist/server.js`) — WSL users: use absolute nvm path
+- **Entry**: `wsl -- /home/alex_rod/.nvm/versions/node/v22.17.0/bin/node /home/alex_rod/code-graph-server/dist/server.js`
+- **Session**: workspace context is per MCP session — always call `graph_set_workspace` first
+- **Graph rebuild**: asynchronous (`status: QUEUED`) — wait before intensive queries
+- **Docker image**: `memgraph/memgraph-mage:latest` (Leiden, PageRank PPR, text_search)
+- **Tree-sitter**: set `CODE_GRAPH_USE_TREE_SITTER=true` for AST-accurate TS/TSX/JS/Python/Go/Rust/Java
 
-## Required Session Flow (HTTP)
+## Required Session Flow
 
-1. Send `initialize`
-2. Capture `mcp-session-id` from response header
-3. Include `mcp-session-id` on all subsequent requests in that VS Code window/session
-4. Call `graph_set_workspace`
-5. Call `graph_rebuild`
+1. `init_project_setup(workspaceRoot)` — sets context + triggers rebuild + generates instructions
+2. `graph_health` — verify rebuild completed
+3. `graph_query` — start exploration
 
-6. Validate via `graph_health` and `graph_query`
+## Active Projects Using This Server
 
-## Path Rules
-
-- Docker runtime: use mounted container paths (commonly `/workspace`)
-- Host runtime (Windows/Linux/macOS): use native absolute paths
-- If requested path is inaccessible in Docker, report mount/path fix clearly
+| Project | Path | projectId |
+|---------|------|-----------|
+| cad-engine | `/home/alex_rod/projects/cad-engine` | `cad-engine` |
+| cad-web | `/home/alex_rod/projects/cad-web` | `cad-web` |
 
 ## Tool Priority
 
-- Discovery/counts/listing: `graph_query`
-- Dependency context: `code_explain`
-- Architecture checks: `arch_validate`, `find_pattern`, `arch_suggest`
-- Test impact: `impact_analyze`, `test_select`, `test_run`
-- Similarity/search: `semantic_search`, `find_similar_code`, `code_clusters`
-- Progress: `progress_query`, `feature_status`, `task_update`, `blocking_issues`
-- Memory: `episode_add`, `episode_recall`, `decision_query`, `reflect`
-- Coordination: `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
-- Validation/normalization: `contract_validate`
+| Task | Primary tool |
+|------|-------------|
+| Discovery / counts / listing | `graph_query` |
+| Understand a symbol | `code_explain` |
+| What breaks if I change X | `impact_analyze` |
+| Where should new code go | `arch_suggest` |
+| Layer rule violations | `arch_validate` |
+| Tests affected by a change | `test_select` |
+| Search by concept | `semantic_search` |
+| Borrow from reference repo | `ref_query` |
+| Track progress | `progress_query`, `feature_status`, `task_update` |
+| Persist decisions | `episode_add`, `decision_query` |
+| Coordination | `agent_claim`, `agent_release` |
+
+## Path Rules
+
+- Host runtime (WSL/Linux): use native absolute Linux paths
+- Docker runtime: use mounted container paths (`/workspace`)
+- Never guess paths — verify with `graph_query` or `list_dir`
 
 ## Output Requirements
 
-Always include:
+Every response must include:
 
 1. Active context (`projectId`, `workspaceRoot`)
-2. Whether results are final or pending async rebuild
+2. Whether graph results are final or pending async rebuild
 3. The single best next action
-   MATCH (n)
-   WHERE n.projectId = $projectId
-   OPTIONAL MATCH (n)-[r]-(m)
-   WHERE m.projectId = $projectId
-   RETURN n, r, m
-   LIMIT 2000;
 
 ## Source of Truth
 
-For full runbook details, use `docs/GRAPH_EXPERT_AGENT.md`.
+Full runbook: `docs/GRAPH_EXPERT_AGENT.md`
