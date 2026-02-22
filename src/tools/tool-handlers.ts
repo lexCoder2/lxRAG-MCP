@@ -68,6 +68,9 @@ export class ToolHandlers {
   private projectEmbeddingsReady = new Map<string, boolean>();
   private lastGraphRebuildAt?: string;
   private lastGraphRebuildMode?: "full" | "incremental";
+  // Phase 4.5: Track background build errors for diagnostics
+  private backgroundBuildErrors = new Map<string, Array<{timestamp: number, error: string, context?: string}>>();
+  private readonly maxBuildErrorsPerProject = 10;
   private defaultActiveProjectContext: ProjectContext;
   private sessionProjectContexts = new Map<string, ProjectContext>();
   private sessionWatchers = new Map<string, FileWatcher>();
@@ -312,6 +315,35 @@ export class ToolHandlers {
     this.sessionWatchers.clear();
     this.sessionProjectContexts.clear();
     console.log(`[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`);
+  }
+
+  /**
+   * Phase 4.5: Record background build error for diagnostics
+   */
+  private recordBuildError(projectId: string, error: unknown, context?: string): void {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const errors = this.backgroundBuildErrors.get(projectId) || [];
+
+    errors.push({
+      timestamp: Date.now(),
+      error: errorMsg,
+      context,
+    });
+
+    // Keep history bounded
+    if (errors.length > this.maxBuildErrorsPerProject) {
+      errors.shift();
+    }
+
+    this.backgroundBuildErrors.set(projectId, errors);
+  }
+
+  /**
+   * Phase 4.5: Get recent build errors for a project
+   */
+  private getRecentBuildErrors(projectId: string, limit: number = 5): Array<{timestamp: number, error: string, context?: string}> {
+    const errors = this.backgroundBuildErrors.get(projectId) || [];
+    return errors.slice(-limit);
   }
 
   /**
@@ -880,6 +912,7 @@ export class ToolHandlers {
   }
 
   // Phase 4.3: Project-scoped embedding readiness check to prevent race conditions
+  // Phase 4.5: Improved error handling for Qdrant operations
   private async ensureEmbeddings(projectId?: string): Promise<void> {
     const activeProjectId = projectId || this.getActiveProjectContext().projectId;
 
@@ -887,13 +920,34 @@ export class ToolHandlers {
       return;
     }
 
-    const generated = await this.embeddingEngine.generateAllEmbeddings();
-    if (generated.functions + generated.classes + generated.files === 0) {
-      throw new Error("No indexed symbols found. Run graph_rebuild first.");
-    }
+    try {
+      const generated = await this.embeddingEngine.generateAllEmbeddings();
+      if (generated.functions + generated.classes + generated.files === 0) {
+        throw new Error("No indexed symbols found. Run graph_rebuild first.");
+      }
 
-    await this.embeddingEngine.storeInQdrant();
-    this.setProjectEmbeddingsReady(activeProjectId, true);
+      try {
+        await this.embeddingEngine.storeInQdrant();
+      } catch (qdrantError) {
+        const errorMsg = qdrantError instanceof Error ? qdrantError.message : String(qdrantError);
+        console.error(
+          `[Phase4.5] Qdrant storage failed for project ${activeProjectId}: ${errorMsg}`,
+        );
+        // Don't throw - continue with embeddings ready flag set locally
+        // Qdrant failures are non-critical for indexing functionality
+        console.warn(
+          `[Phase4.5] Continuing without Qdrant - semantic search may be unavailable for project ${activeProjectId}`,
+        );
+      }
+
+      this.setProjectEmbeddingsReady(activeProjectId, true);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[Phase4.5] Embedding generation failed for project ${activeProjectId}: ${errorMsg}`,
+      );
+      throw error;
+    }
   }
 
   private resolveElement(elementId: string): GraphNode | undefined {
@@ -1941,9 +1995,20 @@ export class ToolHandlers {
             );
           }
         })
-        .catch((err) =>
-          console.error("[GraphOrchestrator] Background build error:", err),
-        );
+        .catch((err) => {
+          // Phase 4.5: Track background build errors for diagnostics
+          const context = `mode=${mode}, projectId=${projectId}`;
+          this.recordBuildError(projectId, err, context);
+
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          const stack = err instanceof Error ? err.stack : "";
+          console.error(
+            `[Phase4.5] Background build failed for project ${projectId} (${mode}): ${errorMsg}`,
+          );
+          if (stack) {
+            console.error(`[Phase4.5] Stack trace: ${stack.substring(0, 500)}`);
+          }
+        });
 
       this.lastGraphRebuildAt = new Date().toISOString();
       this.lastGraphRebuildMode = mode;
@@ -2103,6 +2168,8 @@ export class ToolHandlers {
             latestTxId: latestTxRow.id ?? null,
             latestTxTimestamp: latestTxRow.timestamp ?? null,
             txCount: txCountRow.txCount ?? 0,
+            // Phase 4.5: Include recent build errors in diagnostics
+            recentErrors: this.getRecentBuildErrors(projectId, 3),
           },
           freshness: {
             staleFileEstimate: null,
