@@ -530,6 +530,16 @@ export class ArchitectureEngine {
   }
 
   /**
+   * Reload engine state from updated graph index
+   * Called when project context changes
+   */
+  reload(_index: GraphIndexManager, projectId?: string): void {
+    console.log(`[ArchitectureEngine] Reloading architecture validation (projectId=${projectId})`);
+    // ArchitectureEngine doesn't hold project-specific state in index
+    // so reload is mainly for consistency with other engines
+  }
+
+  /**
    * Map violation type to a rule ID
    */
   private mapViolationTypeToRuleId(type: string): string | null {

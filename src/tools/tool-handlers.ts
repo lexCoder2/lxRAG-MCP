@@ -100,10 +100,29 @@ export class ToolHandlers {
     const sessionId = this.getCurrentSessionId();
     if (!sessionId) {
       this.defaultActiveProjectContext = context;
-      return;
+    } else {
+      this.sessionProjectContexts.set(sessionId, context);
     }
 
-    this.sessionProjectContexts.set(sessionId, context);
+    // Reload engines with new project context
+    this.reloadEnginesForContext(context);
+  }
+
+  private reloadEnginesForContext(context: ProjectContext): void {
+    console.log(`[ToolHandlers] Reloading engines for project context: ${context.projectId}`);
+
+    try {
+      this.progressEngine?.reload(this.context.index, context.projectId);
+      this.testEngine?.reload(this.context.index, context.projectId);
+      if (this.archEngine) {
+        this.archEngine.reload(this.context.index, context.projectId);
+      }
+
+      // Reset embedding flag to regenerate for new project
+      this.embeddingsReady = false;
+    } catch (error) {
+      console.error("[ToolHandlers] Failed to reload engines:", error);
+    }
   }
 
   private defaultProjectContext(): ProjectContext {

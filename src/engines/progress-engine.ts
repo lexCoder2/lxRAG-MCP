@@ -440,6 +440,38 @@ export class ProgressEngine {
   }
 
   /**
+   * Reload engine state from updated graph index
+   * Called when project context changes to refresh feature/task data
+   */
+  reload(index: GraphIndexManager, projectId?: string): void {
+    console.log(`[ProgressEngine] Reloading features and tasks (projectId=${projectId})`);
+
+    this.index = index;
+    this.features.clear();
+    this.tasks.clear();
+    this.loadFromGraph();
+
+    // Filter by projectId if provided
+    if (projectId) {
+      for (const [id] of this.features.entries()) {
+        if (!id.startsWith(`${projectId}:`)) {
+          this.features.delete(id);
+        }
+      }
+
+      for (const [id] of this.tasks.entries()) {
+        if (!id.startsWith(`${projectId}:`)) {
+          this.tasks.delete(id);
+        }
+      }
+    }
+
+    const featureCount = this.features.size;
+    const taskCount = this.tasks.size;
+    console.log(`[ProgressEngine] Reloaded ${featureCount} features and ${taskCount} tasks`);
+  }
+
+  /**
    * Export progress data to JSON
    */
   export(): string {

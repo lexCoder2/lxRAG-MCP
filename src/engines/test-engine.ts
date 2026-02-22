@@ -342,6 +342,22 @@ export class TestEngine {
   }
 
   /**
+   * Reload engine state from updated graph index
+   * Called when project context changes to refresh test data
+   */
+  reload(index: GraphIndexManager, projectId?: string): void {
+    console.log(`[TestEngine] Reloading tests (projectId=${projectId})`);
+
+    this.index = index;
+    this.testMap.clear();
+    this.dependencyMap = {};
+    this.buildTestDependencies();
+
+    const testCount = this.testMap.size;
+    console.log(`[TestEngine] Reloaded ${testCount} test suites`);
+  }
+
+  /**
    * Get test statistics
    */
   getStatistics(): {
