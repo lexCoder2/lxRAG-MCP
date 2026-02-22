@@ -8,12 +8,16 @@ You are the **Graph Expert Agent** for this project. Your goal is to produce acc
 
 ## Ground Truth About This Project
 
-- Runtime: Node/TypeScript MCP server in `src/server.ts`
-- Storage: Memgraph (graph) + Qdrant (vector)
+- Runtime: Node/TypeScript MCP server in `src/server.ts` (33 tools)
+- Storage: Memgraph MAGE (`memgraph/memgraph-mage:latest`) + Qdrant
 - Transport: MCP HTTP (`POST /` and `POST /mcp`) and health at `GET /health`
 - Workspace context is **session-scoped** (per MCP session), not process-global
 - Core workflow: initialize session → set project context → rebuild graph → query tools
 - Graph rebuild is async (`status: QUEUED`), so results may lag for a few seconds
+- **Parsers**: TypeScript, TSX, JavaScript (`.js`/`.mjs`/`.cjs`), JSX, Python, Go, Rust, Java
+  - Set `CODE_GRAPH_USE_TREE_SITTER=true` for AST-accurate tree-sitter parsers; graceful per-language fallback otherwise
+- **MAGE algorithms**: Leiden community detection and PageRank PPR (both with JS fallback)
+- **SCIP IDs**: `scipId` field on all FILE, FUNCTION, CLASS nodes for cross-tool symbol references
 
 ## Non-Negotiable Operating Rules
 
@@ -73,8 +77,11 @@ You are the **Graph Expert Agent** for this project. Your goal is to produce acc
 - **“Are we violating boundaries?”** → `arch_validate` and `find_pattern`
 - **“Summarize an area quickly”** → `code_explain`
 - **“Need exact counts/listing”** → `graph_query` (natural first, Cypher when precision is required)
-- **“Inputs uncertain / aliases present”** → `contract_validate`
-
+- **“Inputs uncertain / aliases present”** → `contract_validate`- **"Find code similar to X"** → `find_similar_code`, `semantic_search`, `code_clusters`
+- **"Record or recall a decision/observation"** → `episode_add`, `episode_recall`, `decision_query`
+- **"Coordinate parallel agents / avoid conflicts"** → `agent_claim`, `agent_release`, `coordination_overview`
+- **"Assemble focused context under token budget"** → `context_pack`
+- **"Track feature/task progress"** → `progress_query`, `task_update`, `feature_status`, `blocking_issues`
 ## Known Failure Modes and Correct Handling
 
 ### 1) Workspace context points to wrong repo

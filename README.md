@@ -2,7 +2,7 @@
 
 ![MCP](https://img.shields.io/badge/MCP-JSON--RPC%202.0-7A52F4)
 ![Transport](https://img.shields.io/badge/Transport-stdio%20%7C%20http-0EA5E9)
-![Runtime](https://img.shields.io/badge/Node.js-18%2B-339933)
+![Runtime](https://img.shields.io/badge/Node.js-24%2B-339933)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
 ![Graph](https://img.shields.io/badge/Graph-Memgraph-00B894)
 ![License](https://img.shields.io/badge/License-MIT-F59E0B)
@@ -80,20 +80,22 @@ Retrieval for natural queries uses hybrid fusion:
 
 ## Tooling surface
 
-The server exposes 20+ MCP tools across:
+The server exposes **33 MCP tools** across:
 
-- Graph/querying: `graph_query`, `code_explain`, `find_pattern`, `semantic_slice`, `context_pack`
-- Architecture: `arch_validate`, `arch_suggest`
-- Test intelligence: `test_select`, `test_categorize`, `impact_analyze`, `test_run`, `suggest_tests`
-- Progress/operations: `progress_query`, `task_update`, `feature_status`, `blocking_issues`
-- Memory/coordination: `episode_add`, `episode_recall`, `decision_query`, `reflect`, `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
-- Runtime controls: `graph_set_workspace`, `graph_rebuild`, `graph_health`, `contract_validate`
+- Graph/querying (4): `graph_set_workspace`, `graph_rebuild`, `graph_health`, `graph_query`
+- Code intelligence (5): `code_explain`, `find_pattern`, `semantic_slice`, `context_pack`, `diff_since`
+- Architecture (2): `arch_validate`, `arch_suggest`
+- Semantic/similarity (4): `semantic_search`, `find_similar_code`, `code_clusters`, `semantic_diff`
+- Test intelligence (5): `test_select`, `test_categorize`, `impact_analyze`, `test_run`, `suggest_tests`
+- Progress/operations (4): `progress_query`, `task_update`, `feature_status`, `blocking_issues`
+- Memory/coordination (8): `episode_add`, `episode_recall`, `decision_query`, `reflect`, `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
+- Runtime controls (1): `contract_validate`
 
 ## Quick start
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 24+
 - Docker + Docker Compose
 - Python 3 (for benchmark utilities)
 
@@ -212,24 +214,30 @@ Scripts:
 
 ## Product status
 
-Current branch includes delivered slices for:
+All phases delivered and production-ready:
 
-- Hybrid retrieval for natural `graph_query`
-- Multi-language parser scaffolding and registry
+- Hybrid retrieval for natural `graph_query` (vector + BM25 + graph + RRF)
+- AST-accurate multi-language parsers via tree-sitter (`CODE_GRAPH_USE_TREE_SITTER=true`)
+- TypeScript, TSX, JavaScript (`.js`/`.mjs`/`.cjs`), JSX, Python, Go, Rust, Java
 - Watcher-driven incremental rebuild processing
 - Temporal query/diff support (`asOf`, `diff_since`)
 - Indexing-time symbol summarization
 - Optional Memgraph `text_search` BM25 path with safe fallback
+- MAGE native Leiden community detection and PageRank PPR with graceful fallback
+- SCIP IDs (`scipId` field) on all FILE, FUNCTION, and CLASS nodes
+- Episode memory, agent coordination, context packs, response budget shaping
 
 ## Release highlights
 
-Recent delivery milestones and user-facing impact:
+Delivery milestones and user-facing impact:
 
-- **Hybrid natural retrieval**: natural `graph_query` now uses vector + lexical + graph fusion, improving relevance for cross-file questions.
+- **Hybrid natural retrieval**: natural `graph_query` uses vector + lexical + graph fusion with RRF, giving better cross-file relevance.
+- **Tree-sitter AST parsers**: TypeScript, TSX, JavaScript, JSX, Python, Go, Rust, and Java — activated via `CODE_GRAPH_USE_TREE_SITTER=true`, with per-language graceful fallback.
+- **MAGE native algorithms**: Leiden community detection and PageRank PPR via `memgraph-mage`, with JS fallbacks for environments without MAGE.
+- **SCIP IDs**: `scipId` field on all FILE, FUNCTION, and CLASS nodes enables precise cross-tool symbol references.
 - **Lower-token answers**: indexing-time symbol summaries reduce payload size in compact workflows while keeping responses actionable.
 - **Temporal analysis**: `asOf` and `diff_since` support historical reasoning and change auditing across graph state.
 - **Always-fresh graph**: file watcher + changed-files incremental rebuilds reduce manual refresh loops and keep MCP answers current.
-- **Broader language path**: parser registry and multi-language scaffolding prepare the same workflow for Python/Go/Rust/Java repositories.
 - **Safer retrieval fallback**: optional Memgraph BM25 `text_search` is used when available, with automatic lexical fallback to avoid runtime breaks.
 
 ## Benchmarks and quality gates

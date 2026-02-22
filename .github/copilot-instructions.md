@@ -12,6 +12,8 @@ Use graph-backed tools first for code intelligence, then fall back to file reads
 - Health endpoint: `GET /health`
 - Workspace context is session-scoped (per MCP session)
 - Graph rebuild is asynchronous (`status: QUEUED`)
+- Docker image: `memgraph/memgraph-mage:latest` (provides Leiden, PageRank PPR, text_search)
+- Set `CODE_GRAPH_USE_TREE_SITTER=true` to enable AST-accurate parsers for TS/TSX/JS/JSX/Python/Go/Rust/Java
 
 ## Required Session Flow (HTTP)
 
@@ -35,7 +37,10 @@ Use graph-backed tools first for code intelligence, then fall back to file reads
 - Dependency context: `code_explain`
 - Architecture checks: `arch_validate`, `find_pattern`, `arch_suggest`
 - Test impact: `impact_analyze`, `test_select`, `test_run`
+- Similarity/search: `semantic_search`, `find_similar_code`, `code_clusters`
 - Progress: `progress_query`, `feature_status`, `task_update`, `blocking_issues`
+- Memory: `episode_add`, `episode_recall`, `decision_query`, `reflect`
+- Coordination: `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
 - Validation/normalization: `contract_validate`
 
 ## Output Requirements
