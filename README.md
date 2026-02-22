@@ -1,4 +1,8 @@
-# Code Graph Server
+<div align="center">
+  <img src="docs/brain-logo.svg" alt="Code Graph Server Logo" width="200" />
+  <h1>LexRAG MCP</h1>
+  <p>A memory and code intelligence layer for software agents.</p>  
+</div>
 
 ![MCP](https://img.shields.io/badge/MCP-JSON--RPC%202.0-7A52F4)
 ![Transport](https://img.shields.io/badge/Transport-stdio%20%7C%20http-0EA5E9)
@@ -7,7 +11,7 @@
 ![Graph](https://img.shields.io/badge/Graph-Memgraph-00B894)
 ![License](https://img.shields.io/badge/License-MIT-F59E0B)
 
-Code Graph Server is an MCP-native memory and code intelligence layer for software agents.
+LexRAG Server is an MCP-native memory and code intelligence layer for software agents.
 
 It turns your repository into a queryable graph + retrieval system so agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn.
 
