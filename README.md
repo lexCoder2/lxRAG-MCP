@@ -15,6 +15,10 @@ LexRAG Server is your MCP-native memory and code intelligence tool for a better 
 
 This tool will help you turn your repository into a queryable graph + retrieval system so agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn.
 
+**[→ SETUP.md](SETUP.md)** — full step-by-step: deploy, connect VS Code, wire Copilot or Claude, first query.  
+**[→ QUICK_START.md](QUICK_START.md)** — bare minimum curl session in ~5 minutes.  
+**[→ QUICK_REFERENCE.md](QUICK_REFERENCE.md)** — all 35 tools with parameters.
+
 ---
 
 ## At a glance
@@ -32,8 +36,8 @@ This tool will help you turn your repository into a queryable graph + retrieval 
 RAG tool agents often fail on real repositories for three reasons:
 
 - They lose context between large sessions.
-- They spend tokens repeatedly by using same tools to retreive  the same files.
-- They lack structured, cross-file dependency memory.
+- They spend tokens repeatedly by using same tools to retreive the same files.
+- They lack structured, cross-file dependency across time.
 
 Code Graph Server addresses this by combining:
 
@@ -275,6 +279,7 @@ See:
 
 - `.github/copilot-instructions.md`
 - `docs/GRAPH_EXPERT_AGENT.md`
+- [SETUP.md](SETUP.md): step-by-step deployment, VS Code project wiring, and Copilot / Claude extension configuration
 
 ## License
 

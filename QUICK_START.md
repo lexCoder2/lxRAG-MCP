@@ -86,7 +86,7 @@ curl -s -X POST http://localhost:9000/mcp \
   -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"graph_query","arguments":{"query":"find all classes in the engines layer","language":"natural"}}}'
 ```
 
-**That's it!** See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for all 33 tools.
+**That's it!** See [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for all 35 tools.
 
 ## 6. Point to a Different Project
 
@@ -111,10 +111,11 @@ docker-compose exec memgraph memgraph-cli --exec "MATCH (f:FILE) RETURN count(f)
 
 ## Next Steps
 
-1. Read [README.md](README.md) for full capability overview
-2. Read [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for all tools and common workflows
-3. Read [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
-4. Read [docs/GRAPH_EXPERT_AGENT.md](docs/GRAPH_EXPERT_AGENT.md) for the agent runbook
+1. Read [SETUP.md](SETUP.md) for VS Code / Copilot / Claude extension setup
+2. Read [README.md](README.md) for full capability overview
+3. Read [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for all tools and common workflows
+4. Read [ARCHITECTURE.md](ARCHITECTURE.md) for technical details
+5. Read [docs/GRAPH_EXPERT_AGENT.md](docs/GRAPH_EXPERT_AGENT.md) for the agent runbook
 
 ## Total Setup Time: ~5 minutes
 
