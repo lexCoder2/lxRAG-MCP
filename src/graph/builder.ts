@@ -21,6 +21,13 @@ export interface ParsedFile {
     category?: "unit" | "integration" | "performance" | "e2e";
     filePath?: string;
   }>;
+  testCases?: Array<{
+    id: string;
+    name: string;
+    startLine: number;
+    endLine?: number;
+    parentSuiteId?: string;
+  }>;
 }
 
 interface FunctionNode {
@@ -589,7 +596,8 @@ export class GraphBuilder {
 
   private buildTestNodes(parsedFile: ParsedFile): void {
     const testSuites = parsedFile.testSuites || [];
-    if (testSuites.length === 0) return;
+    const testCases = parsedFile.testCases || [];
+    if (testSuites.length === 0 && testCases.length === 0) return;
 
     const relativePath =
       parsedFile.relativePath ||
@@ -635,6 +643,62 @@ export class GraphBuilder {
         params: {
           fileId: this.fileNodeId(parsedFile),
           testSuiteId: nodeId,
+        },
+      });
+    });
+
+    // Phase 3.1: Create individual TEST_CASE nodes
+    testCases.forEach((testCase: any) => {
+      const nodeId = this.scopedId(`test_case:${testCase.id}`);
+      if (this.processedNodes.has(nodeId)) return;
+      this.processedNodes.add(nodeId);
+
+      // Create TEST_CASE node
+      this.statements.push({
+        query: `
+          MERGE (tc:TEST_CASE {id: $id})
+          SET tc.name = $name,
+              tc.startLine = $startLine,
+              tc.endLine = $endLine,
+              tc.filePath = $filePath,
+              tc.projectId = $projectId
+        `,
+        params: {
+          id: nodeId,
+          name: testCase.name,
+          startLine: testCase.startLine,
+          endLine: testCase.endLine || testCase.startLine,
+          filePath: relativePath,
+          projectId: this.projectId,
+        },
+      });
+
+      // Create TEST_SUITE -[:CONTAINS]-> TEST_CASE relationship (if parent suite exists)
+      if (testCase.parentSuiteId) {
+        const parentNodeId = this.scopedId(`test_suite:${testCase.parentSuiteId}`);
+        this.statements.push({
+          query: `
+            MATCH (ts:TEST_SUITE {id: $testSuiteId})
+            MATCH (tc:TEST_CASE {id: $testCaseId})
+            MERGE (ts)-[:CONTAINS]->(tc)
+          `,
+          params: {
+            testSuiteId: parentNodeId,
+            testCaseId: nodeId,
+          },
+        });
+      }
+
+      // Create FILE -[:CONTAINS]-> TEST_CASE relationship
+      this.statements.push({
+        query: `
+          MATCH (f:FILE {id: $fileId})
+          MATCH (tc:TEST_CASE {id: $testCaseId})
+          MERGE (f)-[:CONTAINS]->(tc)
+        `,
+        params: {
+          fileId: this.fileNodeId(parsedFile),
+          testCaseId: nodeId,
         },
       });
     });

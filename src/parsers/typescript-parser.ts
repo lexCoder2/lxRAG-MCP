@@ -27,6 +27,7 @@ export interface ParsedFile {
   imports: ImportNode[];
   exports: ExportNode[];
   testSuites?: TestSuiteNode[];
+  testCases?: TestCaseNode[];
 }
 
 interface ParseFileOptions {
@@ -95,6 +96,14 @@ export interface TestSuiteNode {
   filePath?: string;
 }
 
+export interface TestCaseNode {
+  id: string;
+  name: string;
+  startLine: number;
+  endLine?: number;
+  parentSuiteId?: string;
+}
+
 export class TypeScriptParser {
   // private parser: Parser | null = null;
   // private language: Parser.Language | null = null;
@@ -120,6 +129,7 @@ export class TypeScriptParser {
     const imports = this.extractImports(content, filePath);
     const exports = this.extractExports(content, filePath);
     const testSuites = this.extractTestSuites(content, filePath);
+    const testCases = this.extractTestCases(content, filePath);
 
     return {
       filePath,
@@ -141,6 +151,7 @@ export class TypeScriptParser {
       imports,
       exports,
       testSuites,
+      testCases,
     };
   }
 
@@ -453,6 +464,49 @@ export class TypeScriptParser {
     });
 
     return testSuites;
+  }
+
+  /**
+   * Phase 3.1: Extract individual test cases (it/test blocks)
+   */
+  private extractTestCases(content: string, filePath: string): TestCaseNode[] {
+    const testCases: TestCaseNode[] = [];
+    const lines = content.split("\n");
+
+    // Match individual it() or test() blocks (inside describe blocks)
+    lines.forEach((line, index) => {
+      // Match: it|test( "name" or 'name' or `name`
+      const regex = new RegExp(
+        /^\s*(it|test)\s*\(\s*['"`]([^'"`]+)['"`]/,
+      );
+      const match = regex.exec(line);
+
+      if (match) {
+        const name = match[2];
+        // Generate a parent suite ID based on context
+        // Find the nearest describe block above this test
+        let parentSuiteId: string | undefined;
+        for (let i = index - 1; i >= 0; i--) {
+          const describeMatch = /^\s*describe\s*\(\s*['"`]([^'"`]+)['"`]/.exec(
+            lines[i],
+          );
+          if (describeMatch) {
+            parentSuiteId = `${path.basename(filePath)}:describe:${i}:${describeMatch[1]}`;
+            break;
+          }
+        }
+
+        testCases.push({
+          id: `${path.basename(filePath)}:it:${index}:${name}`,
+          name,
+          startLine: index + 1,
+          endLine: this.findBlockEnd(lines, index),
+          parentSuiteId,
+        });
+      }
+    });
+
+    return testCases;
   }
 
   private hashContent(content: string): string {
