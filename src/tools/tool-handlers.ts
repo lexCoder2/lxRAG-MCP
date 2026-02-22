@@ -1929,8 +1929,8 @@ export class ToolHandlers {
       const indexClassCount = this.context.index.getNodesByType("CLASS").length;
       const indexedSymbols = indexFileCount + indexFuncCount + indexClassCount;
 
-      // Get embedding statistics
-      const embeddingCount = this.embeddingEngine?.getAllEmbeddings().length || 0;
+      // Get embedding statistics (filtered by projectId)
+      const embeddingCount = this.embeddingEngine?.getAllEmbeddings().filter(e => e.projectId === projectId).length || 0;
       const embeddingCoverage =
         memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
           ? Number(
