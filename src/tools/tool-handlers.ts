@@ -8,7 +8,6 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as env from "../env.js";
-import { execWithTimeout } from "../utils/exec-utils.js";
 import { generateSecureId } from "../utils/validation.js";
 import type { GraphNode } from "../graph/index.js";
 import type { EpisodeType } from "../engines/episode-engine.js";
@@ -21,6 +20,7 @@ import { ToolHandlerBase, type ToolContext } from "./tool-handler-base.js";
 import { createRefTools } from "./handlers/ref-tools.js";
 import { createArchTools } from "./handlers/arch-tools.js";
 import { createDocsTools } from "./handlers/docs-tools.js";
+import { createTestTools } from "./handlers/test-tools.js";
 
 // Re-export base types for external consumers
 export type { ToolContext, ProjectContext } from "./tool-handler-base.js";
@@ -42,6 +42,7 @@ export class ToolHandlers extends ToolHandlerBase {
     this.initializeRefTools();
     this.initializeArchTools();
     this.initializeDocsTools();
+    this.initializeTestTools();
   }
 
   /**
@@ -68,6 +69,17 @@ export class ToolHandlers extends ToolHandlerBase {
     const docsTools = createDocsTools(this as any);
     (this as any).index_docs = docsTools.index_docs.bind(this);
     (this as any).search_docs = docsTools.search_docs.bind(this);
+  }
+
+  /**
+   * Initialize test intelligence tools from dedicated module
+   */
+  private initializeTestTools(): void {
+    const testTools = createTestTools(this as any);
+    (this as any).test_select = testTools.test_select.bind(this);
+    (this as any).test_categorize = testTools.test_categorize.bind(this);
+    (this as any).impact_analyze = testTools.impact_analyze.bind(this);
+    (this as any).test_run = testTools.test_run.bind(this);
   }
 
   async graph_query(args: any): Promise<string> {
@@ -357,196 +369,6 @@ export class ToolHandlers extends ToolHandlerBase {
 
   // ============================================================================
   // ARCHITECTURE TOOLS (2)
-  // ============================================================================
-
-  async test_select(args: any): Promise<string> {
-    const {
-      changedFiles,
-      includeIntegration = true,
-      profile = "compact",
-    } = args;
-
-    try {
-      const result = this.testEngine!.selectAffectedTests(
-        changedFiles,
-        includeIntegration,
-      );
-
-      return this.formatSuccess(result, profile);
-    } catch (error) {
-      return this.errorEnvelope("TEST_SELECT_FAILED", String(error), true);
-    }
-  }
-
-  async test_categorize(args: any): Promise<string> {
-    const { testFiles = [], profile = "compact" } = args;
-
-    try {
-      console.log(`[Test] Categorizing ${testFiles.length} test files...`);
-      const stats = this.testEngine!.getStatistics();
-
-      return this.formatSuccess(
-        {
-          statistics: stats,
-          categorization: {
-            unit: {
-              count: stats.unitTests,
-              pattern: "**/__tests__/**/*.test.ts",
-              timeout: 5000,
-            },
-            integration: {
-              count: stats.integrationTests,
-              pattern: "**/__tests__/**/*.integration.test.ts",
-              timeout: 15000,
-            },
-            performance: {
-              count: stats.performanceTests,
-              pattern: "**/*.performance.test.ts",
-              timeout: 30000,
-            },
-            e2e: {
-              count: stats.e2eTests,
-              pattern: "**/e2e/**/*.test.ts",
-              timeout: 60000,
-            },
-          },
-        },
-        profile,
-      );
-    } catch (error) {
-      return this.errorEnvelope("TEST_CATEGORIZE_FAILED", String(error), true);
-    }
-  }
-
-  async impact_analyze(args: any): Promise<string> {
-    const profile = args?.profile || "compact";
-    const depth = typeof args?.depth === "number" ? args.depth : 2;
-    const changedFiles: string[] = Array.isArray(args?.files)
-      ? args.files
-      : Array.isArray(args?.changedFiles)
-        ? args.changedFiles
-        : [];
-
-    if (!changedFiles.length) {
-      return this.formatSuccess(
-        {
-          changedFiles: [],
-          analysis: {
-            directImpact: [],
-            estimatedTestTime: 0,
-            coverage: {
-              percentage: 0,
-              testsSelected: 0,
-              totalTests: 0,
-            },
-            blastRadius: {
-              testsAffected: 0,
-              percentage: 0,
-              recommendation: "Provide at least one changed file",
-            },
-          },
-          warning: "No changed files were provided",
-        },
-        profile,
-      );
-    }
-
-    try {
-      const result = this.testEngine!.selectAffectedTests(
-        changedFiles,
-        true,
-        depth,
-      );
-
-      return this.formatSuccess(
-        {
-          changedFiles,
-          analysis: {
-            directImpact: result.selectedTests.slice(0, 10),
-            estimatedTestTime: result.estimatedTime,
-            coverage: result.coverage,
-            blastRadius: {
-              testsAffected: result.selectedTests.length,
-              percentage: result.coverage.percentage,
-              recommendation:
-                result.coverage.percentage > 50
-                  ? "Run full suite"
-                  : "Run affected tests",
-            },
-          },
-        },
-        profile,
-      );
-    } catch (error) {
-      return this.errorEnvelope("IMPACT_ANALYZE_FAILED", String(error), true);
-    }
-  }
-
-  async test_run(args: any): Promise<string> {
-    const { testFiles = [], parallel = true, profile = "compact" } = args;
-
-    try {
-      if (!testFiles || testFiles.length === 0) {
-        return this.formatSuccess(
-          {
-            status: "error",
-            message: "No test files specified",
-            executed: 0,
-            passed: 0,
-            failed: 0,
-          },
-          profile,
-        );
-      }
-
-      // Build vitest command (Phase 3.5 - actual execution)
-      const cmd = [
-        "npx vitest run",
-        parallel ? "--reporter=verbose" : "--reporter=verbose --no-coverage",
-        ...testFiles,
-      ].join(" ");
-
-      console.log(`[ToolHandlers] Executing: ${cmd}`);
-
-      // Execute vitest with timeout and output limits
-      try {
-        const output = execWithTimeout(cmd, {
-          cwd: process.cwd(),
-          encoding: "utf-8",
-          stdio: ["pipe", "pipe", "pipe"],
-        });
-
-        return this.formatSuccess(
-          {
-            status: "passed",
-            message: "All tests passed",
-            output: output.substring(0, 1000), // First 1000 chars
-            testsRun: testFiles.length,
-          },
-          profile,
-        );
-      } catch (execError: any) {
-        // Tests failed but command executed
-        return this.formatSuccess(
-          {
-            status: "failed",
-            message: "Some tests failed",
-            error: execError.message.substring(0, 500),
-            output: execError.stdout?.toString().substring(0, 500) || "",
-            testsRun: testFiles.length,
-          },
-          profile,
-        );
-      }
-    } catch (error) {
-      return this.errorEnvelope(
-        "TEST_RUN_FAILED",
-        `Test execution failed: ${error instanceof Error ? error.message : String(error)}`,
-        true,
-      );
-    }
-  }
-
   // ============================================================================
   // PROGRESS TRACKING TOOLS (4)
   // ============================================================================
