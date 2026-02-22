@@ -42,31 +42,12 @@ If you find this project helpful (I hope you do) consider [buying me a coffee �
 
 ## Why you need this
 
-Three critical gaps plague existing code intelligence solutions:
+Most code intelligence tools cover one layer — RAG embeddings, graph structure, or agent memory — but not all three. That means:
 
-### The Problem with Competing Approaches
-
-**RAG-based tools** (CodeRabbit, GitHub Copilot):
-
-- ❌ Lose context between sessions (start from scratch every restart)
-- ❌ Waste token budget re-reading unchanged files on every turn
-- ❌ Can't reason across file boundaries or track changes over time
-- ❌ Probabilistic embeddings miss architectural importance (9x-6000x slower)
-- 💰 $20-50/seat/month per developer
-
-**Code graph databases** (Neo4j, semantic indexing):
-
-- ❌ Structural data only — no agent memory or temporal reasoning
-- ❌ No multi-agent coordination or safety (collisions require external locking)
-- ❌ Single static snapshots (can't query code history)
-- ❌ Require custom tooling for agent integration and MCP wiring
-
-**Agent frameworks** (LangChain, CrewAI):
-
-- ❌ Generic tools not optimized for code (no impact analysis, test selection, etc.)
-- ❌ Session persistence requires external storage setup (PostgreSQL, Redis)
-- ❌ No built-in code graph (manual context assembly wastes tokens)
-- ❌ No temporal reasoning or persistent episode memory
+- ❌ Context lost between sessions — re-reading unchanged files on every restart
+- ❌ Probabilistic retrieval misses architectural relationships
+- ❌ No temporal reasoning — can't query past states or track change impact
+- ❌ Multi-agent collisions with no built-in coordination
 
 ### The LxRAG Advantage
 
@@ -103,19 +84,17 @@ LxRAG uniquely combines all three layers purpose-built for code:
 - `arch_validate` — Rule-based violation detection (not keyword search)
 - - 33 more specialized tools built for code intelligence
 
-### vs The Competition
+### What lxRAG covers that others don't
 
-| Capability                  | LxRAG                  | CodeRabbit    | GitHub Copilot  | LangChain + Embeddings | Neo4j            |
-| --------------------------- | ---------------------- | ------------- | --------------- | ---------------------- | ---------------- |
-| **Session persistence**     | ✅ Native              | ❌ PR-scoped  | ❌ No           | ⚠️ Setup required      | ❌ No            |
-| **Agent memory**            | ✅ Episodes + temporal | ❌ No         | ❌ No           | ⚠️ LangMem extra       | ❌ No            |
-| **Cross-file reasoning**    | ✅ Graph edges         | ⚠️ Limited    | ⚠️ Shallow      | ⚠️ Manual setup        | ✅ Graph queries |
-| **Multi-agent safety**      | ✅ Claims/releases     | ❌ No         | ❌ Single agent | ⚠️ External            | ❌ No            |
-| **Test intelligence**       | ✅ Impact-scoped       | ⚠️ PR reviews | ❌ No           | ❌ No                  | ❌ No            |
-| **Architecture validation** | ✅ Rule-based          | ⚠️ Generic    | ❌ No           | ❌ No                  | ❌ No            |
-| **Open source**             | ✅ MIT                 | ❌ Closed     | ❌ Closed       | ✅ Yes                 | ✅ CE            |
-| **Cost per developer**      | 🟢 **$0**              | 🔴 $20-50/mo  | 🔴 $20-39/mo    | 🟢 $0                  | 🟢 $0            |
-| **Setup time**              | 🟢 **15 min**          | 🔴 Weeks      | 🔴 Waiting list | 🔴 Days                | 🔴 Weeks         |
+| Capability | lxRAG | Others |
+|---|---|---|
+| Session persistence | ✅ Native | ❌ / ⚠️ External setup |
+| Agent memory + temporal reasoning | ✅ Episodes + `asOf` | ❌ Not available |
+| Cross-file graph reasoning | ✅ Graph edges | ⚠️ Shallow or manual |
+| Multi-agent safety | ✅ Claims/releases | ❌ No coordination |
+| Impact-scoped test selection | ✅ Built-in | ❌ Full suite or manual |
+| Architecture validation | ✅ Rule-based | ❌ Generic or none |
+| Open source / cost | ✅ MIT · $0 | ❌/⚠️ Closed or paid |
 
 ### Performance Gains
 
