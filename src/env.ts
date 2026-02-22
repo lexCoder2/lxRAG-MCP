@@ -228,3 +228,59 @@ export const LXRAG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES: number = parseInt(
   process.env.LXRAG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES || "10485760",
   10,
 );
+
+// ── File Watcher ───────────────────────────────────────────────────────────
+
+/**
+ * Debounce time for file watcher in milliseconds.
+ * Env: LXRAG_WATCHER_DEBOUNCE_MS
+ * Default: 500 (500ms)
+ */
+export const LXRAG_WATCHER_DEBOUNCE_MS: number = parseInt(
+  process.env.LXRAG_WATCHER_DEBOUNCE_MS || "500",
+  10,
+);
+
+// ── Connection Pools ────────────────────────────────────────────────────────
+
+/**
+ * Maximum Memgraph connection pool size.
+ * Env: LXRAG_MEMGRAPH_MAX_POOL_SIZE
+ * Default: 50
+ */
+export const LXRAG_MEMGRAPH_MAX_POOL_SIZE: number = parseInt(
+  process.env.LXRAG_MEMGRAPH_MAX_POOL_SIZE || "50",
+  10,
+);
+
+/**
+ * Memgraph connection acquisition timeout in milliseconds.
+ * Env: LXRAG_MEMGRAPH_CONNECTION_TIMEOUT_MS
+ * Default: 10000 (10 seconds)
+ */
+export const LXRAG_MEMGRAPH_CONNECTION_TIMEOUT_MS: number = parseInt(
+  process.env.LXRAG_MEMGRAPH_CONNECTION_TIMEOUT_MS || "10000",
+  10,
+);
+
+/**
+ * Memgraph connection liveness check timeout in milliseconds.
+ * Env: LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS
+ * Default: 5000 (5 seconds)
+ */
+export const LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS: number = parseInt(
+  process.env.LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS || "5000",
+  10,
+);
+
+// ── State Management ────────────────────────────────────────────────────────
+
+/**
+ * Maximum state history size (bounded for memory efficiency).
+ * Env: LXRAG_STATE_HISTORY_MAX_SIZE
+ * Default: 100 entries
+ */
+export const LXRAG_STATE_HISTORY_MAX_SIZE: number = parseInt(
+  process.env.LXRAG_STATE_HISTORY_MAX_SIZE || "100",
+  10,
+);

@@ -248,7 +248,7 @@ export class ToolHandlers {
         workspaceRoot: context.workspaceRoot,
         sourceDir: context.sourceDir,
         projectId: context.projectId,
-        debounceMs: 500,
+        debounceMs: env.LXRAG_WATCHER_DEBOUNCE_MS,
         ignorePatterns: env.LXRAG_IGNORE_PATTERNS,
       },
       async ({ projectId, workspaceRoot, sourceDir, changedFiles }) => {

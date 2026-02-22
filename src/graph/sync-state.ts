@@ -4,6 +4,8 @@
  * Phase 3.3: State machine for comprehensive system health
  */
 
+import * as env from "../env.js";
+
 export type SyncState = "uninitialized" | "synced" | "drifted" | "rebuilding";
 
 export interface SystemHealth {
@@ -22,7 +24,8 @@ export class SyncStateManager {
   };
 
   private stateHistory: Array<{ timestamp: number; state: SystemHealth }> = [];
-  private maxHistorySize = 100;
+  // Phase 4.6: Use configurable history size limit
+  private maxHistorySize = env.LXRAG_STATE_HISTORY_MAX_SIZE;
 
   constructor(private projectId: string) {
     console.log(

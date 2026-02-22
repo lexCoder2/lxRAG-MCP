@@ -1,5 +1,6 @@
 import type { CypherStatement } from "./types";
 import neo4j from "neo4j-driver";
+import * as env from "../env.js";
 
 export interface MemgraphConfig {
   host: string;
@@ -76,10 +77,11 @@ export class MemgraphClient {
       this.config.password || "",
     );
 
+    // Phase 4.6: Use configurable connection pool settings
     return neo4j.driver(boltUrl, authToken, {
-      maxConnectionPoolSize: 50,
-      connectionAcquisitionTimeout: 10000,
-      connectionLivenessCheckTimeout: 5000,
+      maxConnectionPoolSize: env.LXRAG_MEMGRAPH_MAX_POOL_SIZE,
+      connectionAcquisitionTimeout: env.LXRAG_MEMGRAPH_CONNECTION_TIMEOUT_MS,
+      connectionLivenessCheckTimeout: env.LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS,
     });
   }
 
