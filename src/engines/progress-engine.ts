@@ -295,63 +295,99 @@ export class ProgressEngine {
 
   /**
    * Create a new feature
+   * Phase 2d: Memgraph persistence is mandatory
    */
   async createFeature(feature: Feature): Promise<Feature> {
+    if (!this.memgraph || !this.memgraph.isConnected()) {
+      throw new Error(
+        "[ProgressEngine] Cannot create feature: Memgraph is not connected. Feature persistence to database is mandatory.",
+      );
+    }
+
     feature.startedAt = Date.now();
-    this.features.set(feature.id, feature);
-    if (this.memgraph?.isConnected()) {
-      try {
-        await this.memgraph.executeCypher(
-          `MERGE (f:FEATURE {id: $id})
-           SET f.name = $name, f.status = $status,
-               f.description = $description, f.startedAt = $startedAt,
-               f.createdAt = $createdAt`,
-          {
-            id: feature.id,
-            name: feature.name,
-            status: feature.status,
-            description: feature.description ?? null,
-            startedAt: feature.startedAt,
-            createdAt: Date.now(),
-          },
-        );
-      } catch (err) {
-        console.error(
-          "[ProgressEngine] createFeature Memgraph write failed:",
-          err,
+
+    try {
+      const result = await this.memgraph.executeCypher(
+        `MERGE (f:FEATURE {id: $id})
+         SET f.name = $name, f.status = $status,
+             f.description = $description, f.startedAt = $startedAt,
+             f.createdAt = $createdAt, f.projectId = $projectId`,
+        {
+          id: feature.id,
+          name: feature.name,
+          status: feature.status,
+          description: feature.description ?? null,
+          startedAt: feature.startedAt,
+          createdAt: Date.now(),
+          projectId: feature.id.includes(':') ? feature.id.split(':')[0] : 'default',
+        },
+      );
+
+      if (result.error) {
+        throw new Error(
+          `[ProgressEngine] Failed to persist feature to Memgraph: ${result.error}`,
         );
       }
+
+      // Only add to in-memory map after successful persistence
+      this.features.set(feature.id, feature);
+      console.log(
+        `[Phase2d] Feature ${feature.id} created and persisted to Memgraph`,
+      );
+      return feature;
+    } catch (err) {
+      throw new Error(
+        `[ProgressEngine] Failed to create feature: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-    return feature;
   }
 
   /**
    * Create a new task
+   * Phase 2d: Memgraph persistence is mandatory
    */
   async createTask(task: Task): Promise<Task> {
-    this.tasks.set(task.id, task);
-    if (this.memgraph?.isConnected()) {
-      try {
-        await this.memgraph.executeCypher(
-          `MERGE (t:TASK {id: $id})
-           SET t.name = $name, t.status = $status,
-               t.description = $description, t.createdAt = $createdAt`,
-          {
-            id: task.id,
-            name: task.name,
-            status: task.status,
-            description: task.description ?? null,
-            createdAt: Date.now(),
-          },
-        );
-      } catch (err) {
-        console.error(
-          "[ProgressEngine] createTask Memgraph write failed:",
-          err,
+    if (!this.memgraph || !this.memgraph.isConnected()) {
+      throw new Error(
+        "[ProgressEngine] Cannot create task: Memgraph is not connected. Task persistence to database is mandatory.",
+      );
+    }
+
+    try {
+      const result = await this.memgraph.executeCypher(
+        `MERGE (t:TASK {id: $id})
+         SET t.name = $name, t.status = $status,
+             t.description = $description, t.createdAt = $createdAt,
+             t.featureId = $featureId, t.assignee = $assignee,
+             t.dueDate = $dueDate, t.projectId = $projectId`,
+        {
+          id: task.id,
+          name: task.name,
+          status: task.status,
+          description: task.description ?? null,
+          createdAt: Date.now(),
+          featureId: task.featureId ?? null,
+          assignee: task.assignee ?? null,
+          dueDate: task.dueDate ?? null,
+          projectId: task.id.includes(':') ? task.id.split(':')[0] : 'default',
+        },
+      );
+
+      if (result.error) {
+        throw new Error(
+          `[ProgressEngine] Failed to persist task to Memgraph: ${result.error}`,
         );
       }
+
+      // Only add to in-memory map after successful persistence
+      this.tasks.set(task.id, task);
+      console.log(`[Phase2d] Task ${task.id} created and persisted to Memgraph`);
+      return task;
+    } catch (err) {
+      throw new Error(
+        `[ProgressEngine] Failed to create task: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
-    return task;
   }
 
   /**
