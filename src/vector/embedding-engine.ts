@@ -13,6 +13,7 @@ export interface CodeEmbedding {
   name: string;
   vector: number[];
   text: string;
+  projectId?: string;
   metadata: {
     path?: string;
     lines?: number;
@@ -92,12 +93,16 @@ export class EmbeddingEngine {
     const text = this.propertiesToText(properties);
     const vector = this.textToVector(text);
 
+    // Extract projectId from scoped ID (format: projectId:type:name)
+    const projectId = id.includes(':') ? id.split(':')[0] : undefined;
+
     return {
       id,
       type,
       name: properties.name || properties.path || id,
       vector,
       text,
+      projectId,
       metadata: {
         path: properties.path,
         lines: properties.LOC,
@@ -169,6 +174,7 @@ export class EmbeddingEngine {
         payload: {
           name: embedding.name,
           text: embedding.text,
+          projectId: embedding.projectId,
           metadata: embedding.metadata,
         },
       };
@@ -194,22 +200,39 @@ export class EmbeddingEngine {
 
   /**
    * Search for similar code
+   * @param query - Search query text
+   * @param type - Entity type to search (function, class, or file)
+   * @param limit - Maximum number of results
+   * @param projectId - Optional project ID to scope search results
    */
   async findSimilar(
     query: string,
     type: 'function' | 'class' | 'file' = 'function',
     limit = 5,
+    projectId?: string,
   ): Promise<CodeEmbedding[]> {
     const queryVector = this.textToVector(query);
 
     if (this.qdrant.isConnected()) {
-      const results = await this.qdrant.search(`${type}s`, queryVector, limit);
+      const results = await this.qdrant.search(`${type}s`, queryVector, limit * 2);
       return results
-        .map((result) => this.embeddings.get(result.id))
-        .filter((e) => e !== undefined) as CodeEmbedding[];
+        .map((result) => {
+          const embedding = this.embeddings.get(result.id);
+          return embedding;
+        })
+        .filter((e) => {
+          if (!e) return false;
+          if (projectId && e.projectId !== projectId) return false;
+          return true;
+        })
+        .slice(0, limit) as CodeEmbedding[];
     }
 
-    const candidates = Array.from(this.embeddings.values()).filter((entry) => entry.type === type);
+    const candidates = Array.from(this.embeddings.values()).filter((entry) => {
+      if (entry.type !== type) return false;
+      if (projectId && entry.projectId !== projectId) return false;
+      return true;
+    });
 
     return candidates
       .map((candidate) => ({
