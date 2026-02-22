@@ -37,6 +37,7 @@ import GraphIndexManager from "./index.js";
 import CacheManager from "./cache.js";
 import MemgraphClient from "./client.js";
 import CodeSummarizer from "../response/summarizer.js";
+import { DocsEngine } from "../engines/docs-engine.js";
 
 export interface BuildOptions {
   mode: "full" | "incremental";
@@ -48,6 +49,8 @@ export interface BuildOptions {
   changedFiles?: string[];
   txId?: string;
   txTimestamp?: number;
+  /** Index markdown documentation files into DOCUMENT/SECTION nodes (default: true for full builds) */
+  indexDocs?: boolean;
 }
 
 export interface BuildResult {
@@ -343,6 +346,38 @@ export class GraphOrchestrator {
         if (opts.verbose) {
           console.log(
             `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`,
+          );
+        }
+      }
+
+      // Index documentation files (Phase 6 — Docs/ADR Indexing)
+      const shouldIndexDocs =
+        (opts.indexDocs ?? true) && opts.mode === "full" && this.memgraph.isConnected();
+      if (shouldIndexDocs) {
+        if (opts.verbose) {
+          console.log("[GraphOrchestrator] Indexing documentation files...");
+        }
+        try {
+          const docsEngine = new DocsEngine(this.memgraph);
+          const docsResult = await docsEngine.indexWorkspace(
+            opts.workspaceRoot,
+            opts.projectId,
+            { incremental: true, txId: opts.txId },
+          );
+          if (opts.verbose) {
+            console.log(
+              `[GraphOrchestrator] Docs indexed: ${docsResult.indexed} files, ` +
+                `${docsResult.skipped} skipped, ${docsResult.errors.length} errors`,
+            );
+          }
+          if (docsResult.errors.length > 0) {
+            for (const e of docsResult.errors) {
+              warnings.push(`[docs] ${e.file}: ${e.error}`);
+            }
+          }
+        } catch (docsErr) {
+          warnings.push(
+            `[docs] Indexing failed: ${docsErr instanceof Error ? docsErr.message : String(docsErr)}`,
           );
         }
       }

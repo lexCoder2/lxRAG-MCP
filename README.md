@@ -11,9 +11,9 @@
 ![Graph](https://img.shields.io/badge/Graph-Memgraph-00B894)
 ![License](https://img.shields.io/badge/License-MIT-F59E0B)
 
-LexRAG Server is an MCP-native memory and code intelligence layer for software agents.
+LexRAG Server is your MCP-native memory and code intelligence tool for a better LLM agentic development.
 
-It turns your repository into a queryable graph + retrieval system so agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn.
+This tool will help you turn your repository into a queryable graph + retrieval system so agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn.
 
 ---
 
@@ -27,12 +27,12 @@ It turns your repository into a queryable graph + retrieval system so agents can
 | **Temporal model**          | Historical queries (`asOf`) and change diffs (`diff_since`) |
 | **MCP-native runtime**      | Works cleanly with editor and agent orchestration clients   |
 
-## Why this exists
+## Why this preoject
 
-LLM agents often fail on real repositories for three reasons:
+RAG tool agents often fail on real repositories for three reasons:
 
-- They lose context between sessions.
-- They spend tokens repeatedly scanning the same files.
+- They lose context between large sessions.
+- They spend tokens repeatedly by using same tools to retreive  the same files.
 - They lack structured, cross-file dependency memory.
 
 Code Graph Server addresses this by combining:
@@ -84,7 +84,7 @@ Retrieval for natural queries uses hybrid fusion:
 
 ## Tooling surface
 
-The server exposes **33 MCP tools** across:
+The server exposes **35 MCP tools** across:
 
 - Graph/querying (4): `graph_set_workspace`, `graph_rebuild`, `graph_health`, `graph_query`
 - Code intelligence (5): `code_explain`, `find_pattern`, `semantic_slice`, `context_pack`, `diff_since`
@@ -94,6 +94,7 @@ The server exposes **33 MCP tools** across:
 - Progress/operations (4): `progress_query`, `task_update`, `feature_status`, `blocking_issues`
 - Memory/coordination (8): `episode_add`, `episode_recall`, `decision_query`, `reflect`, `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
 - Runtime controls (1): `contract_validate`
+- Documentation (2): `index_docs`, `search_docs`
 
 ## Quick start
 
@@ -211,7 +212,7 @@ Scripts:
 - `src/server.ts`, `src/mcp-server.ts`: MCP/HTTP surfaces
 - `src/tools/tool-handlers.ts`: tool orchestration layer
 - `src/graph/*`: graph client, orchestrator, retrieval, watcher
-- `src/engines/*`: architecture/test/progress/community/episode logic
+- `src/engines/*`: architecture/test/progress/community/episode/docs logic
 - `src/response/*`: response shaping, schemas, summarization
 - `docs/AGENT_CONTEXT_ENGINE_PLAN.md`: implementation plan and phase status
 - `docs/GRAPH_EXPERT_AGENT.md`: runbook and operator guidance
@@ -230,6 +231,7 @@ All phases delivered and production-ready:
 - MAGE native Leiden community detection and PageRank PPR with graceful fallback
 - SCIP IDs (`scipId` field) on all FILE, FUNCTION, and CLASS nodes
 - Episode memory, agent coordination, context packs, response budget shaping
+- Docs/ADR indexing (`index_docs`) and search (`search_docs`) with native BM25 and optional vector embeddings
 
 ## Release highlights
 
@@ -243,6 +245,7 @@ Delivery milestones and user-facing impact:
 - **Temporal analysis**: `asOf` and `diff_since` support historical reasoning and change auditing across graph state.
 - **Always-fresh graph**: file watcher + changed-files incremental rebuilds reduce manual refresh loops and keep MCP answers current.
 - **Safer retrieval fallback**: optional Memgraph BM25 `text_search` is used when available, with automatic lexical fallback to avoid runtime breaks.
+- **Docs/ADR indexing**: `index_docs` parses markdown READMEs, architecture decision records, and doc files into `DOCUMENT`/`SECTION` graph nodes; `search_docs` queries them via native BM25 (`search_docs?query=...`) or by symbol association (`search_docs?symbol=MyClass`).
 
 ## Benchmarks and quality gates
 

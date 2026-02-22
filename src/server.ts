@@ -233,6 +233,12 @@ function createMcpServerInstance(): McpServer {
           .enum(["compact", "balanced", "debug"])
           .default("compact")
           .describe("Response profile"),
+        indexDocs: z
+          .boolean()
+          .default(true)
+          .describe(
+            "Index markdown documentation files (READMEs, ADRs) during rebuild (default: true). Set false to skip docs indexing.",
+          ),
       }),
     },
     async (args: any) => {
@@ -1294,6 +1300,99 @@ function createMcpServerInstance(): McpServer {
     },
   );
 
+  // index_docs — discover and index markdown documentation files
+  mcpServer.registerTool(
+    "index_docs",
+    {
+      description:
+        "Discover and index all markdown documentation files (README, ADRs, guides, CHANGELOG, ARCHITECTURE) under the workspace root into DOCUMENT and SECTION graph nodes. Supports incremental mode (skips unchanged files). Emits DOC_DESCRIBES edges linking sections to the code symbols they mention.",
+      inputSchema: z.object({
+        workspaceRoot: z
+          .string()
+          .optional()
+          .describe("Workspace root path (defaults to active session context)"),
+        projectId: z
+          .string()
+          .optional()
+          .describe("Project ID (defaults to active session context)"),
+        incremental: z
+          .boolean()
+          .default(true)
+          .describe("Skip files whose hash has not changed (default: true)"),
+        withEmbeddings: z
+          .boolean()
+          .default(false)
+          .describe("Also embed section content into Qdrant vector store"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("index_docs", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // search_docs — search indexed documentation sections
+  mcpServer.registerTool(
+    "search_docs",
+    {
+      description:
+        "Search indexed documentation sections by full-text query or by code symbol name. Returns matching SECTION nodes with heading, source document, kind (readme/adr/guide/…), line number, relevance score, and a short content excerpt. Run index_docs first to populate the index.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .optional()
+          .describe("Full-text search query (cannot be combined with symbol)"),
+        symbol: z
+          .string()
+          .optional()
+          .describe(
+            "Symbol name to look up (finds Sections that document this function/class/file via DOC_DESCRIBES edges)",
+          ),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(50)
+          .default(10)
+          .describe("Maximum number of results to return"),
+        projectId: z
+          .string()
+          .optional()
+          .describe("Project ID (defaults to active session context)"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("search_docs", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
   return mcpServer;
 }
 
@@ -1433,7 +1532,7 @@ async function main() {
       console.error("[MCP] Endpoints: POST / and POST /mcp");
       console.error("[MCP] A2A Agent Card: GET /.well-known/agent.json");
       console.error(
-        `[MCP] Available tools: 24 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search)`,
+        `[MCP] Available tools: 26 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs)`,
       );
     });
 
@@ -1446,7 +1545,7 @@ async function main() {
 
   console.error("[MCP] Server started on stdio transport");
   console.error(
-    `[MCP] Available tools: 22 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search)`,
+    `[MCP] Available tools: 26 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs)`,
   );
 }
 

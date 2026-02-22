@@ -25,6 +25,7 @@ import CommunityDetector from "../engines/community-detector.js";
 import { runPPR } from "../graph/ppr.js";
 import HybridRetriever from "../graph/hybrid-retriever.js";
 import FileWatcher, { type WatcherState } from "../graph/watcher.js";
+import { DocsEngine } from "../engines/docs-engine.js";
 import {
   estimateTokens,
   makeBudget,
@@ -55,6 +56,7 @@ export class ToolHandlers {
   private coordinationEngine?: CoordinationEngine;
   private communityDetector?: CommunityDetector;
   private hybridRetriever?: HybridRetriever;
+  private docsEngine?: DocsEngine;
   private embeddingsReady = false;
   private lastGraphRebuildAt?: string;
   private lastGraphRebuildMode?: "full" | "incremental";
@@ -326,6 +328,9 @@ export class ToolHandlers {
       this.embeddingEngine,
       this.context.memgraph,
     );
+    this.docsEngine = new DocsEngine(this.context.memgraph, {
+      qdrant: this.qdrant,
+    });
 
     void this.qdrant.connect().catch((error) => {
       console.warn("[ToolHandlers] Qdrant connection skipped:", error);
@@ -1618,7 +1623,7 @@ export class ToolHandlers {
   }
 
   async graph_rebuild(args: any): Promise<string> {
-    const { mode = "incremental", verbose = false, profile = "compact" } = args;
+    const { mode = "incremental", verbose = false, profile = "compact", indexDocs = true } = args;
 
     try {
       if (!this.orchestrator) {
@@ -1698,6 +1703,7 @@ export class ToolHandlers {
           sourceDir,
           txId,
           txTimestamp,
+          indexDocs,
           exclude: [
             "node_modules",
             "dist",
@@ -3264,6 +3270,88 @@ export class ToolHandlers {
     return lines
       .slice(Math.max(0, startLine - 1), Math.max(startLine, endLine))
       .join("\n");
+  }
+
+  // ── Docs/ADR tools ───────────────────────────────────────────────────────────
+
+  async index_docs(args: any): Promise<string> {
+    const { workspaceRoot: argsRoot, projectId: argsProject, incremental = true, withEmbeddings = false } = args ?? {};
+    try {
+      const { workspaceRoot, projectId } = this.resolveProjectContext({
+        workspaceRoot: argsRoot,
+        projectId: argsProject,
+      });
+      if (!this.docsEngine) {
+        return this.errorEnvelope("ENGINE_UNAVAILABLE", "DocsEngine not initialised", false);
+      }
+      const result = await this.docsEngine.indexWorkspace(workspaceRoot, projectId, {
+        incremental,
+        withEmbeddings,
+      });
+      return this.formatSuccess(
+        {
+          ok: true,
+          indexed: result.indexed,
+          skipped: result.skipped,
+          errorCount: result.errors.length,
+          errors: result.errors.slice(0, 10),
+          durationMs: result.durationMs,
+          projectId,
+          workspaceRoot,
+        },
+        "compact",
+      );
+    } catch (err) {
+      return this.errorEnvelope(
+        "INDEX_DOCS_ERROR",
+        err instanceof Error ? err.message : String(err),
+        true,
+      );
+    }
+  }
+
+  async search_docs(args: any): Promise<string> {
+    const { query, symbol, limit = 10, projectId: argsProject } = args ?? {};
+    try {
+      const { projectId } = this.resolveProjectContext({ projectId: argsProject });
+      if (!this.docsEngine) {
+        return this.errorEnvelope("ENGINE_UNAVAILABLE", "DocsEngine not initialised", false);
+      }
+      let results;
+      if (typeof symbol === "string" && symbol.trim().length > 0) {
+        results = await this.docsEngine.getDocsBySymbol(symbol.trim(), projectId, { limit });
+      } else if (typeof query === "string" && query.trim().length > 0) {
+        results = await this.docsEngine.searchDocs(query.trim(), projectId, { limit });
+      } else {
+        return this.errorEnvelope(
+          "MISSING_PARAM",
+          "Provide either `query` (full-text search) or `symbol` (symbol lookup)",
+          true,
+        );
+      }
+      return this.formatSuccess(
+        {
+          ok: true,
+          count: results.length,
+          results: results.map((r) => ({
+            heading: r.heading,
+            doc: r.docRelativePath,
+            kind: r.kind,
+            startLine: r.startLine,
+            score: r.score,
+            excerpt: r.content.slice(0, 200),
+          })),
+          projectId,
+        },
+        "compact",
+      );
+    } catch (err) {
+      return this.errorEnvelope(
+        "SEARCH_DOCS_ERROR",
+        err instanceof Error ? err.message : String(err),
+        true,
+      );
+    }
   }
 }
 

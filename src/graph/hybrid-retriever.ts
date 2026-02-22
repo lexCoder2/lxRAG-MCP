@@ -118,7 +118,7 @@ export class HybridRetriever {
             CALL text_search.search('symbol_index', $query)
             YIELD node, score
             WHERE coalesce(node.projectId, '') = $projectId
-              AND labels(node)[0] IN ['FUNCTION', 'CLASS', 'FILE']
+              AND labels(node)[0] IN ['FUNCTION', 'CLASS', 'FILE', 'SECTION']
             RETURN node.id AS nodeId, score
             ORDER BY score DESC
             LIMIT $limit
@@ -173,12 +173,26 @@ export class HybridRetriever {
         (r: Record<string, unknown>) => String(r["name"] ?? ""),
       );
       if (names.includes("symbol_index")) {
+        // Upgrade path: symbol_index already exists but docs_index may be missing
+        if (!names.includes("docs_index")) {
+          await this.memgraph.executeCypher(
+            `CALL text_search.create_index('docs_index', 'SECTION', ['heading', 'content'], {analyzer: 'standard'})`,
+            {},
+          );
+        }
         return { created: false, alreadyExists: true };
       }
       await this.memgraph.executeCypher(
-        `CALL text_search.create_index('symbol_index', 'FUNCTION|CLASS|FILE', ['name', 'summary', 'path'], {analyzer: 'standard'})`,
+        `CALL text_search.create_index('symbol_index', 'FUNCTION|CLASS|FILE|SECTION', ['name', 'summary', 'path', 'heading', 'content'], {analyzer: 'standard'})`,
         {},
       );
+      // Also create docs_index for SECTION-only searches (used by DocsEngine)
+      if (!names.includes("docs_index")) {
+        await this.memgraph.executeCypher(
+          `CALL text_search.create_index('docs_index', 'SECTION', ['heading', 'content'], {analyzer: 'standard'})`,
+          {},
+        );
+      }
       return { created: true, alreadyExists: false };
     } catch (err) {
       return {
