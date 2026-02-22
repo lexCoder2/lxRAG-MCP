@@ -11,9 +11,9 @@
 ![Graph](https://img.shields.io/badge/Graph-Memgraph-00B894)
 ![License](https://img.shields.io/badge/License-MIT-F59E0B)
 
-LexRAG Server is your MCP-native memory and code intelligence tool for a better LLM agentic development.
+LexRAG Server is your MCP-native memory and code intelligence layer for smarter, faster AI-assisted development.
 
-This tool will help you turn your repository into a queryable graph + retrieval system so agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn.
+Turn your repository into a queryable graph so your agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn — and so you can stop wasting context budget on files that haven't changed.
 
 **[→ SETUP.md](SETUP.md)** — full step-by-step: deploy, connect VS Code, wire Copilot or Claude, first query.  
 **[→ QUICK_START.md](QUICK_START.md)** — bare minimum curl session in ~5 minutes.  
@@ -23,64 +23,87 @@ This tool will help you turn your repository into a queryable graph + retrieval 
 
 ## At a glance
 
-| Capability                  | What it enables                                             |
-| --------------------------- | ----------------------------------------------------------- |
-| **Code graph intelligence** | Cross-file dependency answers instead of raw file dumps     |
-| **Agent memory**            | Persistent decisions/episodes across sessions               |
-| **Hybrid retrieval**        | Better relevance for natural-language code questions        |
-| **Temporal model**          | Historical queries (`asOf`) and change diffs (`diff_since`) |
-| **MCP-native runtime**      | Works cleanly with editor and agent orchestration clients   |
+| Capability                  | What you get                                                        |
+| --------------------------- | ------------------------------------------------------------------- |
+| **Code graph intelligence** | Cross-file dependency answers instead of raw file dumps             |
+| **Agent memory**            | Persistent decisions and episodes that survive session restarts     |
+| **Hybrid retrieval**        | Better relevance for natural-language code questions                |
+| **Temporal model**          | Historical queries (`asOf`) and change diffs (`diff_since`)        |
+| **Test intelligence**       | Impact-scoped test selection so you only run what matters           |
+| **Docs & ADR indexing**     | Search your READMEs and decision records the same way you search code |
+| **MCP-native runtime**      | Works with VS Code Copilot, Claude, and any MCP-compatible client   |
 
-## Why this preoject
+## Why you need this
 
-RAG tool agents often fail on real repositories for three reasons:
+RAG-based agents fail on real repositories for three reasons:
 
-- They lose context between large sessions.
-- They spend tokens repeatedly by using same tools to retreive the same files.
-- They lack structured, cross-file dependency across time.
+- They lose context between sessions and start from scratch every time.
+- They spend your token budget re-reading the same files on every turn.
+- They can't reason across file boundaries or track change over time.
 
-Code Graph Server addresses this by combining:
+With LexRAG you get all of this in one place:
 
-- Graph structure (files, symbols, relationships)
-- Temporal memory (episodes, decisions, claims)
-- Hybrid retrieval (vector + lexical + graph expansion)
-- MCP tools for deterministic, automatable workflows
+- **Graph structure** — files, symbols, and relationships in a queryable graph
+- **Temporal memory** — episodes, decisions, and claims that persist across sessions
+- **Hybrid retrieval** — vector + BM25 + graph expansion fused with RRF for the best match
+- **MCP tools** — 35 deterministic, automatable actions your agent can call directly
 
 ## What you get
 
-### 1) Code intelligence for agents
+### 1) Code intelligence on demand
 
-- Natural-language and Cypher graph querying
-- Symbol-level explanation with dependency context
-- Pattern and architecture rule validation
-- Semantic code slicing for targeted line ranges
+Ask questions about your codebase in plain English or Cypher — your agent gets cross-file dependency answers, not raw file dumps.
 
-### 2) Agent memory and coordination
+- Natural-language and Cypher graph querying via `graph_query`
+- Symbol-level explanation with full dependency context (`code_explain`)
+- Pattern detection and architecture rule validation (`find_pattern`, `arch_validate`)
+- Semantic code slicing for targeted line ranges (`semantic_slice`)
 
-- Persistent episode memory (`observation`, `decision`, `edit`, `test_result`, `error`)
-- Claim/release workflow to reduce multi-agent collisions
-- Coordination views for active ownership and blockers
+### 2) Memory that survives sessions
 
-### 3) Delivery acceleration
+Your agent remembers what it decided, what it changed, and what broke — even after a VS Code restart.
 
-- Test impact analysis and selective test execution
-- Graph-backed progress/task tracking
-- Context packs that assemble high-value context under token budgets
+- Persistent episode memory: observations, decisions, edits, test results, errors
+- Claim/release workflow to prevent multi-agent collisions
+- Coordination views so you always know what's in flight
 
-## Product architecture
+### 3) Smarter test runs
 
-Code Graph Server runs as an MCP server over stdio or HTTP and coordinates three data planes:
+Stop running your full test suite on every change. LexRAG tells your agent exactly which tests are affected.
 
-- **Graph plane (Memgraph)**: structural and temporal truth (FILE/FUNCTION/CLASS/IMPORT + relationships + tx history)
-- **Vector plane (Qdrant-compatible flow)**: semantic retrieval for natural questions
-- **Response plane**: answer-first shaping with profile budgets (`compact`, `balanced`, `debug`)
+- Impact analysis scoped to changed files (`impact_analyze`)
+- Selective test execution — only tests that can actually fail (`test_select`, `test_run`)
+- Test categorisation for parallelisation and prioritisation (`test_categorize`, `suggest_tests`)
 
-Retrieval for natural queries uses hybrid fusion:
+### 4) Documentation you can query like code
 
-1. Vector retrieval
-2. BM25/lexical retrieval (optional Memgraph `text_search`, fallback lexical scorer)
-3. Graph expansion
-4. Reciprocal Rank Fusion (RRF)
+Your READMEs, architecture decision records, and changelogs become first-class searchable graph nodes.
+
+- Index all markdown docs in one call (`index_docs`)
+- BM25 full-text search across headings and content (`search_docs?query=...`)
+- Symbol-linked lookup — find every doc that references a class or function (`search_docs?symbol=MyClass`)
+- Incremental re-index: only changed files are re-parsed on subsequent runs
+
+### 5) Delivery acceleration
+
+- Graph-backed progress and task tracking (`progress_query`, `task_update`, `feature_status`)
+- Context packs that assemble high-signal context under strict token budgets (`context_pack`)
+- Blocker detection across tasks and agents (`blocking_issues`)
+
+## How it works
+
+LexRAG runs as an MCP server over stdio or HTTP and coordinates three data planes behind a single tool interface:
+
+- **Graph plane (Memgraph)** — structural and temporal truth: FILE, FUNCTION, CLASS, IMPORT nodes + relationships + full transaction history
+- **Vector plane (Qdrant)** — semantic retrieval for natural-language questions; optional but recommended for large codebases
+- **Response plane** — answer-first shaping with profile budgets so you choose between token-light (`compact`) and detail-rich (`debug`) responses
+
+When you call `graph_query` in natural mode, retrieval runs as hybrid fusion:
+
+1. Vector similarity search
+2. BM25 / lexical search (Memgraph `text_search` when available, local fallback otherwise)
+3. Graph expansion from seed nodes
+4. Reciprocal Rank Fusion (RRF) merges all signals into a single ranked list
 
 ### System diagram
 
@@ -106,38 +129,39 @@ The server exposes **35 MCP tools** across:
 
 - Node.js 24+
 - Docker + Docker Compose
-- Python 3 (for benchmark utilities)
+
+> See [SETUP.md](SETUP.md) for full VS Code + Copilot/Claude wiring instructions.
 
 ### 1) Install and build
 
 ```bash
-npm install
-npm run build
+git clone https://github.com/lexCoder2/code-graph-server.git
+cd code-graph-server
+npm install && npm run build
 ```
 
 ### 2) Start infrastructure and server
 
 ```bash
-docker-compose up -d
-npm run start:http
+export CODE_GRAPH_TARGET_WORKSPACE=/path/to/your-project
+docker compose up -d
 ```
 
-Health endpoint:
+Verify everything is healthy:
 
 ```bash
-npm run start:http
+docker compose ps          # all services should show "healthy"
+curl http://localhost:9000/health   # {"status":"ok"}
 ```
 
-### 3) Required MCP HTTP session flow
+### 3) MCP session flow
 
-Workspace context is session-scoped.
+Every client session needs this one-time sequence before tools return results:
 
-1. `initialize`
-2. capture `mcp-session-id` response header
-3. include `mcp-session-id` in all following calls for that client session
-4. call `graph_set_workspace`
-5. call `graph_rebuild`
-6. query with `graph_query` / other tools
+1. `initialize` — capture the `mcp-session-id` from the response header
+2. `graph_set_workspace` — point the server at your project
+3. `graph_rebuild` — index your code (async; usually 5–30 s)
+4. `graph_query` / any other tool — you're ready
 
 ### MCP session flow diagram
 
@@ -198,82 +222,81 @@ Workspace context is session-scoped.
 - **stdio**: best for local editor integrations and short-lived sessions
 - **http**: best for multi-client agent fleets and remote orchestration
 
-### UI/UX notes for GitHub readers
+### Useful scripts
 
-- Sections are ordered from value → architecture → quick start → operations.
-- Diagrams provide an immediate mental model before command details.
-- Badges provide a quick compatibility snapshot at first glance.
-
-Scripts:
-
-- `npm run start` (server entry)
-- `npm run start:http` (HTTP supervisor)
-- `npm run build`
-- `npm test`
+```bash
+npm run start          # stdio server entry point
+npm run start:http     # HTTP supervisor (recommended)
+npm run build          # compile TypeScript
+npm test               # run all 109 tests
+```
 
 ## Repository map
 
-- `src/server.ts`, `src/mcp-server.ts`: MCP/HTTP surfaces
-- `src/tools/tool-handlers.ts`: tool orchestration layer
-- `src/graph/*`: graph client, orchestrator, retrieval, watcher
-- `src/engines/*`: architecture/test/progress/community/episode/docs logic
-- `src/response/*`: response shaping, schemas, summarization
-- `docs/AGENT_CONTEXT_ENGINE_PLAN.md`: implementation plan and phase status
-- `docs/GRAPH_EXPERT_AGENT.md`: runbook and operator guidance
+| Path | What's inside |
+| ---- | ------------- |
+| `src/server.ts`, `src/mcp-server.ts` | MCP / HTTP transport surfaces |
+| `src/tools/tool-handlers.ts` | all 35 tool implementations |
+| `src/graph/` | graph client, orchestrator, hybrid retriever, watcher, docs builder |
+| `src/engines/` | architecture, test, progress, community, episode, docs engines |
+| `src/parsers/` | AST and markdown parsers (tree-sitter + regex fallback) |
+| `src/response/` | response shaping, profile budgets, summarization |
+| `docs/AGENT_CONTEXT_ENGINE_PLAN.md` | implementation plan and phase status |
+| `docs/GRAPH_EXPERT_AGENT.md` | full agent runbook |
 
-## Product status
+## What's already shipped
 
-All phases delivered and production-ready:
+Every feature below is production-ready today:
 
-- Hybrid retrieval for natural `graph_query` (vector + BM25 + graph + RRF)
-- AST-accurate multi-language parsers via tree-sitter (`CODE_GRAPH_USE_TREE_SITTER=true`)
-- TypeScript, TSX, JavaScript (`.js`/`.mjs`/`.cjs`), JSX, Python, Go, Rust, Java
-- Watcher-driven incremental rebuild processing
-- Temporal query/diff support (`asOf`, `diff_since`)
-- Indexing-time symbol summarization
-- Optional Memgraph `text_search` BM25 path with safe fallback
-- MAGE native Leiden community detection and PageRank PPR with graceful fallback
-- SCIP IDs (`scipId` field) on all FILE, FUNCTION, and CLASS nodes
-- Episode memory, agent coordination, context packs, response budget shaping
-- Docs/ADR indexing (`index_docs`) and search (`search_docs`) with native BM25 and optional vector embeddings
+- ✅ Hybrid retrieval for `graph_query` — vector + BM25 + graph expansion fused with RRF
+- ✅ AST-accurate parsers via tree-sitter for TypeScript, TSX, JS/MJS/CJS, JSX, Python, Go, Rust, Java (activate with `CODE_GRAPH_USE_TREE_SITTER=true`)
+- ✅ Watcher-driven incremental rebuilds — your graph stays fresh without manual intervention
+- ✅ Temporal query and diff support — query any past graph state with `asOf`, compare changes with `diff_since`
+- ✅ Indexing-time symbol summarization — compact-profile answers stay useful even in tight token budgets
+- ✅ MAGE-native Leiden community detection and PageRank PPR with JS fallbacks for non-MAGE environments
+- ✅ SCIP IDs on all FILE, FUNCTION, and CLASS nodes for precise cross-tool symbol references
+- ✅ Episode memory, agent coordination, context packs, and response budget shaping
+- ✅ Docs & ADR indexing — `index_docs` parses all your markdown into graph nodes; `search_docs` queries them with BM25 or by symbol association
 
 ## Release highlights
 
-Delivery milestones and user-facing impact:
+- **Hybrid natural retrieval** — your `graph_query` calls blend vector, BM25, and graph signals with RRF so you get the most relevant results across the whole codebase, not just the closest embedding match.
+- **Multi-language AST parsers** — tree-sitter gives you accurate symbol extraction for TypeScript, TSX, JavaScript, JSX, Python, Go, Rust, and Java. Enable with `CODE_GRAPH_USE_TREE_SITTER=true`; each language falls back gracefully if the grammar isn't installed.
+- **Impact-scoped test runs** — `impact_analyze` + `test_select` tell your agent exactly which tests to run after a change, cutting unnecessary CI time without sacrificing coverage confidence.
+- **Docs & ADR indexing** — your documentation is now searchable the same way your code is. `index_docs` walks the workspace, parses every markdown file into `DOCUMENT` and `SECTION` nodes, and stores them in the graph. `search_docs` retrieves them by text query or by symbol association.
+- **Persistent agent memory** — episodes, decisions, and claims survive across VS Code restarts so your agent can pick up exactly where it left off.
+- **Temporal code model** — `asOf` and `diff_since` let you or your agent reason about the state of any file or symbol at any point in the past.
+- **Always-current graph** — the file watcher triggers incremental rebuilds on save so your graph never goes stale.
+- **Lower-token answers** — indexing-time symbol summaries keep `compact`-profile responses genuinely useful without growing the payload.
+- **Safer BM25 fallback** — Memgraph `text_search` is used when available; the server falls back to a local lexical scorer automatically so retrieval never breaks.
 
-- **Hybrid natural retrieval**: natural `graph_query` uses vector + lexical + graph fusion with RRF, giving better cross-file relevance.
-- **Tree-sitter AST parsers**: TypeScript, TSX, JavaScript, JSX, Python, Go, Rust, and Java — activated via `CODE_GRAPH_USE_TREE_SITTER=true`, with per-language graceful fallback.
-- **MAGE native algorithms**: Leiden community detection and PageRank PPR via `memgraph-mage`, with JS fallbacks for environments without MAGE.
-- **SCIP IDs**: `scipId` field on all FILE, FUNCTION, and CLASS nodes enables precise cross-tool symbol references.
-- **Lower-token answers**: indexing-time symbol summaries reduce payload size in compact workflows while keeping responses actionable.
-- **Temporal analysis**: `asOf` and `diff_since` support historical reasoning and change auditing across graph state.
-- **Always-fresh graph**: file watcher + changed-files incremental rebuilds reduce manual refresh loops and keep MCP answers current.
-- **Safer retrieval fallback**: optional Memgraph BM25 `text_search` is used when available, with automatic lexical fallback to avoid runtime breaks.
-- **Docs/ADR indexing**: `index_docs` parses markdown READMEs, architecture decision records, and doc files into `DOCUMENT`/`SECTION` graph nodes; `search_docs` queries them via native BM25 (`search_docs?query=...`) or by symbol association (`search_docs?symbol=MyClass`).
+## Tests and quality gates
 
-## Benchmarks and quality gates
-
-Benchmark and regression scripts are included under `scripts/` and `benchmarks/` to track:
-
-- latency
-- token efficiency
-- accuracy trends
-- compact-profile response budget compliance
-
-Run regression checks:
+The test suite covers all parsers, builders, engines, and tool handlers — 109 tests across 5 files, all green.
 
 ```bash
-npm run benchmark:check-regression
+npm test                          # run all 109 unit tests
+npm run benchmark:check-regression  # check latency / token-efficiency regressions
 ```
 
-## Integration guidance
+Benchmark scripts under `scripts/` and `benchmarks/` track:
 
-For best results with GitHub Copilot and other MCP clients:
+- Query latency and token efficiency
+- Retrieval accuracy trends
+- Compact-profile response budget compliance
+- Agent-mode synthetic task benchmarks
 
-- Set workspace each session with `graph_set_workspace`
-- Rebuild incrementally after file changes (`graph_rebuild` or watcher)
-- Use `profile: compact` for low-token autonomous loops
-- Use `balanced/debug` when deeper payloads are needed
+All new features ship with tests. The docs feature alone added 101 tests (50 parser + 23 builder + 17 engine + 11 tool-handler contract tests) before landing.
+
+## Integration tips
+
+A few habits that make a big difference:
+
+- **Start every session** with `graph_set_workspace` → `graph_rebuild` (or let your configured client do it automatically via `.github/copilot-instructions.md`)
+- **Prefer `graph_query` over file reads** for discovery — you'll use far fewer tokens and get cross-file context for free
+- **Use `profile: compact`** for autonomous loops where every token counts; switch to `balanced` or `debug` when you need more detail
+- **Rebuild incrementally** after meaningful edits (`graph_rebuild` with `mode: incremental`); the file watcher handles this for you during active sessions
+- **Run `impact_analyze` before tests** so your agent only executes what's actually affected by a change
 
 See:
 
