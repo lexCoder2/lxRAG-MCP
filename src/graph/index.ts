@@ -160,6 +160,51 @@ export class GraphIndexManager {
   }
 
   /**
+   * Get all nodes in the index
+   */
+  getAllNodes(): GraphNode[] {
+    return Array.from(this.index.nodeById.values());
+  }
+
+  /**
+   * Get all relationships in the index
+   */
+  getAllRelationships(): GraphRelationship[] {
+    return Array.from(this.index.relationshipsByType.values()).flat();
+  }
+
+  /**
+   * Sync nodes and relationships from another index into this one
+   * Used to merge orchestrator's built index into the shared context index
+   */
+  syncFrom(sourceIndex: GraphIndexManager): { nodesSynced: number; relationshipsSynced: number } {
+    let nodesSynced = 0;
+    let relationshipsSynced = 0;
+
+    // Sync all nodes from source
+    for (const node of sourceIndex.getAllNodes()) {
+      try {
+        this.addNode(node.id, node.type, node.properties);
+        nodesSynced++;
+      } catch (e) {
+        // Deduplication may skip nodes - that's okay
+      }
+    }
+
+    // Sync all relationships from source
+    for (const rel of sourceIndex.getAllRelationships()) {
+      try {
+        this.addRelationship(rel.id, rel.from, rel.to, rel.type, rel.properties);
+        relationshipsSynced++;
+      } catch (e) {
+        // Deduplication may skip relationships - that's okay
+      }
+    }
+
+    return { nodesSynced, relationshipsSynced };
+  }
+
+  /**
    * Export index as JSON (for snapshots)
    */
   export(): string {

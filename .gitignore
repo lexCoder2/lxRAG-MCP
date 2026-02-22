@@ -31,3 +31,7 @@ Thumbs.db
 # Python cache (benchmark scripts)
 __pycache__/
 *.py[cod]
+
+# benchmarks
+benchmarks/agent_mode_artifacts/
+benchmarks/graph_tools_benchmark_results.json

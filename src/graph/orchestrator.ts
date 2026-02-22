@@ -78,14 +78,16 @@ export class GraphOrchestrator {
   private parserRegistry: ParserRegistry;
   private builder: GraphBuilder;
   private index: GraphIndexManager;
+  private sharedIndex?: GraphIndexManager;
   private cache: CacheManager;
   private memgraph: MemgraphClient;
   private verbose: boolean;
   private summarizer: CodeSummarizer;
 
-  constructor(memgraph?: MemgraphClient, verbose = false) {
+  constructor(memgraph?: MemgraphClient, verbose = false, sharedIndex?: GraphIndexManager) {
     this.parser = new TypeScriptParser();
     this.parserRegistry = new ParserRegistry();
+    this.sharedIndex = sharedIndex;
 
     // ── Tree-sitter TypeScript / TSX ────────────────────────────────────────
     // Enable when CODE_GRAPH_USE_TREE_SITTER=true AND native binding compiled.
@@ -375,6 +377,22 @@ export class GraphOrchestrator {
 
       // Save cache
       this.cache.save();
+
+      // SYNC: Propagate internal index to shared context index
+      if (this.sharedIndex) {
+        try {
+          const syncResult = this.sharedIndex.syncFrom(this.index);
+          if (opts.verbose) {
+            console.log(
+              `[GraphOrchestrator] Index synced: ${syncResult.nodesSynced} nodes, ${syncResult.relationshipsSynced} relationships`,
+            );
+          }
+        } catch (syncError) {
+          warnings.push(
+            `[sync] Failed to sync index: ${syncError instanceof Error ? syncError.message : String(syncError)}`,
+          );
+        }
+      }
 
       const duration = Date.now() - startTime;
 

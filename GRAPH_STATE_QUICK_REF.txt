@@ -1,0 +1,231 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                   GRAPH STATE ANALYSIS - QUICK REFERENCE                   ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTION 1: MULTIPLE PROJECTS SETUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Answer: ONE project per session, MULTIPLE isolated sessions
+
+Architecture:
+┌─ Server Process (shared)
+│  ├─ ToolContext.index (shared, never cleared)
+│  ├─ Memgraph connection (shared)
+│  └─ ToolHandlers (contains engines)
+│
+└─ Per Session:
+   ├─ ProjectContext (workspace + projectId)
+   ├─ FileWatcher (monitoring workspace)
+   └─ SessionId header identification
+
+Session Usage (REQUIRED for multi-project):
+  POST /initialize → Returns mcp-session-id: "sess-a"
+  POST /tools/graph_set_workspace
+    Header: mcp-session-id: sess-a
+    Body: {projectId: "project-a"}
+
+Without session ID: All requests use defaultActiveProjectContext (global)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTION 2: CONTEXT SWITCHING (graph_set_workspace)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+What Changes:
+  ✅ ProjectContext (workspace, sourceDir, projectId)
+  ✅ FileWatcher (restarted for new directory)
+
+What DOESN'T Change (CRITICAL):
+  ❌ GraphIndexManager (NOT cleared - still has old project's data)
+  ❌ ProgressEngine (NOT reset - still has old project's tasks)
+  ❌ ArchitectureEngine (NOT reset - still references old index)
+  ❌ TestEngine (NOT reset - still references old index)
+  ❌ EmbeddingEngine (NOT reset - still references old index)
+  ❌ HybridRetriever (NOT reset - still references old index)
+
+Implementation (src/tools/tool-handlers.ts:1543-1615):
+  1. Resolve new ProjectContext
+  2. setActiveProjectContext(nextContext) - updates session/default context
+  3. startActiveWatcher(nextContext) - restarts file watcher
+  4. Return success
+
+PROBLEM: In-memory index accumulates data from multiple projects!
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTION 3: GRAPH REBUILD BEHAVIOR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Clear in-memory index first?
+  ❌ NO - Shared index is NOT cleared
+
+Append to existing index?
+  ❌ NO - Orchestrator creates NEW internal index for each build
+
+Load index from Memgraph?
+  ❌ NO - Parses files from scratch
+
+Actual Behavior (src/graph/orchestrator.ts:181-423):
+  1. GraphOrchestrator creates NEW GraphIndexManager() [internal]
+  2. Parses all source files
+  3. For each file: addToIndex(parsed) → adds to orchestrator's internal index
+  4. Generates Cypher statements
+  5. Executes Cypher batch → Memgraph UPDATED ✓
+  6. Returns BuildResult
+  7. Orchestrator.index is DISCARDED (not synced)
+  8. ToolContext.index UNCHANGED (remains empty) ✗
+
+Result:
+  • Memgraph database: UPDATED ✓
+  • Shared in-memory index: UNCHANGED (empty) ❌
+  • Orchestrator's internal index: WASTED (discarded) ❌
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUESTION 4: INDEX INITIALIZATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Where does GraphIndexManager get populated from?
+
+At Startup:
+  src/mcp-server.ts:618 → new GraphIndexManager()
+  Result: EMPTY ◯
+
+After graph_rebuild:
+  Orchestrator.build() populates ITS internal index
+  But NEVER syncs to ToolContext.index
+  Result: Still EMPTY ◯
+
+When queries run:
+  Tools query Memgraph directly (not index) → WORKS ✓
+  Embedding engine queries index (EMPTY) → FAILS ❌
+  Progress tracking reads index (EMPTY) → FAILS ❌
+
+Sources of Potential Population:
+  ✓ Manual .addNode() calls (rarely used)
+  ✗ Memgraph database (never loaded at startup)
+  ✗ File system (never loaded directly)
+  ✗ Orchestrator rebuild (not synced)
+
+Summary: Started empty, usually stays empty.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CORE ARCHITECTURE ISSUE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TWO SEPARATE, UNSYNCED INDEX SYSTEMS:
+
+  ┌─────────────────────────────────────┐
+  │ ToolContext.index (Shared)          │
+  │ • Initialized: EMPTY                │
+  │ • Updated: NEVER                    │
+  │ • Used by: ALL engines              │
+  │ • Status: Empty or stale            │
+  └─────────────────────────────────────┘
+
+  ┌─────────────────────────────────────┐
+  │ GraphOrchestrator.index (Internal)  │
+  │ • Created: During build()           │
+  │ • Populated: YES (during parsing)   │
+  │ • Synced: NO (never goes back)      │
+  │ • Status: Temporary, discarded      │
+  └─────────────────────────────────────┘
+
+  ┌─────────────────────────────────────┐
+  │ Memgraph Database (Source of Truth) │
+  │ • Updated: By Orchestrator Cypher   │
+  │ • Queried: YES (by tools)           │
+  │ • Status: Current and accurate      │
+  └─────────────────────────────────────┘
+
+Consequence:
+  • Tools using Memgraph directly: ✓ WORK
+  • Embedding engine: ❌ FAILS
+  • Progress tracking: ❌ FAILS
+  • Architecture validation: ❌ FAILS
+  • Multi-project support: ❌ RISKY
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+QUICK FIXES (PRIORITY ORDER)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. CLEAR INDEX ON CONTEXT SWITCH (30 min)
+   File: src/tools/tool-handlers.ts:1543-1615 (graph_set_workspace)
+   Add:  if (oldProjectId !== newProjectId) this.context.index.clear();
+   Why:  Prevents data accumulation from multiple projects
+
+2. SYNC ORCHESTRATOR INDEX (2 hours)
+   Files: src/graph/orchestrator.ts:70-176 (add getIndex method)
+          src/tools/tool-handlers.ts:1617-1776 (sync in graph_rebuild)
+   Why:   Makes embedding and progress tracking work
+
+3. ADD PROJECTID FILTERS (1 hour)
+   Files: All Cypher queries in src/tools/tool-handlers.ts
+   Add:   WHERE n.projectId = $projectId
+   Why:   Ensures query results respect project boundaries
+
+4. PROJECT-SCOPED INDICES (1-2 days)
+   Files: Refactor entire index management system
+   Why:   Future-proof, complete isolation
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY FILE LOCATIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ToolContext Definition
+  src/tools/tool-handlers.ts:41-46
+
+ProjectContext Definition
+  src/tools/tool-handlers.ts:48-52
+
+Context Switching
+  src/tools/tool-handlers.ts:87-106
+
+Session Management
+  src/tools/tool-handlers.ts:69-71
+
+graph_set_workspace Implementation
+  src/tools/tool-handlers.ts:1543-1615
+
+graph_rebuild Implementation
+  src/tools/tool-handlers.ts:1617-1776
+
+GraphOrchestrator Constructor
+  src/graph/orchestrator.ts:86-176
+
+GraphOrchestrator.build()
+  src/graph/orchestrator.ts:181-423
+
+GraphIndexManager Implementation
+  src/graph/index.ts:35-178
+
+ProgressEngine Construction
+  src/engines/progress-engine.ts:59-96
+
+MCP Server Initialization
+  src/mcp-server.ts:618-623
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RISK ASSESSMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Single Project, Single Session:     LOW RISK ✓
+Multiple Projects with SessionIds:  MEDIUM RISK ⚠ (index contamination)
+Multiple Projects without Sessions: HIGH RISK ✗ (complete data mixing)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DOCUMENTATION FILES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+GRAPH_STATE_ANALYSIS.md        ← Full technical analysis (12 sections)
+GRAPH_STATE_DIAGRAMS.md        ← Architecture and data flow diagrams (8 diagrams)
+GRAPH_STATE_FIXES.md           ← Implementation guide with code examples
+GRAPH_STATE_SUMMARY.md         ← Executive summary (this addresses your questions)
+GRAPH_STATE_QUICK_REF.txt      ← This file
+

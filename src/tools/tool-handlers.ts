@@ -308,7 +308,7 @@ export class ToolHandlers {
     // Initialize GraphOrchestrator if not provided
     this.orchestrator =
       this.context.orchestrator ||
-      new GraphOrchestrator(this.context.memgraph, false);
+      new GraphOrchestrator(this.context.memgraph, false, this.context.index);
 
     this.initializeVectorEngine();
   }
