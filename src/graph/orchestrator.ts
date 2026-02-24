@@ -84,7 +84,11 @@ export class GraphOrchestrator {
   private verbose: boolean;
   private summarizer: CodeSummarizer;
 
-  constructor(memgraph?: MemgraphClient, verbose = false, sharedIndex?: GraphIndexManager) {
+  constructor(
+    memgraph?: MemgraphClient,
+    verbose = false,
+    sharedIndex?: GraphIndexManager,
+  ) {
     this.parser = new TypeScriptParser();
     this.parserRegistry = new ParserRegistry();
     this.sharedIndex = sharedIndex;
@@ -230,7 +234,7 @@ export class GraphOrchestrator {
           filesToProcess = scopedChangedFiles.filter(
             (filePath) => fs.existsSync(filePath) && files.includes(filePath),
           );
-          filesChanged = scopedChangedFiles.length;
+          filesChanged = filesToProcess.length;
 
           if (opts.verbose) {
             console.log(
@@ -503,6 +507,9 @@ export class GraphOrchestrator {
       return [];
     }
 
+    const normalizedWorkspaceRoot = path.resolve(workspaceRoot);
+    const seen = new Set<string>();
+
     return changedFiles
       .map((entry) => String(entry || "").trim())
       .filter(Boolean)
@@ -511,9 +518,24 @@ export class GraphOrchestrator {
           ? path.normalize(entry)
           : path.resolve(workspaceRoot, entry),
       )
+      .filter((filePath) => {
+        const relative = path.relative(normalizedWorkspaceRoot, filePath);
+        return (
+          relative.length > 0 &&
+          !relative.startsWith("..") &&
+          !path.isAbsolute(relative)
+        );
+      })
       .filter((filePath) =>
         /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java)$/.test(filePath),
-      );
+      )
+      .filter((filePath) => {
+        if (seen.has(filePath)) {
+          return false;
+        }
+        seen.add(filePath);
+        return true;
+      });
   }
 
   private async parseSourceFile(
