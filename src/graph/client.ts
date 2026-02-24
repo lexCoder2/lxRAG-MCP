@@ -22,6 +22,7 @@ export class MemgraphClient {
   private config: MemgraphConfig;
   private driver: any;
   private connected = false;
+  private readonly queryRetryAttempts = 1;
 
   constructor(config: Partial<MemgraphConfig> = {}) {
     this.config = {
@@ -120,31 +121,60 @@ export class MemgraphClient {
       }
     }
 
-    const session = this.driver.session();
-    try {
-      // Sanitize params: replace undefined with null (Bolt requires explicit null)
-      const sanitizedParams = Object.fromEntries(
-        Object.entries(params).map(([k, v]) => [k, v === undefined ? null : v]),
-      );
+    // Sanitize params: replace undefined with null (Bolt requires explicit null)
+    const sanitizedParams = Object.fromEntries(
+      Object.entries(params).map(([k, v]) => [k, v === undefined ? null : v]),
+    );
 
-      const result = await session.run(query, sanitizedParams);
-      const data = result.records.map((record: any) => record.toObject());
+    for (let attempt = 0; attempt <= this.queryRetryAttempts; attempt++) {
+      const session = this.driver.session();
+      try {
+        const result = await session.run(query, sanitizedParams);
+        const data = result.records.map((record: any) => record.toObject());
 
-      return {
-        data,
-        error: undefined,
-      };
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("[Memgraph] Query execution error:", errorMsg);
-      console.error("[Memgraph] Error in query:", query.substring(0, 200));
-      return {
-        data: [],
-        error: `Query failed: ${errorMsg}`,
-      };
-    } finally {
-      await session.close();
+        return {
+          data,
+          error: undefined,
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        const canRetry =
+          attempt < this.queryRetryAttempts &&
+          this.isRetryableQueryError(error);
+
+        if (canRetry) {
+          console.warn(
+            `[Memgraph] Transient query error, retrying (${attempt + 1}/${this.queryRetryAttempts}): ${errorMsg}`,
+          );
+          continue;
+        }
+
+        console.error("[Memgraph] Query execution error:", errorMsg);
+        console.error("[Memgraph] Error in query:", query.substring(0, 200));
+        return {
+          data: [],
+          error: `Query failed: ${errorMsg}`,
+        };
+      } finally {
+        await session.close();
+      }
     }
+
+    return {
+      data: [],
+      error: "Query failed: exhausted retry attempts",
+    };
+  }
+
+  private isRetryableQueryError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("serviceunavailable") ||
+      normalized.includes("session expired") ||
+      normalized.includes("connection") ||
+      normalized.includes("temporarily unavailable")
+    );
   }
 
   async executeBatch(statements: CypherStatement[]): Promise<QueryResult[]> {
@@ -220,7 +250,13 @@ export class MemgraphClient {
    */
   async loadProjectGraph(projectId: string): Promise<{
     nodes: Array<{ id: string; type: string; properties: Record<string, any> }>;
-    relationships: Array<{ id: string; from: string; to: string; type: string; properties?: Record<string, any> }>;
+    relationships: Array<{
+      id: string;
+      from: string;
+      to: string;
+      type: string;
+      properties?: Record<string, any>;
+    }>;
   }> {
     if (!this.connected) {
       return { nodes: [], relationships: [] };
@@ -231,7 +267,7 @@ export class MemgraphClient {
       const nodesResult = await this.executeCypher(
         `MATCH (n {projectId: $projectId})
          RETURN n.id AS id, labels(n)[0] AS type, properties(n) AS props`,
-        { projectId }
+        { projectId },
       );
 
       const nodes = nodesResult.data.map((row: any) => ({
@@ -244,7 +280,7 @@ export class MemgraphClient {
       const relsResult = await this.executeCypher(
         `MATCH (n1 {projectId: $projectId})-[r]->(n2 {projectId: $projectId})
          RETURN n1.id AS from, n2.id AS to, type(r) AS type, properties(r) AS props`,
-        { projectId }
+        { projectId },
       );
 
       const relationships = relsResult.data.map((row: any) => ({

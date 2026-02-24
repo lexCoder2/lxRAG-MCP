@@ -121,7 +121,7 @@ export abstract class ToolHandlerBase {
 
   protected reloadEnginesForContext(context: ProjectContext): void {
     console.log(
-      `[ToolHandlers] Reloading engines for project context: ${context.projectId}`
+      `[ToolHandlers] Reloading engines for project context: ${context.projectId}`,
     );
 
     try {
@@ -159,8 +159,7 @@ export abstract class ToolHandlerBase {
       ? overrides.workspaceRoot
       : base.workspaceRoot;
     const workspaceRoot = path.resolve(workspaceInput);
-    const sourceInput =
-      overrides.sourceDir || path.join(workspaceRoot, "src");
+    const sourceInput = overrides.sourceDir || path.join(workspaceRoot, "src");
     const sourceDir = path.isAbsolute(sourceInput)
       ? sourceInput
       : path.resolve(workspaceRoot, sourceInput);
@@ -199,7 +198,7 @@ export abstract class ToolHandlerBase {
     ) {
       const relativeSource = path.relative(
         context.workspaceRoot,
-        context.sourceDir
+        context.sourceDir,
       );
       mappedSourceDir = path.resolve(fallbackRoot, relativeSource);
     }
@@ -269,7 +268,7 @@ export abstract class ToolHandlerBase {
           sourceDir,
           changedFiles,
         });
-      }
+      },
     );
 
     watcher.start();
@@ -295,7 +294,7 @@ export abstract class ToolHandlerBase {
         await watcher.stop();
         this.sessionWatchers.delete(watcherKey);
         console.log(
-          `[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`
+          `[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`,
         );
       }
 
@@ -303,13 +302,13 @@ export abstract class ToolHandlerBase {
       if (this.sessionProjectContexts.has(sessionId)) {
         this.sessionProjectContexts.delete(sessionId);
         console.log(
-          `[ToolHandlers] Session cleanup: removed project context for ${sessionId}`
+          `[ToolHandlers] Session cleanup: removed project context for ${sessionId}`,
         );
       }
     } catch (error) {
       console.error(
         `[ToolHandlers] Error cleaning up session ${sessionId}:`,
-        error
+        error,
       );
     }
   }
@@ -337,7 +336,7 @@ export abstract class ToolHandlerBase {
     this.sessionWatchers.clear();
     this.sessionProjectContexts.clear();
     console.log(
-      `[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`
+      `[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`,
     );
   }
 
@@ -350,14 +349,14 @@ export abstract class ToolHandlerBase {
       this.archEngine = new ArchitectureEngine(
         this.context.config.architecture.layers,
         this.context.config.architecture.rules,
-        this.context.index
+        this.context.index,
       );
     }
 
     this.testEngine = new TestEngine(this.context.index);
     this.progressEngine = new ProgressEngine(
       this.context.index,
-      this.context.memgraph
+      this.context.memgraph,
     );
     this.episodeEngine = new EpisodeEngine(this.context.memgraph);
     this.coordinationEngine = new CoordinationEngine(this.context.memgraph);
@@ -379,7 +378,7 @@ export abstract class ToolHandlerBase {
     this.hybridRetriever = new HybridRetriever(
       this.context.index,
       this.embeddingEngine,
-      this.context.memgraph
+      this.context.memgraph,
     );
     this.docsEngine = new DocsEngine(this.context.memgraph, {
       qdrant: this.qdrant,
@@ -394,7 +393,7 @@ export abstract class ToolHandlerBase {
         "[summarizer] LXRAG_SUMMARIZER_URL is not set. " +
           "Heuristic local summaries will be used, reducing vector search quality and " +
           "compact-profile accuracy. " +
-          "Point this to an OpenAI-compatible /v1/chat/completions endpoint for production use."
+          "Point this to an OpenAI-compatible /v1/chat/completions endpoint for production use.",
       );
     }
   }
@@ -408,24 +407,22 @@ export abstract class ToolHandlerBase {
     try {
       if (!this.context.memgraph.isConnected()) {
         console.log(
-          "[Phase2c] Memgraph not connected, skipping index initialization from database"
+          "[Phase2c] Memgraph not connected, skipping index initialization from database",
         );
         return;
       }
 
       const projectId = this.defaultActiveProjectContext.projectId;
       console.log(
-        `[Phase2c] Loading index from Memgraph for project ${projectId}...`
+        `[Phase2c] Loading index from Memgraph for project ${projectId}...`,
       );
 
-      const graphData = await this.context.memgraph.loadProjectGraph(
-        projectId
-      );
+      const graphData = await this.context.memgraph.loadProjectGraph(projectId);
       const { nodes, relationships } = graphData;
 
       if (nodes.length === 0 && relationships.length === 0) {
         console.log(
-          `[Phase2c] No data found in Memgraph for project ${projectId}, index remains empty`
+          `[Phase2c] No data found in Memgraph for project ${projectId}, index remains empty`,
         );
         return;
       }
@@ -442,15 +439,18 @@ export abstract class ToolHandlerBase {
           rel.from,
           rel.to,
           rel.type,
-          rel.properties
+          rel.properties,
         );
       }
 
       console.log(
-        `[Phase2c] Index loaded from Memgraph: ${nodes.length} nodes, ${relationships.length} relationships for project ${projectId}`
+        `[Phase2c] Index loaded from Memgraph: ${nodes.length} nodes, ${relationships.length} relationships for project ${projectId}`,
       );
     } catch (error) {
-      console.error("[Phase2c] Failed to initialize index from Memgraph:", error);
+      console.error(
+        "[Phase2c] Failed to initialize index from Memgraph:",
+        error,
+      );
       // Continue regardless - index is optional for startup
     }
   }
@@ -463,12 +463,12 @@ export abstract class ToolHandlerBase {
     code: string,
     reason: string,
     recoverable = true,
-    hint?: string
+    hint?: string,
   ): string {
     const response = errorResponse(
       code,
       reason,
-      hint || "Review tool input and retry."
+      hint || "Review tool input and retry.",
     ) as unknown as Record<string, unknown>;
     response.error = {
       code,
@@ -501,10 +501,10 @@ export abstract class ToolHandlerBase {
     if (value && typeof value === "object") {
       const entries = Object.entries(value as Record<string, unknown>).slice(
         0,
-        20
+        20,
       );
       return Object.fromEntries(
-        entries.map(([key, val]) => [key, this.compactValue(val)])
+        entries.map(([key, val]) => [key, this.compactValue(val)]),
       );
     }
 
@@ -515,7 +515,7 @@ export abstract class ToolHandlerBase {
     data: unknown,
     profile: string = "compact",
     summary?: string,
-    toolName?: string
+    toolName?: string,
   ): string {
     const shaped = profile === "debug" ? data : this.compactValue(data);
     const safeProfile =
@@ -525,10 +525,10 @@ export abstract class ToolHandlerBase {
         summary || "Operation completed successfully.",
         shaped,
         safeProfile,
-        toolName
+        toolName,
       ),
       null,
-      2
+      2,
     );
   }
 
@@ -537,7 +537,7 @@ export abstract class ToolHandlerBase {
   // ──────────────────────────────────────────────────────────────────────────────
 
   protected classifyIntent(
-    query: string
+    query: string,
   ): "structure" | "dependency" | "test-impact" | "progress" | "general" {
     const lower = query.toLowerCase();
 
@@ -553,9 +553,7 @@ export abstract class ToolHandlerBase {
       return "dependency";
     }
 
-    if (
-      /(file|folder|class|function|structure|tree|list)/.test(lower)
-    ) {
+    if (/(file|folder|class|function|structure|tree|list)/.test(lower)) {
       return "structure";
     }
 
@@ -564,7 +562,7 @@ export abstract class ToolHandlerBase {
 
   protected normalizeToolArgs(
     toolName: string,
-    rawArgs: any
+    rawArgs: any,
   ): { normalized: any; warnings: string[] } {
     const warnings: string[] = [];
     const normalized = { ...(rawArgs || {}) };
@@ -612,10 +610,7 @@ export abstract class ToolHandlerBase {
       }
     }
 
-    if (
-      toolName === "graph_set_workspace" ||
-      toolName === "graph_rebuild"
-    ) {
+    if (toolName === "graph_set_workspace" || toolName === "graph_rebuild") {
       if (
         typeof normalized.workspacePath === "string" &&
         typeof normalized.workspaceRoot !== "string"
@@ -631,7 +626,7 @@ export abstract class ToolHandlerBase {
 
   normalizeForDispatch(
     toolName: string,
-    rawArgs: any
+    rawArgs: any,
   ): { normalized: any; warnings: string[] } {
     return this.normalizeToolArgs(toolName, rawArgs);
   }
@@ -644,7 +639,7 @@ export abstract class ToolHandlerBase {
       return this.errorEnvelope(
         "TOOL_NOT_FOUND",
         `Tool not found in handler registry: ${toolName}`,
-        false
+        false,
       );
     }
 
@@ -693,10 +688,7 @@ export abstract class ToolHandlerBase {
       return Number(value);
     }
 
-    if (
-      typeof value === "string" &&
-      /^-?\d+(?:\.\d+)?$/.test(value)
-    ) {
+    if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) {
       const parsed = Number(value);
       return Number.isFinite(parsed) ? parsed : null;
     }
@@ -778,7 +770,7 @@ export abstract class ToolHandlerBase {
 
   protected async inferEpisodeEntityHints(
     query: string,
-    limit: number
+    limit: number,
   ): Promise<string[]> {
     if (!this.embeddingEngine || !query.trim()) {
       return [];
@@ -809,7 +801,7 @@ export abstract class ToolHandlerBase {
 
   protected async resolveSinceAnchor(
     since: string,
-    projectId: string
+    projectId: string,
   ): Promise<{
     sinceTs: number;
     mode: "txId" | "timestamp" | "gitCommit" | "agentId";
@@ -825,7 +817,7 @@ export abstract class ToolHandlerBase {
     if (txIdPattern.test(trimmed) || trimmed.startsWith("tx-")) {
       const txLookup = await this.context.memgraph.executeCypher(
         "MATCH (tx:GRAPH_TX {projectId: $projectId, id: $id}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-        { projectId, id: trimmed }
+        { projectId, id: trimmed },
       );
       const ts = this.toSafeNumber(txLookup.data?.[0]?.timestamp);
       if (ts !== null) {
@@ -842,7 +834,7 @@ export abstract class ToolHandlerBase {
     if (/^[a-f0-9]{7,40}$/i.test(trimmed)) {
       const commitLookup = await this.context.memgraph.executeCypher(
         "MATCH (tx:GRAPH_TX {projectId: $projectId, gitCommit: $gitCommit}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-        { projectId, gitCommit: trimmed }
+        { projectId, gitCommit: trimmed },
       );
       const ts = this.toSafeNumber(commitLookup.data?.[0]?.timestamp);
       if (ts !== null) {
@@ -853,7 +845,7 @@ export abstract class ToolHandlerBase {
 
     const agentLookup = await this.context.memgraph.executeCypher(
       "MATCH (tx:GRAPH_TX {projectId: $projectId, agentId: $agentId}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-      { projectId, agentId: trimmed }
+      { projectId, agentId: trimmed },
     );
     const agentTs = this.toSafeNumber(agentLookup.data?.[0]?.timestamp);
     if (agentTs !== null) {
@@ -894,21 +886,20 @@ export abstract class ToolHandlerBase {
             ? qdrantError.message
             : String(qdrantError);
         console.error(
-          `[Phase4.5] Qdrant storage failed for project ${activeProjectId}: ${errorMsg}`
+          `[Phase4.5] Qdrant storage failed for project ${activeProjectId}: ${errorMsg}`,
         );
         // Don't throw - continue with embeddings ready flag set locally
         // Qdrant failures are non-critical for indexing functionality
         console.warn(
-          `[Phase4.5] Continuing without Qdrant - semantic search may be unavailable for project ${activeProjectId}`
+          `[Phase4.5] Continuing without Qdrant - semantic search may be unavailable for project ${activeProjectId}`,
         );
       }
 
       this.setProjectEmbeddingsReady(activeProjectId, true);
     } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(
-        `[Phase4.5] Embedding generation failed for project ${activeProjectId}: ${errorMsg}`
+        `[Phase4.5] Embedding generation failed for project ${activeProjectId}: ${errorMsg}`,
       );
       throw error;
     }
@@ -918,10 +909,7 @@ export abstract class ToolHandlerBase {
     return this.projectEmbeddingsReady.get(projectId) ?? false;
   }
 
-  protected setProjectEmbeddingsReady(
-    projectId: string,
-    ready: boolean
-  ): void {
+  protected setProjectEmbeddingsReady(projectId: string, ready: boolean): void {
     this.projectEmbeddingsReady.set(projectId, ready);
   }
 
@@ -936,10 +924,9 @@ export abstract class ToolHandlerBase {
   protected recordBuildError(
     projectId: string,
     error: unknown,
-    context?: string
+    context?: string,
   ): void {
-    const errorMsg =
-      error instanceof Error ? error.message : String(error);
+    const errorMsg = error instanceof Error ? error.message : String(error);
     const errors = this.backgroundBuildErrors.get(projectId) || [];
 
     errors.push({
@@ -958,7 +945,7 @@ export abstract class ToolHandlerBase {
 
   protected getRecentBuildErrors(
     projectId: string,
-    limit: number = 5
+    limit: number = 5,
   ): Array<{ timestamp: number; error: string; context?: string }> {
     const errors = this.backgroundBuildErrors.get(projectId) || [];
     return errors.slice(-limit);
@@ -969,19 +956,66 @@ export abstract class ToolHandlerBase {
   // ──────────────────────────────────────────────────────────────────────────────
 
   protected resolveElement(elementId: string): GraphNode | undefined {
-    const exact = this.context.index.getNode(elementId);
+    const requested = String(elementId || "").trim();
+    if (!requested) {
+      return undefined;
+    }
+
+    const exact = this.context.index.getNode(requested);
     if (exact) {
       return exact;
     }
+
+    const normalizedPath = requested.replace(/\\/g, "/");
+    const basename = path.basename(normalizedPath);
+    const scopedTail = requested.includes(":")
+      ? requested.split(":").slice(-1)[0]
+      : requested;
+    const symbolTail = requested.includes("::")
+      ? requested.split("::").slice(-1)[0]
+      : scopedTail;
 
     const files = this.context.index.getNodesByType("FILE");
     const functions = this.context.index.getNodesByType("FUNCTION");
     const classes = this.context.index.getNodesByType("CLASS");
 
     return (
-      files.find((node) => node.properties.path?.includes(elementId)) ||
-      functions.find((node) => node.properties.name === elementId) ||
-      classes.find((node) => node.properties.name === elementId)
+      files.find((node) => {
+        const nodePath = String(
+          node.properties.path ||
+            node.properties.filePath ||
+            node.properties.relativePath ||
+            "",
+        ).replace(/\\/g, "/");
+        return (
+          nodePath === normalizedPath ||
+          nodePath.endsWith(normalizedPath) ||
+          normalizedPath.endsWith(nodePath) ||
+          path.basename(nodePath) === basename ||
+          node.id === requested ||
+          node.id.endsWith(`:${normalizedPath}`)
+        );
+      }) ||
+      functions.find((node) => {
+        const name = String(node.properties.name || "");
+        return (
+          name === requested ||
+          name === scopedTail ||
+          name === symbolTail ||
+          node.id === requested ||
+          node.id.endsWith(`:${requested}`)
+        );
+      }) ||
+      classes.find((node) => {
+        const name = String(node.properties.name || "");
+        return (
+          name === requested ||
+          name === scopedTail ||
+          name === symbolTail ||
+          node.id === requested ||
+          node.id.endsWith(`:${requested}`)
+        );
+      })
     );
   }
 
@@ -994,7 +1028,7 @@ export abstract class ToolHandlerBase {
     return unique
       .map(
         (name) =>
-          `(${name}.validFrom <= $asOfTs AND (${name}.validTo IS NULL OR ${name}.validTo > $asOfTs))`
+          `(${name}.validFrom <= $asOfTs AND (${name}.validTo IS NULL OR ${name}.validTo > $asOfTs))`,
       )
       .join(" AND ");
   }
@@ -1057,7 +1091,7 @@ export abstract class ToolHandlerBase {
   // ──────────────────────────────────────────────────────────────────────────────
 
   protected async runWatcherIncrementalRebuild(
-    context: ProjectContext & { changedFiles?: string[] }
+    context: ProjectContext & { changedFiles?: string[] },
   ): Promise<void> {
     if (!this.orchestrator) {
       return;
@@ -1077,7 +1111,7 @@ export abstract class ToolHandlerBase {
           timestamp: txTimestamp,
           mode: "incremental",
           sourceDir: context.sourceDir,
-        }
+        },
       );
     }
 
@@ -1104,7 +1138,7 @@ export abstract class ToolHandlerBase {
     // Phase 2a & 4.3: Reset embeddings for watcher-driven incremental builds (per-project to prevent race conditions)
     this.setProjectEmbeddingsReady(context.projectId, false);
     console.log(
-      `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`
+      `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`,
     );
 
     this.lastGraphRebuildAt = new Date().toISOString();
