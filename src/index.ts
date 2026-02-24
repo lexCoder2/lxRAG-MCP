@@ -93,7 +93,10 @@ class CodeGraphServer {
       console.error("[CodeGraphServer] Memgraph connected");
 
       // Initialize tool handlers
-      const orchestrator = new GraphOrchestrator(this.memgraph, false);
+      // Pass sharedIndex so graph_rebuild syncs the in-memory index after each
+      // build; without this, graph_health always reports driftDetected: true
+      // because context.index stays at 0 nodes (A2 regression fix).
+      const orchestrator = new GraphOrchestrator(this.memgraph, false, this.index);
       this.toolHandlers = new ToolHandlers({
         index: this.index,
         memgraph: this.memgraph,
