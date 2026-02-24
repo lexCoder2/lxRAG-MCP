@@ -51,6 +51,13 @@ const TOOL_NAMES = [
   "agent_status",
   "coordination_overview",
   "contract_validate",
+  // Documentation tools (previously absent from stdio transport)
+  "index_docs",
+  "search_docs",
+  // Reference and setup tools (previously absent from stdio transport)
+  "ref_query",
+  "init_project_setup",
+  "setup_copilot_instructions",
 ] as const;
 
 // Passthrough schema — full validation handled inside ToolHandlers

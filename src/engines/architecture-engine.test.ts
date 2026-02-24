@@ -225,6 +225,66 @@ describe("ArchitectureEngine", () => {
     expect(suggestion!.reasoning.trim().length).toBeGreaterThan(0);
   });
 
+  // ── N7 regression — arch_validate uses workspaceRoot, not process.cwd() ───
+
+  it("N7: validate() scans workspaceRoot, not process.cwd()", async () => {
+    // Create two separate temp directories
+    const targetRoot = fs.mkdtempSync(path.join(os.tmpdir(), "arch-n7-target-"));
+    const decoyRoot = fs.mkdtempSync(path.join(os.tmpdir(), "arch-n7-decoy-"));
+
+    // Put a .ts file with a layer violation in targetRoot
+    const srcDir = path.join(targetRoot, "src");
+    fs.mkdirSync(path.join(srcDir, "feature"), { recursive: true });
+    fs.mkdirSync(path.join(srcDir, "ui"), { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, "feature", "bad.ts"),
+      "import { view } from '../ui/view';\nexport const x = view;\n",
+    );
+    fs.writeFileSync(path.join(srcDir, "ui", "view.ts"), "export const view = 1;\n");
+
+    // decoyRoot has no src/ files — if validate() scans it, result would be clean
+    // Set process.cwd() to decoyRoot to verify engine ignores it
+    process.chdir(decoyRoot);
+
+    const engine = new ArchitectureEngine(
+      layers,
+      rules,
+      new GraphIndexManager(),
+      targetRoot, // explicit workspaceRoot — must be used instead of process.cwd()
+    );
+
+    const result = await engine.validate(); // no files arg → must scan targetRoot
+    // Must find the layer violation in targetRoot (not the clean decoyRoot)
+    expect(result.violations.some((v) => v.type === "layer-violation")).toBe(true);
+  });
+
+  it("N7: reload() updates workspaceRoot for subsequent validate() calls", async () => {
+    const root1 = fs.mkdtempSync(path.join(os.tmpdir(), "arch-n7-r1-"));
+    const root2 = fs.mkdtempSync(path.join(os.tmpdir(), "arch-n7-r2-"));
+
+    // root2 has a layer violation; root1 is clean
+    const src2 = path.join(root2, "src");
+    fs.mkdirSync(path.join(src2, "feature"), { recursive: true });
+    fs.mkdirSync(path.join(src2, "ui"), { recursive: true });
+    fs.writeFileSync(
+      path.join(src2, "feature", "bad.ts"),
+      "import { view } from '../ui/view';\nexport const x = view;\n",
+    );
+    fs.writeFileSync(path.join(src2, "ui", "view.ts"), "export const view = 1;\n");
+
+    const index = new GraphIndexManager();
+    const engine = new ArchitectureEngine(layers, rules, index, root1);
+
+    // First validate: root1 is clean
+    const result1 = await engine.validate();
+    expect(result1.violations.filter((v) => v.type === "layer-violation")).toHaveLength(0);
+
+    // After reload with root2, validate must scan root2 and find the violation
+    engine.reload(index, "proj2", root2);
+    const result2 = await engine.validate();
+    expect(result2.violations.some((v) => v.type === "layer-violation")).toBe(true);
+  });
+
   it("external package names in deps do not constrain layer selection", () => {
     const engine = new ArchitectureEngine(
       realisticLayers,

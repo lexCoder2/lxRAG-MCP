@@ -128,7 +128,7 @@ export abstract class ToolHandlerBase {
       this.progressEngine?.reload(this.context.index, context.projectId);
       this.testEngine?.reload(this.context.index, context.projectId);
       if (this.archEngine) {
-        this.archEngine.reload(this.context.index, context.projectId);
+        this.archEngine.reload(this.context.index, context.projectId, context.workspaceRoot);
       }
 
       // Phase 4.3: Reset embedding flag per-project to prevent race conditions
@@ -350,6 +350,7 @@ export abstract class ToolHandlerBase {
         this.context.config.architecture.layers,
         this.context.config.architecture.rules,
         this.context.index,
+        this.defaultActiveProjectContext.workspaceRoot,
       );
     }
 
