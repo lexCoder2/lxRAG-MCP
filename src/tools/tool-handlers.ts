@@ -479,7 +479,11 @@ export class ToolHandlers extends ToolHandlerBase {
           length: Math.max(1, cycle.length - 1),
         }));
 
-        if (!results.matches.length && !files.length && this.context.memgraph.isConnected()) {
+        if (
+          !results.matches.length &&
+          !files.length &&
+          this.context.memgraph.isConnected()
+        ) {
           // In-memory index is empty (no rebuild yet): fall back to Cypher-based cycle detection.
           // Detects simple 2-hop import cycles: A imports B and B imports A.
           const { projectId: pid } = this.getActiveProjectContext();
@@ -544,14 +548,18 @@ export class ToolHandlers extends ToolHandlerBase {
           const lp = String(pattern || "").toLowerCase();
           results.matches = allNodes
             .filter((n) => {
-              const name = String(n.properties.name || n.properties.path || n.id);
+              const name = String(
+                n.properties.name || n.properties.path || n.id,
+              );
               return name.toLowerCase().includes(lp);
             })
             .slice(0, 20)
             .map((n) => ({
               type: n.type,
               name: String(n.properties.name || n.properties.path || n.id),
-              location: String(n.properties.relativePath || n.properties.path || ""),
+              location: String(
+                n.properties.relativePath || n.properties.path || "",
+              ),
             }));
         }
       }
@@ -1114,7 +1122,13 @@ export class ToolHandlers extends ToolHandlerBase {
         "blocking_issues",
       ],
       docs: ["index_docs", "search_docs"],
-      test: ["test_select", "test_categorize", "test_run", "suggest_tests", "impact_analyze"],
+      test: [
+        "test_select",
+        "test_categorize",
+        "test_run",
+        "suggest_tests",
+        "impact_analyze",
+      ],
       memory: [
         "episode_add",
         "episode_recall",
@@ -1132,7 +1146,10 @@ export class ToolHandlers extends ToolHandlerBase {
       ],
     };
 
-    const result: Record<string, { available: string[]; unavailable: string[] }> = {};
+    const result: Record<
+      string,
+      { available: string[]; unavailable: string[] }
+    > = {};
 
     for (const [category, tools] of Object.entries(KNOWN_CATEGORIES)) {
       const available: string[] = [];
@@ -1202,7 +1219,11 @@ export class ToolHandlers extends ToolHandlerBase {
       const memgraphImportCount = this.toSafeNumber(stats.importCount) ?? 0;
       // Nodes that the in-memory GraphIndexManager actually caches (FILE, FUNCTION, CLASS, IMPORT).
       // Used for drift detection instead of totalNodes (which includes SECTION, VARIABLE, etc.).
-      const memgraphIndexableCount = memgraphFileCount + memgraphFuncCount + memgraphClassCount + memgraphImportCount;
+      const memgraphIndexableCount =
+        memgraphFileCount +
+        memgraphFuncCount +
+        memgraphClassCount +
+        memgraphImportCount;
 
       // Get index statistics for comparison
       const indexStats = this.context.index.getStatistics();
@@ -1250,7 +1271,8 @@ export class ToolHandlers extends ToolHandlerBase {
       // Detect drift between systems.
       // Compare only the node types the in-memory index caches (FILE+FUNCTION+CLASS+IMPORT)
       // against memgraphIndexableCount. A tolerance of ±3 accounts for deduplication rounding.
-      const indexDrift = Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
+      const indexDrift =
+        Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
       const embeddingDrift = embeddingCount < indexedSymbols;
 
       // Phase 4.4: Optimize transaction queries - combine into single query
@@ -1323,7 +1345,8 @@ export class ToolHandlers extends ToolHandlerBase {
                   : "Embeddings complete",
           },
           retrieval: {
-            bm25IndexExists: this.hybridRetriever?.bm25IndexKnownToExist ?? false,
+            bm25IndexExists:
+              this.hybridRetriever?.bm25IndexKnownToExist ?? false,
             mode: this.hybridRetriever?.bm25Mode ?? "not_initialized",
           },
           summarizer: {
@@ -1763,7 +1786,13 @@ export class ToolHandlers extends ToolHandlerBase {
       sessionId,
     } = args || {};
 
+    console.error(
+      `[episode_add] ENTER rawType=${JSON.stringify(type)} content-length=${String(content ?? "").length} agentId=${agentId ?? "(none)"}`,
+    );
     if (!type || !content) {
+      console.error(
+        `[episode_add] REJECT missing type=${!type} missing content=${!content}`,
+      );
       return this.errorEnvelope(
         "EPISODE_ADD_INVALID_INPUT",
         "Fields 'type' and 'content' are required.",
@@ -1773,6 +1802,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }
 
     const normalizedType = String(type).toUpperCase();
+    console.error(`[episode_add] normalizedType=${normalizedType}`);
     const normalizedEntities = Array.isArray(entities)
       ? entities.map((item) => String(item))
       : [];

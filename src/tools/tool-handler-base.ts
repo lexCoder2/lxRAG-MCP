@@ -128,7 +128,11 @@ export abstract class ToolHandlerBase {
       this.progressEngine?.reload(this.context.index, context.projectId);
       this.testEngine?.reload(this.context.index, context.projectId);
       if (this.archEngine) {
-        this.archEngine.reload(this.context.index, context.projectId, context.workspaceRoot);
+        this.archEngine.reload(
+          this.context.index,
+          context.projectId,
+          context.workspaceRoot,
+        );
       }
 
       // Phase 4.3: Reset embedding flag per-project to prevent race conditions
@@ -345,6 +349,14 @@ export abstract class ToolHandlerBase {
   // ──────────────────────────────────────────────────────────────────────────────
 
   protected initializeEngines(): void {
+    console.error("[initializeEngines] Starting engine initialization...");
+    console.error(
+      `[initializeEngines] projectId=${this.defaultActiveProjectContext.projectId} workspaceRoot=${this.defaultActiveProjectContext.workspaceRoot}`,
+    );
+    console.error(
+      `[initializeEngines] memgraphConnected=${this.context.memgraph.isConnected?.() ?? "unknown"}`,
+    );
+
     if (this.context.config.architecture) {
       this.archEngine = new ArchitectureEngine(
         this.context.config.architecture.layers,
@@ -352,42 +364,74 @@ export abstract class ToolHandlerBase {
         this.context.index,
         this.defaultActiveProjectContext.workspaceRoot,
       );
+      console.error(
+        `[initializeEngines] archEngine=ready layers=${this.context.config.architecture.layers?.length ?? 0}`,
+      );
+    } else {
+      console.error(
+        "[initializeEngines] archEngine=skipped (no architecture config)",
+      );
     }
 
     this.testEngine = new TestEngine(this.context.index);
+    console.error("[initializeEngines] testEngine=ready");
+
     this.progressEngine = new ProgressEngine(
       this.context.index,
       this.context.memgraph,
     );
+    console.error("[initializeEngines] progressEngine=ready");
+
     this.episodeEngine = new EpisodeEngine(this.context.memgraph);
+    console.error("[initializeEngines] episodeEngine=ready");
+
     this.coordinationEngine = new CoordinationEngine(this.context.memgraph);
+    console.error("[initializeEngines] coordinationEngine=ready");
+
     this.communityDetector = new CommunityDetector(this.context.memgraph);
+    console.error("[initializeEngines] communityDetector=ready");
 
     // Initialize GraphOrchestrator if not provided
     this.orchestrator =
       this.context.orchestrator ||
       new GraphOrchestrator(this.context.memgraph, false, this.context.index);
+    console.error(
+      `[initializeEngines] orchestrator=${this.context.orchestrator ? "provided" : "created"}`,
+    );
 
     this.initializeVectorEngine();
+    console.error("[initializeEngines] All engines initialized.");
   }
 
   protected initializeVectorEngine(): void {
     const host = env.QDRANT_HOST;
     const port = env.QDRANT_PORT;
+    console.error(`[initializeVectorEngine] qdrant=${host}:${port}`);
+    console.error(
+      `[initializeVectorEngine] summarizerUrl=${env.LXRAG_SUMMARIZER_URL ?? "(not set)"}`,
+    );
     this.qdrant = new QdrantClient(host, port);
     this.embeddingEngine = new EmbeddingEngine(this.context.index, this.qdrant);
+    console.error("[initializeVectorEngine] embeddingEngine=created");
     this.hybridRetriever = new HybridRetriever(
       this.context.index,
       this.embeddingEngine,
       this.context.memgraph,
     );
+    console.error("[initializeVectorEngine] hybridRetriever=created");
     this.docsEngine = new DocsEngine(this.context.memgraph, {
       qdrant: this.qdrant,
     });
+    console.error("[initializeVectorEngine] docsEngine=created");
 
-    void this.qdrant.connect().catch((error) => {
-      console.warn("[ToolHandlers] Qdrant connection skipped:", error);
-    });
+    void this.qdrant
+      .connect()
+      .then(() => {
+        console.error("[initializeVectorEngine] qdrant=CONNECTED");
+      })
+      .catch((error: unknown) => {
+        console.warn("[initializeVectorEngine] qdrant=FAILED:", String(error));
+      });
 
     // Ensure the Memgraph text_search BM25 index exists at startup.
     // Fire-and-forget: failure is non-fatal; retrieval falls back to lexical mode.
@@ -396,16 +440,22 @@ export abstract class ToolHandlerBase {
     setImmediate(() => {
       if (!this.hybridRetriever) return;
       if (!this.context.memgraph.isConnected?.()) return;
-      if (typeof (this.hybridRetriever as any).ensureBM25Index !== "function") return;
-      void this.hybridRetriever.ensureBM25Index().then((result) => {
-        if (result.created) {
-          console.error("[bm25] Created text_search symbol_index at startup");
-        } else if (result.error) {
-          console.warn(`[bm25] BM25 index unavailable at startup: ${result.error}`);
-        }
-      }).catch(() => {
-        // Memgraph not yet connected at startup — index will be created on next rebuild
-      });
+      if (typeof (this.hybridRetriever as any).ensureBM25Index !== "function")
+        return;
+      void this.hybridRetriever
+        .ensureBM25Index()
+        .then((result) => {
+          if (result.created) {
+            console.error("[bm25] Created text_search symbol_index at startup");
+          } else if (result.error) {
+            console.warn(
+              `[bm25] BM25 index unavailable at startup: ${result.error}`,
+            );
+          }
+        })
+        .catch(() => {
+          // Memgraph not yet connected at startup — index will be created on next rebuild
+        });
     });
 
     if (!env.LXRAG_SUMMARIZER_URL) {
@@ -652,10 +702,22 @@ export abstract class ToolHandlerBase {
   }
 
   async callTool(toolName: string, rawArgs: any): Promise<string> {
+    console.error(
+      `[callTool] ENTER tool=${toolName} args=${JSON.stringify(rawArgs ?? {}).slice(0, 256)}`,
+    );
     const { normalized, warnings } = this.normalizeToolArgs(toolName, rawArgs);
     const target = (this as any)[toolName];
 
     if (typeof target !== "function") {
+      console.error(
+        `[callTool] TOOL_NOT_FOUND tool=${toolName} — method does not exist on ToolHandlers`,
+      );
+      const registered = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
+        .filter(
+          (k) => typeof (this as any)[k] === "function" && !k.startsWith("_"),
+        )
+        .join(", ");
+      console.error(`[callTool] Registered methods: ${registered}`);
       return this.errorEnvelope(
         "TOOL_NOT_FOUND",
         `Tool not found in handler registry: ${toolName}`,
@@ -663,7 +725,28 @@ export abstract class ToolHandlerBase {
       );
     }
 
-    const result = await target.call(this, normalized);
+    let result: string;
+    try {
+      result = await target.call(this, normalized);
+    } catch (err) {
+      console.error(
+        `[callTool] UNCAUGHT_EXCEPTION tool=${toolName} error=${String(err)}`,
+      );
+      throw err;
+    }
+
+    try {
+      const parsed = JSON.parse(result);
+      const ok = parsed?.ok ?? true;
+      const code = parsed?.error?.code ?? (ok ? "ok" : "error");
+      console.error(
+        `[callTool] EXIT tool=${toolName} status=${ok} code=${code}`,
+      );
+    } catch {
+      console.error(
+        `[callTool] EXIT tool=${toolName} result-length=${result.length}`,
+      );
+    }
 
     if (!warnings.length) {
       return result;
@@ -743,6 +826,9 @@ export abstract class ToolHandlerBase {
     const type = String(args.type || "").toUpperCase();
     const entities = Array.isArray(args.entities) ? args.entities : [];
     const metadata = args.metadata || {};
+    console.error(
+      `[validateEpisodeInput] type=${type} outcome=${String(args.outcome ?? "")} entities=${entities.length} metadataKeys=${Object.keys(metadata).join(",") || "none"}`,
+    );
 
     if (type === "DECISION") {
       const outcome = String(args.outcome || "").toLowerCase();
@@ -885,10 +971,17 @@ export abstract class ToolHandlerBase {
     const activeProjectId =
       projectId || this.getActiveProjectContext().projectId;
 
+    console.error(
+      `[ensureEmbeddings] projectId=${activeProjectId} embeddingEngineReady=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)} qdrantConnected=${this.qdrant?.isConnected?.() ?? "unknown"}`,
+    );
+
     if (
       this.isProjectEmbeddingsReady(activeProjectId) ||
       !this.embeddingEngine
     ) {
+      console.error(
+        `[ensureEmbeddings] SKIP — embeddingEngine=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)}`,
+      );
       return;
     }
 
