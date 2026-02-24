@@ -173,7 +173,7 @@ export function createTestTools(ctx: TestToolContext) {
       const { testFiles = [], profile = "compact" } = args;
 
       try {
-        console.log(`[Test] Categorizing ${testFiles.length} test files...`);
+        console.error(`[Test] Categorizing ${testFiles.length} test files...`);
         const stats = ctx.testEngine!.getStatistics();
 
         return ctx.formatSuccess(
@@ -319,7 +319,7 @@ export function createTestTools(ctx: TestToolContext) {
           ...testFiles,
         ].join(" ");
 
-        console.log(`[ToolHandlers] Executing: ${cmd}`);
+        console.error(`[ToolHandlers] Executing: ${cmd}`);
 
         // Execute vitest with timeout and output limits
         try {

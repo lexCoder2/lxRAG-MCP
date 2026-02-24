@@ -138,7 +138,7 @@ export class DocsEngine {
         if (withEmbeddings && this.qdrant?.isConnected()) {
           try {
             await this.embedDoc(doc, projectId);
-            console.log(
+            console.error(
               `[Phase3.2] Generated embeddings for documentation: ${doc.relativePath}`,
             );
           } catch (embeddingError) {

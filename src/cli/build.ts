@@ -22,27 +22,27 @@ async function main() {
   const isVerbose = args.includes("--verbose");
   const projectRoot = path.resolve(process.cwd());
 
-  console.log("🔨 Code Graph Builder");
-  console.log(`📁 Project root: ${projectRoot}`);
-  console.log(`🔄 Build mode: ${isFullBuild ? "FULL" : "INCREMENTAL"}`);
-  console.log("");
+  console.error("🔨 Code Graph Builder");
+  console.error(`📁 Project root: ${projectRoot}`);
+  console.error(`🔄 Build mode: ${isFullBuild ? "FULL" : "INCREMENTAL"}`);
+  console.error("");
 
   try {
     // Initialize Memgraph client
-    console.log("🔌 Connecting to Memgraph...");
+    console.error("🔌 Connecting to Memgraph...");
     const memgraph = new MemgraphClient({
       host: env.MEMGRAPH_HOST,
       port: env.MEMGRAPH_PORT,
     });
 
     await memgraph.connect();
-    console.log("✅ Connected to Memgraph\n");
+    console.error("✅ Connected to Memgraph\n");
 
     // Create orchestrator
     const orchestrator = new GraphOrchestrator(memgraph, isVerbose);
 
     // Build the graph
-    console.log("📊 Building code graph...\n");
+    console.error("📊 Building code graph...\n");
     const startTime = Date.now();
 
     const result = await orchestrator.build({
@@ -63,24 +63,24 @@ async function main() {
     const duration = Date.now() - startTime;
 
     // Display results
-    console.log("\n📈 Build Results:");
-    console.log(`   ✅ Success: ${result.success}`);
-    console.log(`   ⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
-    console.log(`   📄 Files processed: ${result.filesProcessed}`);
-    console.log(`   📍 Nodes created: ${result.nodesCreated}`);
-    console.log(`   🔗 Relationships created: ${result.relationshipsCreated}`);
+    console.error("\n📈 Build Results:");
+    console.error(`   ✅ Success: ${result.success}`);
+    console.error(`   ⏱️  Duration: ${(duration / 1000).toFixed(2)}s`);
+    console.error(`   📄 Files processed: ${result.filesProcessed}`);
+    console.error(`   📍 Nodes created: ${result.nodesCreated}`);
+    console.error(`   🔗 Relationships created: ${result.relationshipsCreated}`);
     if (result.filesChanged > 0) {
-      console.log(`   🔄 Files changed: ${result.filesChanged}`);
+      console.error(`   🔄 Files changed: ${result.filesChanged}`);
     }
 
     if (result.errors.length > 0) {
-      console.log(`\n❌ Errors (${result.errors.length}):`);
-      result.errors.forEach((err) => console.log(`   - ${err}`));
+      console.error(`\n❌ Errors (${result.errors.length}):`);
+      result.errors.forEach((err) => console.error(`   - ${err}`));
     }
 
     if (result.warnings.length > 0) {
-      console.log(`\n⚠️  Warnings (${result.warnings.length}):`);
-      result.warnings.forEach((warn) => console.log(`   - ${warn}`));
+      console.error(`\n⚠️  Warnings (${result.warnings.length}):`);
+      result.warnings.forEach((warn) => console.error(`   - ${warn}`));
     }
 
     // Save build metadata
@@ -104,9 +104,9 @@ async function main() {
       JSON.stringify(metadata, null, 2),
     );
 
-    console.log("\n✨ Build complete!");
-    console.log("   View graph at: http://localhost:3000 (Memgraph Lab)");
-    console.log(
+    console.error("\n✨ Build complete!");
+    console.error("   View graph at: http://localhost:3000 (Memgraph Lab)");
+    console.error(
       '   Query graph: npm run graph:query "MATCH (f:FILE) RETURN count(f)"',
     );
 

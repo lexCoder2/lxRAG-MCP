@@ -28,7 +28,7 @@ export class SyncStateManager {
   private maxHistorySize = env.LXRAG_STATE_HISTORY_MAX_SIZE;
 
   constructor(private projectId: string) {
-    console.log(
+    console.error(
       `[SyncStateManager] Initialized for project ${projectId}`,
     );
   }
@@ -41,7 +41,7 @@ export class SyncStateManager {
     if (oldState === newState) return;
 
     this.state[system] = newState;
-    console.log(
+    console.error(
       `[SyncState:${this.projectId}] ${system}: ${oldState} → ${newState}`,
     );
 
@@ -102,7 +102,7 @@ export class SyncStateManager {
    * Mark all systems as rebuilding
    */
   startRebuild(): void {
-    console.log(`[SyncState:${this.projectId}] Starting rebuild - all systems rebuilding`);
+    console.error(`[SyncState:${this.projectId}] Starting rebuild - all systems rebuilding`);
     this.setState("memgraph", "rebuilding");
     this.setState("index", "rebuilding");
     this.setState("qdrant", "rebuilding");
@@ -113,7 +113,7 @@ export class SyncStateManager {
    * Mark all systems as synced after rebuild
    */
   completeRebuild(): void {
-    console.log(`[SyncState:${this.projectId}] Rebuild complete - all systems synced`);
+    console.error(`[SyncState:${this.projectId}] Rebuild complete - all systems synced`);
     this.setState("memgraph", "synced");
     this.setState("index", "synced");
     this.setState("qdrant", "synced");
@@ -124,7 +124,7 @@ export class SyncStateManager {
    * Mark incremental build - index and embeddings need sync
    */
   startIncrementalRebuild(): void {
-    console.log(`[SyncState:${this.projectId}] Starting incremental rebuild`);
+    console.error(`[SyncState:${this.projectId}] Starting incremental rebuild`);
     this.setState("index", "rebuilding");
     this.setState("embeddings", "rebuilding");
   }
@@ -133,7 +133,7 @@ export class SyncStateManager {
    * Complete incremental build
    */
   completeIncrementalRebuild(): void {
-    console.log(`[SyncState:${this.projectId}] Incremental rebuild complete`);
+    console.error(`[SyncState:${this.projectId}] Incremental rebuild complete`);
     this.setState("index", "synced");
     this.setState("embeddings", "synced");
   }
@@ -217,7 +217,7 @@ export class SyncStateManager {
    * Reset to initial state
    */
   reset(): void {
-    console.log(`[SyncState:${this.projectId}] Resetting sync state`);
+    console.error(`[SyncState:${this.projectId}] Resetting sync state`);
     this.state = {
       memgraph: "uninitialized",
       index: "uninitialized",

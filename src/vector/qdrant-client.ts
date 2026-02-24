@@ -41,7 +41,7 @@ export class QdrantClient {
       const response = await fetch(`${this.baseUrl}/`);
       if (response.ok) {
         this.connected = true;
-        console.log("[QdrantClient] Connected successfully");
+        console.error("[QdrantClient] Connected successfully");
       }
     } catch (error) {
       console.warn(
@@ -74,7 +74,7 @@ export class QdrantClient {
       });
 
       if (response.ok) {
-        console.log(`[QdrantClient] Collection '${name}' created`);
+        console.error(`[QdrantClient] Collection '${name}' created`);
       }
     } catch (error) {
       console.error(`[QdrantClient] Failed to create collection: ${error}`);
@@ -110,7 +110,7 @@ export class QdrantClient {
       );
 
       if (response.ok) {
-        console.log(
+        console.error(
           `[QdrantClient] Upserted ${points.length} points to '${collectionName}'`
         );
       }
@@ -171,7 +171,7 @@ export class QdrantClient {
 
     try {
       await fetch(`${this.baseUrl}/collections/${name}`, { method: "DELETE" });
-      console.log(`[QdrantClient] Collection '${name}' deleted`);
+      console.error(`[QdrantClient] Collection '${name}' deleted`);
     } catch (error) {
       console.error(`[QdrantClient] Failed to delete collection: ${error}`);
     }

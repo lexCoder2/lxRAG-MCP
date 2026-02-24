@@ -518,7 +518,7 @@ export class ArchitectureEngine {
     client: MemgraphClient,
     violations: ValidationViolation[],
   ): Promise<void> {
-    console.log(`\n📝 Writing ${violations.length} violations to Memgraph...`);
+    console.error(`\n📝 Writing ${violations.length} violations to Memgraph...`);
 
     const statements: CypherStatement[] = [];
 
@@ -586,7 +586,7 @@ export class ArchitectureEngine {
       console.error(`⚠️  ${errors.length} Cypher statements failed:`);
       errors.slice(0, 3).forEach((e) => console.error(`   - ${e.error}`));
     } else {
-      console.log(
+      console.error(
         `✅ Successfully wrote ${violations.length} violations to graph`,
       );
     }
@@ -597,7 +597,7 @@ export class ArchitectureEngine {
    * Called when project context changes
    */
   reload(_index: GraphIndexManager, projectId?: string, workspaceRoot?: string): void {
-    console.log(
+    console.error(
       `[ArchitectureEngine] Reloading architecture validation (projectId=${projectId})`,
     );
     if (workspaceRoot) {

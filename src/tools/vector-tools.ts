@@ -224,10 +224,9 @@ export class VectorTools {
    * Hybrid search combining graph and vector queries
    */
   async code_hybrid_search(args: any): Promise<string> {
-    const { query, type = "function", structuralWeight = 0.5 } = args;
+    const { query, type = "function" } = args;
 
     try {
-      console.log(structuralWeight);
       // Vector search (semantic)
       let vectorResults: any[] = [];
       if (this.embeddingEngine) {

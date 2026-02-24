@@ -19,18 +19,18 @@ async function main() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.log("🧪 Test Affected Selector");
-    console.log("");
-    console.log("Usage: npm run test:affected <files> [--run] [--depth=N]");
-    console.log("");
-    console.log("Options:");
-    console.log("  --run         Run tests after selection (requires Vitest)");
-    console.log("  --depth=N     Set transitive dependency depth (default: 1)");
-    console.log("");
-    console.log("Examples:");
-    console.log("  npm run test:affected src/utils/units.ts");
-    console.log("  npm run test:affected src/engine/calculations/\\*.ts --run");
-    console.log(
+    console.error("🧪 Test Affected Selector");
+    console.error("");
+    console.error("Usage: npm run test:affected <files> [--run] [--depth=N]");
+    console.error("");
+    console.error("Options:");
+    console.error("  --run         Run tests after selection (requires Vitest)");
+    console.error("  --depth=N     Set transitive dependency depth (default: 1)");
+    console.error("");
+    console.error("Examples:");
+    console.error("  npm run test:affected src/utils/units.ts");
+    console.error("  npm run test:affected src/engine/calculations/\\*.ts --run");
+    console.error(
       "  npm run test:affected src/context/BuildingContext.tsx --depth=2 --run"
     );
     process.exit(0);
@@ -45,65 +45,65 @@ async function main() {
     (a) => !a.startsWith("--run") && !a.startsWith("--depth=")
   );
 
-  console.log("🧪 Test Affected Selector");
-  console.log(`📁 Changed files: ${changedFiles.length}`);
-  console.log(`🔄 Dependency depth: ${depth}`);
-  console.log(`▶️  Auto-run: ${runTests ? "YES" : "NO"}\n`);
+  console.error("🧪 Test Affected Selector");
+  console.error(`📁 Changed files: ${changedFiles.length}`);
+  console.error(`🔄 Dependency depth: ${depth}`);
+  console.error(`▶️  Auto-run: ${runTests ? "YES" : "NO"}\n`);
 
   try {
     // Create in-memory graph index
-    console.log("📊 Building test dependency map...");
+    console.error("📊 Building test dependency map...");
     const index = new GraphIndexManager();
     const testEngine = new TestEngine(index);
-    console.log("✅ Ready\n");
+    console.error("✅ Ready\n");
 
     // Select affected tests
-    console.log("🔍 Analyzing dependencies...\n");
+    console.error("🔍 Analyzing dependencies...\n");
     const result = testEngine.selectAffectedTests(changedFiles, true, depth);
 
     // Display results
     if (result.selectedTests.length === 0) {
-      console.log("ℹ️  No tests directly affected by these changes");
-      console.log(
+      console.error("ℹ️  No tests directly affected by these changes");
+      console.error(
         "   (Possibly: new file, not imported by tests, or test dependencies not built)"
       );
       process.exit(0);
     }
 
-    console.log(`✅ Selected ${result.selectedTests.length} test(s):`);
-    console.log("");
+    console.error(`✅ Selected ${result.selectedTests.length} test(s):`);
+    console.error("");
     result.selectedTests.forEach((test) => {
-      console.log(`   📄 ${test}`);
+      console.error(`   📄 ${test}`);
     });
 
-    console.log("");
-    console.log("📊 Statistics:");
-    console.log(`   Coverage: ${result.coverage.percentage}% (${result.coverage.testsSelected}/${result.coverage.totalTests})`);
-    console.log(`   Category: ${result.category}`);
-    console.log(
+    console.error("");
+    console.error("📊 Statistics:");
+    console.error(`   Coverage: ${result.coverage.percentage}% (${result.coverage.testsSelected}/${result.coverage.totalTests})`);
+    console.error(`   Category: ${result.category}`);
+    console.error(
       `   Est. time: ${result.estimatedTime > 0 ? result.estimatedTime + "ms" : "unknown"}`
     );
-    console.log("");
+    console.error("");
 
     // Optionally run tests
     if (runTests) {
-      console.log("▶️  Running selected tests...\n");
+      console.error("▶️  Running selected tests...\n");
       try {
         const testList = result.selectedTests.join(" ");
         execSync(`npx vitest run ${testList}`, {
           cwd: process.cwd(),
           stdio: "inherit",
         });
-        console.log("\n✅ Tests completed successfully");
+        console.error("\n✅ Tests completed successfully");
         process.exit(0);
       } catch (error) {
         console.error("\n❌ Some tests failed");
         process.exit(1);
       }
     } else {
-      console.log("💡 To run these tests, add --run flag:");
-      console.log(`   npm run test:affected ${changedFiles.join(" ")} --run`);
-      console.log("");
+      console.error("💡 To run these tests, add --run flag:");
+      console.error(`   npm run test:affected ${changedFiles.join(" ")} --run`);
+      console.error("");
       process.exit(0);
     }
   } catch (error) {

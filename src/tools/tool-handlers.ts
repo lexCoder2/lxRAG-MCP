@@ -994,7 +994,7 @@ export class ToolHandlers extends ToolHandlerBase {
             // Phase 2a & 4.3: Reset embeddings for incremental builds (per-project to prevent race conditions)
             // This ensures embeddings are regenerated for changed code on next semantic query
             this.setProjectEmbeddingsReady(projectId, false);
-            console.log(
+            console.error(
               `[Phase2a] Embeddings flag reset for incremental rebuild of project ${projectId}`,
             );
           } else if (mode === "full") {
@@ -1010,7 +1010,7 @@ export class ToolHandlers extends ToolHandlerBase {
                 await this.embeddingEngine?.storeInQdrant();
                 // Phase 4.3: Mark embeddings ready per-project
                 this.setProjectEmbeddingsReady(projectId, true);
-                console.log(
+                console.error(
                   `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
                 );
               }

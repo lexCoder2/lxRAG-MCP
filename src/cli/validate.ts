@@ -22,25 +22,25 @@ async function main() {
   const fileIndex = args.indexOf('--file');
   const targetFile = fileIndex >= 0 ? args[fileIndex + 1] : undefined;
 
-  console.log('🏗️  Architecture Validator');
+  console.error('🏗️  Architecture Validator');
   if (targetFile) {
-    console.log(`📄 Validating: ${targetFile}`);
+    console.error(`📄 Validating: ${targetFile}`);
   } else {
-    console.log('📄 Validating all files');
+    console.error('📄 Validating all files');
   }
-  console.log(`🔒 Strict mode: ${isStrict ? 'ON' : 'OFF'}\n`);
+  console.error(`🔒 Strict mode: ${isStrict ? 'ON' : 'OFF'}\n`);
 
   try {
     // Load configuration
     const config = await loadConfig();
 
     // Create in-memory graph index (MVP - no Memgraph connection needed for validation)
-    console.log('📊 Preparing validation engine...');
+    console.error('📊 Preparing validation engine...');
     const index = new GraphIndexManager();
-    console.log('✅ Ready\n');
+    console.error('✅ Ready\n');
 
     // Run validation
-    console.log('🔍 Checking architecture constraints...\n');
+    console.error('🔍 Checking architecture constraints...\n');
     const layers = config.architecture.layers.map(layer => ({
       ...layer,
       description: layer.description || layer.name
@@ -68,25 +68,25 @@ async function main() {
 
     // Display results
     if (violations.length === 0) {
-      console.log('✅ No violations found!');
+      console.error('✅ No violations found!');
     } else {
-      console.log(`⚠️  Found ${violations.length} violation(s):\n`);
+      console.error(`⚠️  Found ${violations.length} violation(s):\n`);
       violations.forEach((violation, index) => {
         const icon =
           violation.severity === 'error' ? '❌' : '⚠️';
-        console.log(`${icon} ${index + 1}. ${violation.message}`);
-        console.log(`   File: ${violation.file}`);
-        console.log(`   Layer: ${violation.layer}`);
-        console.log('');
+        console.error(`${icon} ${index + 1}. ${violation.message}`);
+        console.error(`   File: ${violation.file}`);
+        console.error(`   Layer: ${violation.layer}`);
+        console.error('');
       });
 
       const errorCount = violations.filter((v) => v.severity === 'error').length;
       const warningCount = violations.filter((v) => v.severity === 'warn').length;
 
-      console.log(`Summary: ${errorCount} error(s), ${warningCount} warning(s)`);
+      console.error(`Summary: ${errorCount} error(s), ${warningCount} warning(s)`);
 
       if (isStrict && errorCount > 0) {
-        console.log('\n🛑 Strict mode: exiting with error code 1');
+        console.error('\n🛑 Strict mode: exiting with error code 1');
         process.exit(1);
       }
     }

@@ -332,7 +332,7 @@ export class ProgressEngine {
 
       // Only add to in-memory map after successful persistence
       this.features.set(feature.id, feature);
-      console.log(
+      console.error(
         `[Phase2d] Feature ${feature.id} created and persisted to Memgraph`,
       );
       return feature;
@@ -382,7 +382,7 @@ export class ProgressEngine {
 
       // Only add to in-memory map after successful persistence
       this.tasks.set(task.id, task);
-      console.log(`[Phase2d] Task ${task.id} created and persisted to Memgraph`);
+      console.error(`[Phase2d] Task ${task.id} created and persisted to Memgraph`);
       return task;
     } catch (err) {
       throw new Error(
@@ -481,7 +481,7 @@ export class ProgressEngine {
    * Called when project context changes to refresh feature/task data
    */
   reload(index: GraphIndexManager, projectId?: string): void {
-    console.log(`[ProgressEngine] Reloading features and tasks (projectId=${projectId})`);
+    console.error(`[ProgressEngine] Reloading features and tasks (projectId=${projectId})`);
 
     this.index = index;
     this.features.clear();
@@ -505,7 +505,7 @@ export class ProgressEngine {
 
     const featureCount = this.features.size;
     const taskCount = this.tasks.size;
-    console.log(`[ProgressEngine] Reloaded ${featureCount} features and ${taskCount} tasks`);
+    console.error(`[ProgressEngine] Reloaded ${featureCount} features and ${taskCount} tasks`);
   }
 
   /**

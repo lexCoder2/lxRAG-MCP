@@ -23,7 +23,7 @@ async function main() {
   }
 
   try {
-    console.log("🔍 Executing query...\n");
+    console.error("🔍 Executing query...\n");
 
     const memgraph = new MemgraphClient({
       host: env.MEMGRAPH_HOST,
@@ -41,9 +41,9 @@ async function main() {
 
     // Display results
     if (result.data.length === 0) {
-      console.log("📭 No results found");
+      console.error("📭 No results found");
     } else {
-      console.log(`📊 Results (${result.data.length} rows):\n`);
+      console.error(`📊 Results (${result.data.length} rows):\n`);
       console.table(result.data);
     }
 

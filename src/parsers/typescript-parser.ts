@@ -111,7 +111,7 @@ export class TypeScriptParser {
   async initialize(): Promise<void> {
     // Tree-sitter initialization removed for MVP
     // Will be added back when web-tree-sitter is properly configured
-    console.log("TypeScriptParser initialized with regex fallback");
+    console.error("TypeScriptParser initialized with regex fallback");
   }
 
   parseFile(filePath: string, options?: ParseFileOptions): ParsedFile {

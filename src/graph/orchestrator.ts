@@ -205,8 +205,8 @@ export class GraphOrchestrator {
 
     try {
       if (opts.verbose) {
-        console.log("[GraphOrchestrator] Starting build...");
-        console.log(`[GraphOrchestrator] Mode: ${opts.mode}`);
+        console.error("[GraphOrchestrator] Starting build...");
+        console.error(`[GraphOrchestrator] Mode: ${opts.mode}`);
       }
 
       // Get all source files across supported languages
@@ -217,7 +217,7 @@ export class GraphOrchestrator {
       );
 
       if (opts.verbose) {
-        console.log(`[GraphOrchestrator] Found ${files.length} source files`);
+        console.error(`[GraphOrchestrator] Found ${files.length} source files`);
       }
 
       // Determine which files to process
@@ -237,7 +237,7 @@ export class GraphOrchestrator {
           filesChanged = filesToProcess.length;
 
           if (opts.verbose) {
-            console.log(
+            console.error(
               `[GraphOrchestrator] Incremental (explicit): ${filesToProcess.length} existing of ${filesChanged} changed file(s)`,
             );
           }
@@ -256,7 +256,7 @@ export class GraphOrchestrator {
           filesChanged = filesToProcess.length;
 
           if (opts.verbose) {
-            console.log(
+            console.error(
               `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`,
             );
           }
@@ -299,7 +299,7 @@ export class GraphOrchestrator {
           nodesCreated += this.countNodesInStatements(statements);
 
           if (opts.verbose && filesToProcess.indexOf(filePath) % 50 === 0) {
-            console.log(
+            console.error(
               `[GraphOrchestrator] Processed ${filesToProcess.indexOf(filePath)}/${filesToProcess.length} files`,
             );
           }
@@ -318,7 +318,7 @@ export class GraphOrchestrator {
 
       // Seed progress nodes if config has progress section (Phase 5.2)
       if (opts.verbose) {
-        console.log("[GraphOrchestrator] Seeding progress tracking nodes...");
+        console.error("[GraphOrchestrator] Seeding progress tracking nodes...");
       }
       const progressStatements = this.seedProgressNodes(opts.projectId);
       statementsToExecute.push(...progressStatements);
@@ -328,7 +328,7 @@ export class GraphOrchestrator {
 
       if (this.memgraph.isConnected()) {
         if (opts.verbose) {
-          console.log(
+          console.error(
             `[GraphOrchestrator] Executing ${statementsToExecute.length} Cypher statements...`,
           );
         }
@@ -339,7 +339,7 @@ export class GraphOrchestrator {
         }
       } else {
         if (opts.verbose) {
-          console.log(
+          console.error(
             `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`,
           );
         }
@@ -352,7 +352,7 @@ export class GraphOrchestrator {
         this.memgraph.isConnected();
       if (shouldIndexDocs) {
         if (opts.verbose) {
-          console.log("[GraphOrchestrator] Indexing documentation files...");
+          console.error("[GraphOrchestrator] Indexing documentation files...");
         }
         try {
           const docsEngine = new DocsEngine(this.memgraph);
@@ -362,7 +362,7 @@ export class GraphOrchestrator {
             { incremental: true, txId: opts.txId },
           );
           if (opts.verbose) {
-            console.log(
+            console.error(
               `[GraphOrchestrator] Docs indexed: ${docsResult.indexed} files, ` +
                 `${docsResult.skipped} skipped, ${docsResult.errors.length} errors`,
             );
@@ -387,7 +387,7 @@ export class GraphOrchestrator {
         try {
           const syncResult = this.sharedIndex.syncFrom(this.index);
           if (opts.verbose) {
-            console.log(
+            console.error(
               `[GraphOrchestrator] Index synced: ${syncResult.nodesSynced} nodes, ${syncResult.relationshipsSynced} relationships`,
             );
           }
@@ -402,16 +402,16 @@ export class GraphOrchestrator {
 
       if (opts.verbose) {
         const stats = this.index.getStatistics();
-        console.log("[GraphOrchestrator] Build complete!");
-        console.log(`[GraphOrchestrator] Duration: ${duration}ms`);
-        console.log(
+        console.error("[GraphOrchestrator] Build complete!");
+        console.error(`[GraphOrchestrator] Duration: ${duration}ms`);
+        console.error(
           `[GraphOrchestrator] Files processed: ${filesToProcess.length}`,
         );
-        console.log(`[GraphOrchestrator] Nodes created: ${nodesCreated}`);
-        console.log(
+        console.error(`[GraphOrchestrator] Nodes created: ${nodesCreated}`);
+        console.error(
           `[GraphOrchestrator] Relationships: ${relationshipsCreated}`,
         );
-        console.log(`[GraphOrchestrator] Statistics:`, stats);
+        console.error(`[GraphOrchestrator] Statistics:`, stats);
       }
 
       return {
@@ -459,7 +459,7 @@ export class GraphOrchestrator {
       : path.resolve(workspaceRoot, sourceDir);
 
     if (fs.existsSync(basePath)) {
-      console.log(`[GraphOrchestrator] Scanning directory: ${basePath}`);
+      console.error(`[GraphOrchestrator] Scanning directory: ${basePath}`);
     } else {
       console.warn(
         `[GraphOrchestrator] Source directory not found: ${basePath}`,

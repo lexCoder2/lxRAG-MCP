@@ -346,7 +346,7 @@ export class TestEngine {
    * Called when project context changes to refresh test data
    */
   reload(index: GraphIndexManager, projectId?: string): void {
-    console.log(`[TestEngine] Reloading tests (projectId=${projectId})`);
+    console.error(`[TestEngine] Reloading tests (projectId=${projectId})`);
 
     this.index = index;
     this.testMap.clear();
@@ -354,7 +354,7 @@ export class TestEngine {
     this.buildTestDependencies();
 
     const testCount = this.testMap.size;
-    console.log(`[TestEngine] Reloaded ${testCount} test suites`);
+    console.error(`[TestEngine] Reloaded ${testCount} test suites`);
   }
 
   /**

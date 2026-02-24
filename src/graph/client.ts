@@ -36,7 +36,7 @@ export class MemgraphClient {
 
     const boltUrl = `bolt://${this.config.host}:${this.config.port}`;
 
-    console.log(`[MemgraphClient] Initialized with Bolt URL:`, boltUrl);
+    console.error(`[MemgraphClient] Initialized with Bolt URL:`, boltUrl);
   }
 
   async connect(): Promise<void> {
@@ -46,7 +46,7 @@ export class MemgraphClient {
       await session.run("RETURN 1");
       await session.close();
       this.connected = true;
-      console.log("[Memgraph] Connected successfully via Bolt protocol");
+      console.error("[Memgraph] Connected successfully via Bolt protocol");
     } catch (error) {
       if (this.shouldFallbackToLocalhost(error)) {
         console.warn(
@@ -61,7 +61,7 @@ export class MemgraphClient {
         await session.run("RETURN 1");
         await session.close();
         this.connected = true;
-        console.log("[Memgraph] Connected successfully via Bolt protocol");
+        console.error("[Memgraph] Connected successfully via Bolt protocol");
         return;
       }
 
@@ -99,7 +99,7 @@ export class MemgraphClient {
     if (this.driver) {
       await this.driver.close();
       this.connected = false;
-      console.log("[Memgraph] Disconnected");
+      console.error("[Memgraph] Disconnected");
     }
   }
 

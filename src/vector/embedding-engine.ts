@@ -42,7 +42,7 @@ export class EmbeddingEngine {
    * Generate embeddings for all code elements
    */
   async generateAllEmbeddings(): Promise<{ functions: number; classes: number; files: number }> {
-    console.log('[EmbeddingEngine] Starting embedding generation...');
+    console.error('[EmbeddingEngine] Starting embedding generation...');
 
     let functionCount = 0;
     let classCount = 0;
@@ -72,10 +72,10 @@ export class EmbeddingEngine {
       fileCount++;
     }
 
-    console.log('[EmbeddingEngine] Generated embeddings:');
-    console.log(`  Functions: ${functionCount}`);
-    console.log(`  Classes: ${classCount}`);
-    console.log(`  Files: ${fileCount}`);
+    console.error('[EmbeddingEngine] Generated embeddings:');
+    console.error(`  Functions: ${functionCount}`);
+    console.error(`  Classes: ${classCount}`);
+    console.error(`  Files: ${fileCount}`);
 
     return { functions: functionCount, classes: classCount, files: fileCount };
   }
@@ -196,7 +196,7 @@ export class EmbeddingEngine {
       await this.qdrant.upsertPoints('files', fileEmbeddings);
     }
 
-    console.log('[EmbeddingEngine] Embeddings stored in Qdrant');
+    console.error('[EmbeddingEngine] Embeddings stored in Qdrant');
   }
 
   /**

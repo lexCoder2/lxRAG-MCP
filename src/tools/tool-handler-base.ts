@@ -120,7 +120,7 @@ export abstract class ToolHandlerBase {
   }
 
   protected reloadEnginesForContext(context: ProjectContext): void {
-    console.log(
+    console.error(
       `[ToolHandlers] Reloading engines for project context: ${context.projectId}`,
     );
 
@@ -293,7 +293,7 @@ export abstract class ToolHandlerBase {
       if (watcher) {
         await watcher.stop();
         this.sessionWatchers.delete(watcherKey);
-        console.log(
+        console.error(
           `[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`,
         );
       }
@@ -301,7 +301,7 @@ export abstract class ToolHandlerBase {
       // Remove project context for this session
       if (this.sessionProjectContexts.has(sessionId)) {
         this.sessionProjectContexts.delete(sessionId);
-        console.log(
+        console.error(
           `[ToolHandlers] Session cleanup: removed project context for ${sessionId}`,
         );
       }
@@ -335,7 +335,7 @@ export abstract class ToolHandlerBase {
 
     this.sessionWatchers.clear();
     this.sessionProjectContexts.clear();
-    console.log(
+    console.error(
       `[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`,
     );
   }
@@ -426,14 +426,14 @@ export abstract class ToolHandlerBase {
   protected async initializeIndexFromMemgraph(): Promise<void> {
     try {
       if (!this.context.memgraph.isConnected()) {
-        console.log(
+        console.error(
           "[Phase2c] Memgraph not connected, skipping index initialization from database",
         );
         return;
       }
 
       const projectId = this.defaultActiveProjectContext.projectId;
-      console.log(
+      console.error(
         `[Phase2c] Loading index from Memgraph for project ${projectId}...`,
       );
 
@@ -441,7 +441,7 @@ export abstract class ToolHandlerBase {
       const { nodes, relationships } = graphData;
 
       if (nodes.length === 0 && relationships.length === 0) {
-        console.log(
+        console.error(
           `[Phase2c] No data found in Memgraph for project ${projectId}, index remains empty`,
         );
         return;
@@ -463,7 +463,7 @@ export abstract class ToolHandlerBase {
         );
       }
 
-      console.log(
+      console.error(
         `[Phase2c] Index loaded from Memgraph: ${nodes.length} nodes, ${relationships.length} relationships for project ${projectId}`,
       );
     } catch (error) {
@@ -1157,7 +1157,7 @@ export abstract class ToolHandlerBase {
 
     // Phase 2a & 4.3: Reset embeddings for watcher-driven incremental builds (per-project to prevent race conditions)
     this.setProjectEmbeddingsReady(context.projectId, false);
-    console.log(
+    console.error(
       `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`,
     );
 
