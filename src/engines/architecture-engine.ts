@@ -50,14 +50,17 @@ export interface ValidationResult {
 export class ArchitectureEngine {
   private layers: Map<string, LayerDefinition>;
   private rules: ArchitectureRule[];
+  private workspaceRoot: string;
 
   constructor(
     layers: LayerDefinition[],
     rules: ArchitectureRule[],
     _index: GraphIndexManager,
+    workspaceRoot?: string,
   ) {
     this.layers = new Map(layers.map((l) => [l.id, l]));
     this.rules = rules;
+    this.workspaceRoot = workspaceRoot ?? process.cwd();
   }
 
   /**
@@ -65,7 +68,7 @@ export class ArchitectureEngine {
    */
   async validate(files?: string[]): Promise<ValidationResult> {
     const violations: ValidationViolation[] = [];
-    const projectRoot = process.cwd();
+    const projectRoot = this.workspaceRoot;
 
     // Get source files to validate
     let filesToCheck: string[];
@@ -231,9 +234,11 @@ export class ArchitectureEngine {
     let resolvedPath: string;
 
     if (importPath.startsWith(".")) {
-      // Relative import: resolve from importing file's directory
-      const dir = path.dirname(fromPath);
-      resolvedPath = path.resolve(dir, importPath);
+      // Relative import: resolve from importing file's directory within projectRoot.
+      // path.join(projectRoot, fromPath) gives an absolute base so that
+      // path.resolve() anchors to projectRoot instead of process.cwd().
+      const absoluteFromDir = path.dirname(path.join(projectRoot, fromPath));
+      resolvedPath = path.resolve(absoluteFromDir, importPath);
     } else if (importPath.startsWith("src/")) {
       // Absolute src import
       resolvedPath = importPath;
@@ -308,7 +313,7 @@ export class ArchitectureEngine {
    */
   private detectCircularDependencies(): ValidationViolation[] {
     const violations: ValidationViolation[] = [];
-    const projectRoot = process.cwd();
+    const projectRoot = this.workspaceRoot;
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
     const cycles: string[][] = [];
@@ -586,11 +591,14 @@ export class ArchitectureEngine {
    * Reload engine state from updated graph index
    * Called when project context changes
    */
-  reload(_index: GraphIndexManager, projectId?: string): void {
+  reload(_index: GraphIndexManager, projectId?: string, workspaceRoot?: string): void {
     console.log(
       `[ArchitectureEngine] Reloading architecture validation (projectId=${projectId})`,
     );
-    // ArchitectureEngine doesn't hold project-specific state in index
+    if (workspaceRoot) {
+      this.workspaceRoot = workspaceRoot;
+    }
+    // ArchitectureEngine doesn't hold other project-specific state in index
     // so reload is mainly for consistency with other engines
   }
 
