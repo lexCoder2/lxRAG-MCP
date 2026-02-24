@@ -94,8 +94,9 @@ export class DocsEngine {
   ): Promise<DocsIndexResult> {
     const t0 = Date.now();
     const incremental = opts.incremental ?? true;
-    // Phase 3.2: Enable doc embeddings by default
-    const withEmbeddings = opts.withEmbeddings ?? true;
+    // withEmbeddings defaults to false — callers that want Qdrant embedding must opt in explicitly.
+    // (The orchestrator path does not supply a Qdrant client and must not attempt to embed.)
+    const withEmbeddings = opts.withEmbeddings ?? false;
     const txId = opts.txId ?? `doc-tx-${Date.now()}`;
 
     const files = findMarkdownFiles(workspaceRoot);

@@ -479,18 +479,81 @@ export class ToolHandlers extends ToolHandlerBase {
           length: Math.max(1, cycle.length - 1),
         }));
 
+        if (!results.matches.length && !files.length && this.context.memgraph.isConnected()) {
+          // In-memory index is empty (no rebuild yet): fall back to Cypher-based cycle detection.
+          // Detects simple 2-hop import cycles: A imports B and B imports A.
+          const { projectId: pid } = this.getActiveProjectContext();
+          const cypherCycles = await this.context.memgraph.executeCypher(
+            `MATCH (a:FILE)-[:IMPORTS]->(:IMPORT)-[:REFERENCES]->(b:FILE)
+                   -[:IMPORTS]->(:IMPORT)-[:REFERENCES]->(a)
+             WHERE a.projectId = $projectId
+               AND b.projectId = $projectId
+               AND id(a) < id(b)
+             RETURN coalesce(a.relativePath, a.path, a.id) AS fileA,
+                    coalesce(b.relativePath, b.path, b.id) AS fileB
+             LIMIT 20`,
+            { projectId: pid },
+          );
+          if (cypherCycles.data?.length) {
+            results.matches = cypherCycles.data.map((row: any) => ({
+              cycle: [String(row.fileA), String(row.fileB), String(row.fileA)],
+              length: 2,
+              source: "cypher",
+            }));
+          }
+        }
+
         if (!results.matches.length) {
           results.matches.push({
             status: "none-found",
-            note: "No circular dependencies detected in FILE import graph",
+            note: files.length
+              ? "No circular dependencies detected in FILE import graph"
+              : "In-memory index is empty — run graph_rebuild then retry for full DFS analysis",
           });
         }
       } else {
-        // Generic pattern search
-        results.matches.push({
-          pattern,
-          status: "search-implemented",
-        });
+        // Generic pattern search against node names and file paths using Memgraph
+        if (this.context.memgraph.isConnected()) {
+          const { projectId } = this.getActiveProjectContext();
+          const searchResult = await this.context.memgraph.executeCypher(
+            `MATCH (n)
+             WHERE n.projectId = $projectId
+               AND (n:FUNCTION OR n:CLASS OR n:FILE)
+               AND (
+                 toLower(coalesce(n.name, '')) CONTAINS toLower($pattern)
+                 OR toLower(coalesce(n.path, '')) CONTAINS toLower($pattern)
+               )
+             RETURN labels(n)[0] AS type,
+                    coalesce(n.name, n.path, n.id) AS name,
+                    coalesce(n.relativePath, n.path, '') AS location
+             LIMIT 20`,
+            { projectId, pattern: String(pattern || "") },
+          );
+          results.matches = (searchResult.data || []).map((row: any) => ({
+            type: String(row.type || ""),
+            name: String(row.name || ""),
+            location: String(row.location || ""),
+          }));
+        } else {
+          // In-memory fallback
+          const allNodes = [
+            ...this.context.index.getNodesByType("FUNCTION"),
+            ...this.context.index.getNodesByType("CLASS"),
+            ...this.context.index.getNodesByType("FILE"),
+          ];
+          const lp = String(pattern || "").toLowerCase();
+          results.matches = allNodes
+            .filter((n) => {
+              const name = String(n.properties.name || n.properties.path || n.id);
+              return name.toLowerCase().includes(lp);
+            })
+            .slice(0, 20)
+            .map((n) => ({
+              type: n.type,
+              name: String(n.properties.name || n.properties.path || n.id),
+              location: String(n.properties.relativePath || n.properties.path || ""),
+            }));
+        }
       }
 
       return this.formatSuccess(results, profile);
@@ -959,20 +1022,22 @@ export class ToolHandlers extends ToolHandlerBase {
               // Continue even if embeddings fail - not a critical error
             }
 
-            const bm25Result = await this.hybridRetriever?.ensureBM25Index();
-            if (bm25Result?.created) {
-              console.error(
-                `[bm25] Created text_search symbol_index for project ${projectId}`,
-              );
-            } else if (bm25Result?.error) {
-              console.error(
-                `[bm25] symbol_index unavailable: ${bm25Result.error}`,
-              );
-            }
-
             const communityRun = await this.communityDetector!.run(projectId);
             console.error(
               `[community] ${communityRun.mode}: ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,
+            );
+          }
+
+          // Ensure BM25 index exists after every rebuild (full or incremental).
+          // Memgraph may have been restarted, losing the in-memory text index.
+          const bm25Result = await this.hybridRetriever?.ensureBM25Index();
+          if (bm25Result?.created) {
+            console.error(
+              `[bm25] Created text_search symbol_index for project ${projectId}`,
+            );
+          } else if (bm25Result?.error) {
+            console.error(
+              `[bm25] symbol_index unavailable: ${bm25Result.error}`,
             );
           }
         })
@@ -1024,6 +1089,84 @@ export class ToolHandlers extends ToolHandlerBase {
     }
   }
 
+  async tools_list(args: any): Promise<string> {
+    const profile = args?.profile ?? "compact";
+
+    // Enumerate all callable tools by inspecting the prototype chain and dynamic bindings
+    const KNOWN_CATEGORIES: Record<string, string[]> = {
+      graph: [
+        "graph_set_workspace",
+        "graph_rebuild",
+        "graph_query",
+        "graph_health",
+        "tools_list",
+        "ref_query",
+      ],
+      architecture: ["arch_validate", "arch_suggest"],
+      semantic: [
+        "semantic_search",
+        "find_similar_code",
+        "code_explain",
+        "semantic_slice",
+        "semantic_diff",
+        "code_clusters",
+        "find_pattern",
+        "blocking_issues",
+      ],
+      docs: ["index_docs", "search_docs"],
+      test: ["test_select", "test_categorize", "test_run", "suggest_tests", "impact_analyze"],
+      memory: [
+        "episode_add",
+        "episode_recall",
+        "decision_query",
+        "reflect",
+        "context_pack",
+      ],
+      progress: ["progress_query", "task_update", "feature_status"],
+      coordination: [
+        "agent_claim",
+        "agent_release",
+        "coordination_overview",
+        "contract_validate",
+        "diff_since",
+      ],
+    };
+
+    const result: Record<string, { available: string[]; unavailable: string[] }> = {};
+
+    for (const [category, tools] of Object.entries(KNOWN_CATEGORIES)) {
+      const available: string[] = [];
+      const unavailable: string[] = [];
+      for (const toolName of tools) {
+        const bound = (this as any)[toolName];
+        if (typeof bound === "function") {
+          available.push(toolName);
+        } else {
+          unavailable.push(toolName);
+        }
+      }
+      result[category] = { available, unavailable };
+    }
+
+    const totalAvailable = Object.values(result).reduce(
+      (sum, cat) => sum + cat.available.length,
+      0,
+    );
+    const totalUnavailable = Object.values(result).reduce(
+      (sum, cat) => sum + cat.unavailable.length,
+      0,
+    );
+
+    return this.formatSuccess(
+      {
+        summary: `${totalAvailable} tools available, ${totalUnavailable} unavailable in this session`,
+        categories: result,
+        note: "Unavailable tools may require missing configuration, a running engine, or a different server entrypoint.",
+      },
+      profile,
+    );
+  }
+
   async graph_health(args: any): Promise<string> {
     const profile = args?.profile || "compact";
 
@@ -1063,11 +1206,31 @@ export class ToolHandlers extends ToolHandlerBase {
       const indexClassCount = this.context.index.getNodesByType("CLASS").length;
       const indexedSymbols = indexFileCount + indexFuncCount + indexClassCount;
 
-      // Get embedding statistics (filtered by projectId)
-      const embeddingCount =
-        this.embeddingEngine
-          ?.getAllEmbeddings()
-          .filter((e) => e.projectId === projectId).length || 0;
+      // Get embedding statistics: prefer Qdrant point counts (persisted across restarts)
+      // over the in-memory cache (which is empty until generateAllEmbeddings() runs).
+      let embeddingCount = 0;
+      if (this.qdrant?.isConnected()) {
+        try {
+          const [fnColl, clsColl, fileColl] = await Promise.all([
+            this.qdrant.getCollection("functions"),
+            this.qdrant.getCollection("classes"),
+            this.qdrant.getCollection("files"),
+          ]);
+          embeddingCount =
+            (fnColl?.pointCount ?? 0) +
+            (clsColl?.pointCount ?? 0) +
+            (fileColl?.pointCount ?? 0);
+        } catch {
+          // Fall back to in-memory count below
+        }
+      }
+      if (embeddingCount === 0) {
+        // In-memory fallback (populated during current session only)
+        embeddingCount =
+          this.embeddingEngine
+            ?.getAllEmbeddings()
+            .filter((e) => e.projectId === projectId).length || 0;
+      }
       const embeddingCoverage =
         memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
           ? Number(
@@ -1142,12 +1305,16 @@ export class ToolHandlers extends ToolHandlerBase {
             generated: embeddingCount,
             coverage: embeddingCoverage,
             driftDetected: embeddingDrift,
-            recommendation: embeddingDrift
-              ? "Embeddings incomplete - run semantic_search or rebuild to regenerate"
-              : "Embeddings complete",
+            recommendation:
+              embeddingCount === 0 &&
+              memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
+                ? "No embeddings generated \u2014 run graph_rebuild (full mode) to enable semantic search"
+                : embeddingDrift
+                  ? "Embeddings incomplete - run semantic_search or rebuild to regenerate"
+                  : "Embeddings complete",
           },
           retrieval: {
-            bm25IndexExists: this.hybridRetriever?.bm25Mode === "native",
+            bm25IndexExists: this.hybridRetriever?.bm25IndexKnownToExist ?? false,
             mode: this.hybridRetriever?.bm25Mode ?? "not_initialized",
           },
           summarizer: {

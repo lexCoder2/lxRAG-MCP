@@ -540,6 +540,11 @@ export class ArchitectureEngine {
 
     // Create FILE nodes and VIOLATES_RULE relationships
     for (const violation of violations) {
+      // Resolve to absolute path to match FILE nodes created by the graph builder
+      const absoluteFilePath = path.isAbsolute(violation.file)
+        ? violation.file
+        : path.resolve(this.workspaceRoot, violation.file);
+
       // Create or update FILE node
       statements.push({
         query: `
@@ -547,7 +552,7 @@ export class ArchitectureEngine {
           SET f.lastViolationCheck = timestamp()
         `,
         params: {
-          filePath: violation.file,
+          filePath: absoluteFilePath,
         },
       });
 
@@ -563,7 +568,7 @@ export class ArchitectureEngine {
             SET vr.severity = $severity, vr.message = $message, vr.timestamp = timestamp()
           `,
           params: {
-            filePath: violation.file,
+            filePath: absoluteFilePath,
             ruleId: ruleId,
             severity: violation.severity,
             message: violation.message,

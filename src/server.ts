@@ -43,8 +43,8 @@ async function initialize() {
       config = { architecture: { layers: [], rules: [] } };
     }
 
-    // Initialize GraphOrchestrator
-    orchestrator = new GraphOrchestrator(memgraph, false);
+    // Initialize GraphOrchestrator — pass shared index so post-build sync populates it
+    orchestrator = new GraphOrchestrator(memgraph, false, index);
 
     toolHandlers = new ToolHandlers({
       index,
@@ -327,6 +327,37 @@ function createMcpServerInstance(): McpServer {
       }
       try {
         const result = await toolHandlers.callTool("graph_health", args);
+        return { content: [{ type: "text", text: result }] };
+      } catch (error: any) {
+        return {
+          content: [{ type: "text", text: `Error: ${error.message}` }],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  mcpServer.registerTool(
+    "tools_list",
+    {
+      description:
+        "List all MCP tools and their availability in the current session, grouped by category",
+      inputSchema: z.object({
+        profile: z
+          .enum(["compact", "balanced", "debug"])
+          .default("compact")
+          .describe("Response profile"),
+      }),
+    },
+    async (args: any) => {
+      if (!toolHandlers) {
+        return {
+          content: [{ type: "text", text: "Server not initialized" }],
+          isError: true,
+        };
+      }
+      try {
+        const result = await toolHandlers.callTool("tools_list", args);
         return { content: [{ type: "text", text: result }] };
       } catch (error: any) {
         return {

@@ -47,6 +47,10 @@ export interface Config {
   progress?: ProgressConfig;
 }
 
+// Generic TypeScript server defaults — create .lxrag/config.json at your project root
+// to override with project-specific layers and rules.
+// Tip: run arch_suggest to get placement guidance; update this file if suggestions
+// look wrong (e.g. always "src/types/").
 const DEFAULT_CONFIG: Config = {
   architecture: {
     layers: [
@@ -55,56 +59,70 @@ const DEFAULT_CONFIG: Config = {
         name: "Types",
         paths: ["src/types/**"],
         canImport: [],
-        description: "Core type definitions",
+        description: "Shared type definitions — no runtime dependencies",
       },
       {
         id: "utils",
         name: "Utilities",
-        paths: ["src/utils/**", "src/lib/**"],
+        paths: ["src/utils/**", "src/lib/**", "src/helpers/**"],
         canImport: ["types"],
-        description: "Utility functions and libraries",
+        description: "Stateless utility and helper functions",
       },
       {
-        id: "engine",
-        name: "Engine",
-        paths: ["src/engine/**"],
+        id: "parsers",
+        name: "Parsers",
+        paths: ["src/parsers/**"],
         canImport: ["types", "utils"],
-        description: "Business logic and calculations",
+        description: "File parsers and language-specific analysis",
       },
       {
-        id: "context",
-        name: "Context",
-        paths: ["src/context/**"],
-        canImport: ["types", "utils", "engine", "hooks"],
-        description: "React context providers",
+        id: "graph",
+        name: "Graph",
+        paths: ["src/graph/**"],
+        canImport: ["types", "utils", "parsers"],
+        description: "Graph building, caching and Memgraph client",
       },
       {
-        id: "hooks",
-        name: "Hooks",
-        paths: ["src/hooks/**"],
-        canImport: ["types", "utils", "engine"],
-        description: "Custom React hooks",
+        id: "vector",
+        name: "Vector",
+        paths: ["src/vector/**"],
+        canImport: ["types", "utils", "graph"],
+        description: "Embedding engine and Qdrant client",
       },
       {
-        id: "components",
-        name: "Components",
-        paths: ["src/components/**"],
-        canImport: ["types", "utils", "engine", "context", "hooks"],
-        description: "React UI components",
+        id: "engines",
+        name: "Engines",
+        paths: ["src/engines/**"],
+        canImport: ["types", "utils", "parsers", "graph", "vector"],
+        description: "Feature engines — architecture, community, docs, test, progress",
+      },
+      {
+        id: "tools",
+        name: "Tools",
+        paths: ["src/tools/**"],
+        canImport: ["types", "utils", "parsers", "graph", "vector", "engines"],
+        description: "MCP tool handlers — highest-level layer, may use all lower layers",
+      },
+      {
+        id: "server",
+        name: "Server",
+        paths: ["src/*.ts"],
+        canImport: ["types", "utils", "graph", "vector", "engines", "tools"],
+        description: "Server entry points — wires all layers together",
       },
     ],
     rules: [
       {
-        id: "no-engine-in-context",
+        id: "no-tools-in-engines",
         severity: "error",
-        pattern: "engine imports from context",
-        description: "Context providers should not directly import engine code",
+        pattern: "engines imports from tools",
+        description: "Engines must not import from tool handlers",
       },
       {
-        id: "no-components-in-engine",
-        severity: "error",
-        pattern: "component imports from engine",
-        description: "Engine code must remain UI-independent",
+        id: "no-graph-in-parsers",
+        severity: "warn",
+        pattern: "parsers imports from graph",
+        description: "Parsers should be graph-agnostic for reuse and testability",
       },
     ],
   },
