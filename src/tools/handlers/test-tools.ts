@@ -11,6 +11,7 @@
  * These tools delegate to TestEngine and use execWithTimeout for execution.
  */
 
+import * as path from "path";
 import { execWithTimeout } from "../../utils/exec-utils.js";
 
 /**
@@ -303,9 +304,15 @@ export function createTestTools(ctx: TestToolContext) {
           );
         }
 
-        // Build vitest command (Phase 3.5 - actual execution)
+        // Build vitest command (Phase 3.5 - actual execution).
+        // Use process.execPath (the actual running node binary) + a resolved path to the
+        // local vitest bin instead of `npx vitest`. This avoids SX4: the server process
+        // spawning commands that inherit its launch-time PATH which may point to a
+        // system Node version (e.g. v10.19) instead of the project's managed Node.
+        const cwd = process.cwd();
+        const vitestBin = path.resolve(cwd, "node_modules", ".bin", "vitest");
         const cmd = [
-          "npx vitest run",
+          `"${process.execPath}" "${vitestBin}" run`,
           parallel
             ? "--reporter=verbose"
             : "--reporter=verbose --no-coverage",
