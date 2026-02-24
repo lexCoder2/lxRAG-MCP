@@ -1186,7 +1186,9 @@ export class ToolHandlers extends ToolHandlerBase {
          MATCH (fc:FUNCTION {projectId: $projectId})
          WITH totalNodes, totalRels, fileCount, count(fc) AS funcCount
          MATCH (c:CLASS {projectId: $projectId})
-         RETURN totalNodes, totalRels, fileCount, funcCount, count(c) AS classCount`,
+         WITH totalNodes, totalRels, fileCount, funcCount, count(c) AS classCount
+         MATCH (imp:IMPORT {projectId: $projectId})
+         RETURN totalNodes, totalRels, fileCount, funcCount, classCount, count(imp) AS importCount`,
         { projectId },
       );
 
@@ -1197,6 +1199,10 @@ export class ToolHandlers extends ToolHandlerBase {
       const memgraphFileCount = this.toSafeNumber(stats.fileCount) ?? 0;
       const memgraphFuncCount = this.toSafeNumber(stats.funcCount) ?? 0;
       const memgraphClassCount = this.toSafeNumber(stats.classCount) ?? 0;
+      const memgraphImportCount = this.toSafeNumber(stats.importCount) ?? 0;
+      // Nodes that the in-memory GraphIndexManager actually caches (FILE, FUNCTION, CLASS, IMPORT).
+      // Used for drift detection instead of totalNodes (which includes SECTION, VARIABLE, etc.).
+      const memgraphIndexableCount = memgraphFileCount + memgraphFuncCount + memgraphClassCount + memgraphImportCount;
 
       // Get index statistics for comparison
       const indexStats = this.context.index.getStatistics();
@@ -1241,8 +1247,10 @@ export class ToolHandlers extends ToolHandlerBase {
             )
           : 0;
 
-      // Detect drift between systems
-      const indexDrift = indexStats.totalNodes !== memgraphNodeCount;
+      // Detect drift between systems.
+      // Compare only the node types the in-memory index caches (FILE+FUNCTION+CLASS+IMPORT)
+      // against memgraphIndexableCount. A tolerance of ±3 accounts for deduplication rounding.
+      const indexDrift = Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
       const embeddingDrift = embeddingCount < indexedSymbols;
 
       // Phase 4.4: Optimize transaction queries - combine into single query
@@ -1292,6 +1300,7 @@ export class ToolHandlers extends ToolHandlerBase {
           indexHealth: {
             driftDetected: indexDrift,
             memgraphNodes: memgraphNodeCount,
+            memgraphIndexableNodes: memgraphIndexableCount,
             cachedNodes: indexStats.totalNodes,
             memgraphRels: memgraphRelCount,
             cachedRels: indexStats.totalRelationships,
