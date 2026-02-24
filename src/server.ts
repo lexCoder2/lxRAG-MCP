@@ -459,6 +459,7 @@ function createMcpServerInstance(): McpServer {
         pattern: z.string().describe("Pattern to search for"),
         type: z
           .enum(["pattern", "violation", "unused", "circular"])
+          .default("pattern")
           .describe("Pattern type"),
       }),
     },

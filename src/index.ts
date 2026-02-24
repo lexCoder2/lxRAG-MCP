@@ -22,6 +22,7 @@ const TOOL_NAMES = [
   "graph_set_workspace",
   "graph_rebuild",
   "graph_health",
+  "tools_list",
   "code_explain",
   "find_pattern",
   "semantic_slice",
