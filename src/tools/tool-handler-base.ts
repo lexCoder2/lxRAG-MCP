@@ -389,6 +389,25 @@ export abstract class ToolHandlerBase {
       console.warn("[ToolHandlers] Qdrant connection skipped:", error);
     });
 
+    // Ensure the Memgraph text_search BM25 index exists at startup.
+    // Fire-and-forget: failure is non-fatal; retrieval falls back to lexical mode.
+    // Deferred with setImmediate so it runs after the current microtask queue
+    // (important for test isolation — avoids polluting executeCypher call counts).
+    setImmediate(() => {
+      if (!this.hybridRetriever) return;
+      if (!this.context.memgraph.isConnected?.()) return;
+      if (typeof (this.hybridRetriever as any).ensureBM25Index !== "function") return;
+      void this.hybridRetriever.ensureBM25Index().then((result) => {
+        if (result.created) {
+          console.error("[bm25] Created text_search symbol_index at startup");
+        } else if (result.error) {
+          console.warn(`[bm25] BM25 index unavailable at startup: ${result.error}`);
+        }
+      }).catch(() => {
+        // Memgraph not yet connected at startup — index will be created on next rebuild
+      });
+    });
+
     if (!env.LXRAG_SUMMARIZER_URL) {
       console.warn(
         "[summarizer] LXRAG_SUMMARIZER_URL is not set. " +

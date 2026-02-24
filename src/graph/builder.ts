@@ -710,8 +710,12 @@ export class GraphBuilder {
 
   private resolveImportPath(source: string, fromDir: string): string | null {
     if (!source.startsWith(".")) return null; // skip node_modules / bare specifiers
-    const base = path.resolve(fromDir, source);
+    // TypeScript projects often emit .js/.jsx imports (moduleResolution: node16/bundler).
+    // Strip the JS extension so we can probe the actual .ts/.tsx source file on disk.
+    const normalizedSource = source.replace(/\.jsx?$/, "");
+    const base = path.resolve(fromDir, normalizedSource);
     const candidates = [
+      base,       // exact match (source had no extension or was already .ts)
       base + ".ts",
       base + ".tsx",
       path.join(base, "index.ts"),

@@ -25,9 +25,10 @@ export default class CommunityDetector {
       `MATCH (n)
        WHERE n.projectId = $projectId
          AND (n:FILE OR n:FUNCTION OR n:CLASS)
+       OPTIONAL MATCH (parentFile:FILE)-[:CONTAINS]->(n)
        RETURN n.id AS id,
               labels(n)[0] AS type,
-              coalesce(n.path, n.filePath, '') AS filePath,
+              coalesce(n.path, n.filePath, parentFile.path, '') AS filePath,
               coalesce(n.name, n.id) AS name`,
       { projectId },
     );
@@ -172,6 +173,7 @@ export default class CommunityDetector {
          SET c.label = $label,
              c.summary = $summary,
              c.memberCount = $memberCount,
+             c.size = $memberCount,
              c.centralNode = $centralNode,
              c.computedAt = $computedAt`,
         {
@@ -209,9 +211,28 @@ export default class CommunityDetector {
 
   private communityLabel(filePath: string): string {
     const segments = filePath.split("/").filter(Boolean);
-    const ignored = new Set(["src", "lib", "dist", "build", "node_modules"]);
-    const segment = segments.find((item) => !ignored.has(item));
-    return segment || "misc";
+    // Look for a well-known source-root marker and return the directory that follows it.
+    // This correctly handles absolute paths like /home/user/project/src/engines/foo.ts
+    // by returning "engines" instead of "home".
+    const sourceRoots = new Set([
+      "src",
+      "lib",
+      "app",
+      "pages",
+      "packages",
+      "components",
+      "services",
+    ]);
+    const rootIdx = segments.findIndex((s) => sourceRoots.has(s));
+    if (rootIdx >= 0 && rootIdx + 1 < segments.length) {
+      const next = segments[rootIdx + 1];
+      // If next segment is a filename (has extension), use the root marker itself
+      return next.includes(".") ? segments[rootIdx] : next;
+    }
+    // Fallback: use the last non-trivial directory segment before the filename
+    const dirSegments = segments.slice(0, -1);
+    const trivial = new Set(["home", "root", "usr", "var", "tmp", "opt"]);
+    return dirSegments.filter((s) => !trivial.has(s)).pop() || "misc";
   }
 
   private centralNode(group: CommunityMember[]): string {

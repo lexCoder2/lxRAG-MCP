@@ -28,9 +28,18 @@ export interface RetrievalResult {
 
 export class HybridRetriever {
   private _bm25Mode: "native" | "lexical_fallback" = "lexical_fallback";
+  /**
+   * True once ensureBM25Index() confirms the index exists (created or already present).
+   * Distinct from bm25Mode which only flips to "native" after a successful query.
+   */
+  private _bm25IndexKnownToExist = false;
 
   get bm25Mode(): "native" | "lexical_fallback" {
     return this._bm25Mode;
+  }
+
+  get bm25IndexKnownToExist(): boolean {
+    return this._bm25IndexKnownToExist;
   }
 
   constructor(
@@ -180,6 +189,7 @@ export class HybridRetriever {
             {},
           );
         }
+        this._bm25IndexKnownToExist = true;
         return { created: false, alreadyExists: true };
       }
       await this.memgraph.executeCypher(
@@ -193,6 +203,7 @@ export class HybridRetriever {
           {},
         );
       }
+      this._bm25IndexKnownToExist = true;
       return { created: true, alreadyExists: false };
     } catch (err) {
       return {

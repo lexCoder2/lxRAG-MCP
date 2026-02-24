@@ -105,10 +105,10 @@ async function resolveDirectImpact(
       // Find FILE node whose relativePath or path matches the changed file
       const targetNode = fileNodes.find(
         (n: any) =>
-          n.data?.relativePath === changed ||
-          n.data?.path === changed ||
-          n.data?.relativePath?.endsWith(changed) ||
-          n.data?.path?.endsWith(changed),
+          n.properties?.relativePath === changed ||
+          n.properties?.path === changed ||
+          n.properties?.relativePath?.endsWith(changed) ||
+          n.properties?.path?.endsWith(changed),
       );
       if (!targetNode) continue;
 
@@ -123,8 +123,8 @@ async function resolveDirectImpact(
           const sourceNode = index.getNode(imp.from);
           if (!sourceNode) continue;
           const p =
-            sourceNode.data?.relativePath ||
-            sourceNode.data?.path ||
+            sourceNode.properties?.relativePath ||
+            sourceNode.properties?.path ||
             sourceNode.id;
           if (p && p !== changed) importers.add(p);
         }
