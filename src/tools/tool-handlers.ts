@@ -300,7 +300,7 @@ export class ToolHandlers extends ToolHandlerBase {
         dependents: [] as any[],
       };
 
-      // Get incoming and outgoing relationships
+      // Outgoing relationships → dependencies (nodes this element depends on)
       const outgoing = this.context.index.getRelationshipsFrom(targetNode.id);
       for (const rel of outgoing.slice(0, depth * 10)) {
         const target = this.context.index.getNode(rel.to);
@@ -309,6 +309,19 @@ export class ToolHandlers extends ToolHandlerBase {
             type: rel.type,
             target:
               target.properties.name || target.properties.path || target.id,
+          });
+        }
+      }
+
+      // Incoming relationships → dependents (nodes that depend on this element)
+      const incoming = this.context.index.getRelationshipsTo(targetNode.id);
+      for (const rel of incoming.slice(0, depth * 10)) {
+        const source = this.context.index.getNode(rel.from);
+        if (source) {
+          explanation.dependents.push({
+            type: rel.type,
+            source:
+              source.properties.name || source.properties.path || source.id,
           });
         }
       }
@@ -608,6 +621,7 @@ export class ToolHandlers extends ToolHandlerBase {
               metadata: {
                 source: "task_update",
                 status: String(status),
+                rationale: `Task ${taskId} transitioned to status '${status}' via task_update.${notes ? ` Notes: ${String(notes)}` : ""}`,
               },
             },
             projectId,
@@ -705,7 +719,7 @@ export class ToolHandlers extends ToolHandlerBase {
   }
 
   async blocking_issues(args: any): Promise<string> {
-    const type = args?.type || (args?.context ? "all" : "all");
+    const type = args?.type ?? "all";
     const profile = args?.profile || "compact";
 
     try {

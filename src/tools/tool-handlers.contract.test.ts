@@ -1965,3 +1965,110 @@ describe("Schema consistency — A4/A5 regressions", () => {
     expect(parsed.data?.mode).toBe("overview");
   });
 });
+
+// ─── Medium-priority regressions N6 / N8 / N9 ────────────────────────────────
+
+describe("Medium-priority bug regressions (N6/N8/N9)", () => {
+  function makeHandlers() {
+    const index = new GraphIndexManager();
+    return new ToolHandlers({
+      index,
+      memgraph: {
+        executeCypher: vi.fn().mockResolvedValue({ data: [] }),
+        isConnected: vi.fn().mockReturnValue(false),
+      } as any,
+      config: {},
+    });
+  }
+
+  // N6 — blocking_issues type param broken ternary
+  it("N6: blocking_issues forwards type param to progressEngine (not always 'all')", async () => {
+    const handlers = makeHandlers();
+    const getBlockingIssues = vi.fn().mockReturnValue([]);
+    (handlers as any).progressEngine = { getBlockingIssues };
+
+    await handlers.blocking_issues({ type: "critical", context: "some context" });
+
+    // type 'critical' must be forwarded, not silently overridden to 'all'
+    expect(getBlockingIssues).toHaveBeenCalledWith("critical");
+  });
+
+  it("N6b: blocking_issues defaults to 'all' when type is not provided", async () => {
+    const handlers = makeHandlers();
+    const getBlockingIssues = vi.fn().mockReturnValue([]);
+    (handlers as any).progressEngine = { getBlockingIssues };
+
+    await handlers.blocking_issues({ context: "some context" });
+
+    expect(getBlockingIssues).toHaveBeenCalledWith("all");
+  });
+
+  // N8 — task_update DECISION episode missing rationale
+  it("N8: task_update adds rationale to DECISION episode metadata on completion", async () => {
+    const handlers = makeHandlers();
+
+    const updateTask = vi.fn().mockReturnValue({ id: "task-1", status: "completed" });
+    const persistTaskUpdate = vi.fn().mockResolvedValue(true);
+    (handlers as any).progressEngine = { updateTask, persistTaskUpdate };
+
+    const addEpisode = vi.fn().mockResolvedValue("ep-123");
+    const reflect = vi.fn().mockResolvedValue({ reflectionId: "ref-1", learningsCreated: 0 });
+    (handlers as any).episodeEngine = { add: addEpisode, reflect };
+
+    const onTaskCompleted = vi.fn().mockResolvedValue(undefined);
+    (handlers as any).coordinationEngine = { onTaskCompleted };
+
+    await handlers.task_update({
+      taskId: "task-1",
+      status: "completed",
+      notes: "All done",
+    });
+
+    // The DECISION episode must be added with metadata.rationale
+    const decisionCall = addEpisode.mock.calls.find(
+      (call: any[]) => call[0]?.type === "DECISION",
+    );
+    expect(decisionCall).toBeDefined();
+    const episodeArg = decisionCall![0];
+    expect(episodeArg.metadata?.rationale).toBeDefined();
+    expect(typeof episodeArg.metadata.rationale).toBe("string");
+    expect(episodeArg.metadata.rationale.length).toBeGreaterThan(0);
+  });
+
+  // N9 — code_explain dependents always empty
+  it("N9: code_explain populates dependents from incoming relationships", async () => {
+    const handlers = makeHandlers();
+
+    // Populate in-memory index with a FILE and a dependent FUNCTION
+    const targetFileId = "file:src/graph/client.ts";
+    const dependentFnId = "function:useClient";
+
+    (handlers as any).context.index.addNode(targetFileId, "FILE", {
+      path: "/ws/src/graph/client.ts",
+      relativePath: "src/graph/client.ts",
+      name: "client.ts",
+    });
+    (handlers as any).context.index.addNode(dependentFnId, "FUNCTION", {
+      name: "useClient",
+    });
+    // dependentFn -[:CALLS]-> targetFile (incoming relationship to targetFile)
+    // addRelationship signature: (id, from, to, type)
+    (handlers as any).context.index.addRelationship("rel-1", dependentFnId, targetFileId, "CALLS");
+
+    const response = await handlers.code_explain({
+      element: "src/graph/client.ts",
+      depth: 2,
+      profile: "compact",
+    });
+    const parsed = JSON.parse(response);
+
+    expect(parsed.ok).toBe(true);
+    // dependents must be populated from incoming relationships
+    expect(
+      parsed.data.dependents.length,
+      "dependents should not be empty when incoming rels exist",
+    ).toBeGreaterThan(0);
+    const sourceNames = parsed.data.dependents.map((d: any) => d.source);
+    expect(sourceNames).toContain("useClient");
+  });
+});
