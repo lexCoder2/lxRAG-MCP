@@ -19,6 +19,21 @@
 ### Grep → MCP Patterns (15 min)
 → [TOOL_PATTERNS.md](TOOL_PATTERNS.md)
 
+### Code Comment Conventions
+→ [CODE_COMMENT_STANDARD.md](CODE_COMMENT_STANDARD.md)
+
+### Consolidated Tool Information
+→ [TOOLS_INFORMATION_GUIDE.md](TOOLS_INFORMATION_GUIDE.md)
+
+### Project Features & Capabilities
+→ [PROJECT_FEATURES_CAPABILITIES.md](PROJECT_FEATURES_CAPABILITIES.md)
+
+### Audits & Evaluations Summary
+→ [AUDITS_EVALUATIONS_SUMMARY.md](AUDITS_EVALUATIONS_SUMMARY.md)
+
+### Plans & Pending Actions
+→ [PLANS_PENDING_ACTIONS_SUMMARY.md](PLANS_PENDING_ACTIONS_SUMMARY.md)
+
 ---
 
 ## File Structure
@@ -30,6 +45,10 @@ docs/
 ├─ CLAUDE_INTEGRATION.md ........... System prompt solution ⭐
 ├─ MCP_INTEGRATION_GUIDE.md ........ Complete setup guide
 ├─ TOOL_PATTERNS.md ............... Before/after patterns
+├─ TOOLS_INFORMATION_GUIDE.md ...... Consolidated tool inventory
+├─ PROJECT_FEATURES_CAPABILITIES.md  Features and capability map
+├─ AUDITS_EVALUATIONS_SUMMARY.md ... Consolidated findings
+├─ PLANS_PENDING_ACTIONS_SUMMARY.md  Prioritized execution plan
 └─ copilot-instructions-template.md . Copy to projects
 
 Root:
@@ -96,7 +115,7 @@ See: [CLAUDE_INTEGRATION.md](CLAUDE_INTEGRATION.md)
 
 ---
 
-## 38 Tools at a Glance
+## 39 Tools at a Glance
 
 **Essential 4:**
 - `graph_query` - Find code
@@ -104,7 +123,7 @@ See: [CLAUDE_INTEGRATION.md](CLAUDE_INTEGRATION.md)
 - `impact_analyze` - What breaks?
 - `test_select` - Which tests?
 
-**+ 34 more** (see QUICK_REFERENCE.md)
+**+ 35 more** (see QUICK_REFERENCE.md)
 
 ---
 
