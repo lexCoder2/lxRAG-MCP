@@ -1,0 +1,89 @@
+// lxRAG-MCP Tool Sets Template
+// Location: .vscode/mcp-toolsets.jsonc
+// Usage: type #set-name in Copilot chat to activate a group of tools.
+// Run "Chat: Configure Tool Sets" from the Command Palette to register.
+
+{
+  // Explore: understand code, find definitions, search by concept
+  "lx-explore": {
+    "tools": [
+      "graph_query",
+      "semantic_search",
+      "code_explain",
+      "semantic_slice",
+      "find_pattern",
+    ],
+    "description": "Read and explore the codebase using the code graph and semantic search",
+    "icon": "search",
+  },
+
+  // Impact: assess risk before changing anything
+  "lx-impact": {
+    "tools": [
+      "impact_analyze",
+      "test_select",
+      "test_categorize",
+      "test_run",
+      "blocking_issues",
+    ],
+    "description": "Analyze impact, select relevant tests, and inspect blockers",
+    "icon": "graph",
+  },
+
+  // Design: validate and improve architecture
+  "lx-design": {
+    "tools": ["arch_validate", "arch_suggest"],
+    "description": "Validate architectural decisions and get design improvement suggestions",
+    "icon": "layers",
+  },
+
+  // Memory: persist and recall decisions across sessions
+  "lx-memory": {
+    "tools": ["episode_add", "episode_recall", "decision_query", "reflect"],
+    "description": "Store and retrieve decisions, context, and learnings across sessions",
+    "icon": "database",
+  },
+
+  // Session: initialize and health-check the graph connection
+  "lx-session": {
+    "tools": [
+      "init_project_setup",
+      "graph_set_workspace",
+      "graph_rebuild",
+      "graph_health",
+    ],
+    "description": "Initialize workspace context and verify graph/index health",
+    "icon": "server",
+  },
+
+  // Full: all graph analysis tools — use for complex multi-step tasks
+  "lx": {
+    "tools": [
+      "init_project_setup",
+      "graph_set_workspace",
+      "graph_rebuild",
+      "graph_health",
+      "graph_query",
+      "semantic_search",
+      "code_explain",
+      "semantic_slice",
+      "semantic_diff",
+      "find_pattern",
+      "impact_analyze",
+      "test_select",
+      "test_categorize",
+      "test_run",
+      "blocking_issues",
+      "arch_validate",
+      "arch_suggest",
+      "episode_add",
+      "episode_recall",
+      "decision_query",
+      "reflect",
+      "tools_list",
+      "contract_validate",
+    ],
+    "description": "All code graph analysis tools for comprehensive codebase intelligence",
+    "icon": "symbol-misc",
+  },
+}
