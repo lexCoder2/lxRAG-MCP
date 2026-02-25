@@ -1,3 +1,9 @@
+/**
+ * @file graph/ppr
+ * @description Personalized PageRank scoring utilities for graph-based relevance ranking.
+ * @remarks Used by context-pack style retrieval pipelines to prioritize connected symbols.
+ */
+
 import type MemgraphClient from "./client.js";
 
 export interface PPROptions {

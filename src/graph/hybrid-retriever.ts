@@ -1,3 +1,9 @@
+/**
+ * @file graph/hybrid-retriever
+ * @description Combines lexical and vector retrieval over graph-indexed code entities.
+ * @remarks Supports fallback behavior when BM25 or vector backends are unavailable.
+ */
+
 import type { GraphIndexManager, GraphNode } from "./index.js";
 import type EmbeddingEngine from "../vector/embedding-engine.js";
 import type MemgraphClient from "./client.js";

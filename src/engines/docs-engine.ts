@@ -1,7 +1,7 @@
 /**
- * Docs Engine
- * Orchestrates markdown file discovery, parsing, and graph indexing.
- * Supports incremental updates (hash-based), vector embedding, and search.
+ * @file engines/docs-engine
+ * @description Indexes markdown docs into graph sections and supports documentation search.
+ * @remarks Supports incremental hashing and optional Qdrant embeddings.
  */
 
 import type { MemgraphClient } from "../graph/client.js";

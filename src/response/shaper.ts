@@ -1,6 +1,15 @@
+/**
+ * @file response/shaper
+ * @description Shapes tool responses to fit profile budgets and output schemas.
+ * @remarks This module is pure formatting logic and should not perform I/O.
+ */
+
 import { estimateTokens, makeBudget, type ResponseProfile } from "./budget.js";
 import { TOOL_OUTPUT_SCHEMAS, applyFieldPriority } from "./schemas.js";
 
+/**
+ * Canonical response envelope returned by tool handlers.
+ */
 export interface ToolResponse {
   ok: boolean;
   profile: ResponseProfile;
@@ -11,6 +20,13 @@ export interface ToolResponse {
   errorCode?: string;
 }
 
+/**
+ * Truncates long strings while preserving a visible truncation marker.
+ *
+ * @param input - Original string value.
+ * @param maxLength - Maximum number of characters allowed.
+ * @returns The original string when within bounds, otherwise a truncated string.
+ */
 function truncateString(input: string, maxLength: number): string {
   if (!Number.isFinite(maxLength) || input.length <= maxLength) {
     return input;
@@ -18,6 +34,14 @@ function truncateString(input: string, maxLength: number): string {
   return `${input.slice(0, maxLength)}…(truncated)`;
 }
 
+/**
+ * Recursively shapes values to stay within profile-specific depth and size limits.
+ *
+ * @param value - Value to transform for output safety.
+ * @param profile - Output verbosity profile.
+ * @param depth - Current recursion depth.
+ * @returns A shaped value safe for transport in tool responses.
+ */
 function shapeValue(
   value: unknown,
   profile: ResponseProfile,
@@ -79,6 +103,16 @@ function shapeValue(
   return value;
 }
 
+/**
+ * Builds a successful tool response and applies profile-aware shaping.
+ *
+ * @param summary - Human-readable success summary.
+ * @param data - Raw payload to include in response.
+ * @param profile - Desired response profile.
+ * @param toolName - Optional tool name for schema-priority shaping.
+ * @param hint - Optional user-facing follow-up hint.
+ * @returns A standardized success response envelope.
+ */
 export function formatResponse(
   summary: string,
   data: unknown,
@@ -116,6 +150,15 @@ export function formatResponse(
   };
 }
 
+/**
+ * Builds a standardized error response envelope.
+ *
+ * @param errorCode - Stable machine-readable error code.
+ * @param reason - Human-readable failure reason.
+ * @param hint - Suggested next action for recovery.
+ * @param profile - Response profile to include in envelope.
+ * @returns A standardized error response envelope.
+ */
 export function errorResponse(
   errorCode: string,
   reason: string,

@@ -1,6 +1,8 @@
-// ── Coordination Engine — Cypher Query Constants ─────────────────────────────
-// All Memgraph Cypher strings used by CoordinationEngine, extracted for
-// readability, reuse in tests, and easier query-level optimisation.
+/**
+ * @file engines/coordination-queries
+ * @description Shared Cypher query constants consumed by the coordination engine.
+ * @remarks Isolating queries improves readability, testability, and optimization review.
+ */
 
 export const CoordinationQueries = {
   /** Check for an active conflicting claim on the same target from a *different* agent */

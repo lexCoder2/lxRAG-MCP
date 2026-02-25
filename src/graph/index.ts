@@ -1,7 +1,7 @@
 /**
- * Graph Index Manager
- * Tracks all nodes and relationships in the code graph
- * Provides in-memory index for query optimization
+ * @file graph/index
+ * @description In-memory graph index for nodes, relationships, and fast lookups.
+ * @remarks Acts as the primary runtime cache for tool and engine query operations.
  */
 
 export interface GraphNode {

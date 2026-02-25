@@ -1,3 +1,9 @@
+/**
+ * @file graph/client
+ * @description Memgraph client wrapper for Cypher execution and connection lifecycle.
+ * @remarks Provides resilient query utilities used across graph and engine modules.
+ */
+
 import type { CypherStatement } from "./types";
 import neo4j from "neo4j-driver";
 import * as env from "../env.js";

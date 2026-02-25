@@ -1,7 +1,7 @@
 /**
- * Docs Builder
- * Converts a ParsedDoc into idempotent Cypher statements for Memgraph.
- * Follows the same pattern as GraphBuilder in builder.ts.
+ * @file graph/docs-builder
+ * @description Converts parsed markdown docs into idempotent Cypher graph statements.
+ * @remarks Mirrors graph builder conventions for consistent write behavior.
  */
 
 import * as path from "node:path";

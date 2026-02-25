@@ -1,7 +1,7 @@
 /**
- * Sync State Manager
- * Tracks synchronization state of each system component
- * Phase 3.3: State machine for comprehensive system health
+ * @file graph/sync-state
+ * @description Tracks cross-system synchronization health and drift indicators.
+ * @remarks Provides state-machine style diagnostics for graph, index, and embedding readiness.
  */
 
 import * as env from "../env.js";
