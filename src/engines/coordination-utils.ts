@@ -1,6 +1,8 @@
-// ── Coordination Engine — Pure Utility Functions ─────────────────────────────
-// Extracted from CoordinationEngine so they are independently testable.
-// These functions have zero side-effects and no Memgraph dependency.
+/**
+ * @file engines/coordination-utils
+ * @description Pure helper functions for coordination IDs, mapping, and normalization.
+ * @remarks Utility functions are side-effect free and independently testable.
+ */
 
 import type {
   AgentClaim,

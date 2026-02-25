@@ -123,7 +123,7 @@ Working Categories:
 
 **Severity**: RESOLVED  
 **Impact**: Fixed in repository  
-**Files Affected**: src/index.ts, src/mcp-server.ts, src/engines/**
+**Files Affected**: src/index.ts, src/mcp-server.ts, src/engines/\*\*
 
 **Resolution Applied**:
 Created `.lxrag/config.json` with layer definitions and import rules.
@@ -135,6 +135,7 @@ Created `.lxrag/config.json` with layer definitions and import rules.
 **Error**: TypeError in graph metric aggregation
 
 **Resolution Applied**:
+
 - Normalized Memgraph count fields in `src/tools/tool-handlers.ts` using `toSafeNumber(...)`
 - Added regression test: `handles BigInt metrics in graph_health without type errors`
 
@@ -155,14 +156,17 @@ Created `.lxrag/config.json` with layer definitions and import rules.
 ## Recommended Next Steps
 
 1. **Deploy/runtime sync**:
-  - Rebuild and restart the running MCP server so it picks up current repository changes.
+
+- Rebuild and restart the running MCP server so it picks up current repository changes.
 
 2. **Post-restart validation**:
-  - Re-run `mcp_lxrag_graph_health`
-  - Confirm it no longer returns BigInt type errors.
+
+- Re-run `mcp_lxrag_graph_health`
+- Confirm it no longer returns BigInt type errors.
 
 3. **Proceed with plan**:
-  - Continue Phase 2 tool validation once the active runtime reflects the patched code.
+
+- Continue Phase 2 tool validation once the active runtime reflects the patched code.
 
 ---
 

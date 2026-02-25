@@ -1,3 +1,9 @@
+/**
+ * @file graph/builder
+ * @description Translates parsed source artifacts into Cypher statements for graph persistence.
+ * @remarks Declares local parsed-file contracts to avoid parser dependency coupling.
+ */
+
 // Local type definitions (avoid importing from typescript-parser which has dependencies)
 export interface ParsedFile {
   path: string;

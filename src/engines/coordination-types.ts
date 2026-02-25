@@ -1,6 +1,8 @@
-// ── Coordination Engine — Public Types ───────────────────────────────────────
-// Extracted from coordination-engine.ts to improve testability and allow
-// consumers (tool-handlers, tests) to import types without pulling in the engine.
+/**
+ * @file engines/coordination-types
+ * @description Public type contracts for coordination workflows.
+ * @remarks Kept separate so callers can import types without importing engine runtime code.
+ */
 
 export type ClaimType = "task" | "file" | "function" | "feature";
 

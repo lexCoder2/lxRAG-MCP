@@ -1,6 +1,6 @@
 /**
  * Reference Query Tools
- * Phase 5 Step 2: Extract self-contained ref_query tool and helpers
+ * Registry-backed reference query tool definitions.
  *
  * Tools:
  * - ref_query: search external reference repositories for documentation and code patterns
@@ -16,35 +16,58 @@ import {
   findMarkdownFiles,
   type ParsedSection,
 } from "../../parsers/docs-parser.js";
+import * as z from "zod";
+import type { HandlerBridge, ToolDefinition } from "../types.js";
 
-/**
- * Minimal context interface required by ref tools
- */
-interface RefToolContext {
-  errorEnvelope(
-    code: string,
-    reason: string,
-    recoverable?: boolean,
-    hint?: string
-  ): string;
-  formatSuccess(
-    data: unknown,
-    profile?: string,
-    summary?: string,
-    toolName?: string
-  ): string;
-}
-
-/**
- * Create reference query tools
- * @param ctx - Context object providing errorEnvelope and formatSuccess methods
- */
-export function createRefTools(ctx: RefToolContext) {
-  return {
-    /**
-     * Query external reference repositories for documentation and code patterns
-     */
-    async ref_query(args: any): Promise<string> {
+export const refToolDefinitions: ToolDefinition[] = [
+  {
+    name: "ref_query",
+    category: "ref",
+    description:
+      "Query a reference repository on the same machine for architecture insights, design patterns, conventions, or code examples. Useful for borrowing context from a well-structured sibling repo when working on the current workspace.",
+    inputShape: {
+      repoPath: z
+        .string()
+        .describe("Absolute path to the reference repository on this machine"),
+      query: z
+        .string()
+        .default("")
+        .describe(
+          "What to look for — architecture patterns, conventions, a specific concept, or a code example",
+        ),
+      mode: z
+        .enum([
+          "auto",
+          "docs",
+          "architecture",
+          "code",
+          "patterns",
+          "all",
+          "structure",
+        ])
+        .default("auto")
+        .describe(
+          "auto = infer from query; docs/architecture = markdown only; code/patterns = source files only; structure = dir tree only; all = everything",
+        ),
+      symbol: z
+        .string()
+        .optional()
+        .describe(
+          "Specific symbol name (function/class/interface) to locate in the reference repo",
+        ),
+      limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .default(10)
+        .describe("Max results to return"),
+      profile: z
+        .enum(["compact", "balanced", "debug"])
+        .default("compact")
+        .describe("Response profile"),
+    },
+    async impl(args: any, ctx: HandlerBridge): Promise<string> {
       const {
         repoPath,
         query = "",
@@ -59,7 +82,7 @@ export function createRefTools(ctx: RefToolContext) {
           "REF_REPO_MISSING",
           "repoPath is required",
           false,
-          "Provide the absolute path to the reference repository on this machine."
+          "Provide the absolute path to the reference repository on this machine.",
         );
       }
 
@@ -69,7 +92,7 @@ export function createRefTools(ctx: RefToolContext) {
           "REF_REPO_NOT_FOUND",
           `Path does not exist: ${resolvedRepo}`,
           false,
-          "Ensure the repository is cloned and the path is accessible from this machine/container."
+          "Ensure the repository is cloned and the path is accessible from this machine/container.",
         );
       }
 
@@ -77,11 +100,9 @@ export function createRefTools(ctx: RefToolContext) {
         const repoName = path.basename(resolvedRepo);
         const findings: any[] = [];
 
-        // Determine effective mode
         const effectiveMode =
           mode === "auto" ? inferRefMode(query, symbol) : mode;
 
-        // --- DOCS / ARCHITECTURE: parse markdown files ---
         if (
           effectiveMode === "docs" ||
           effectiveMode === "architecture" ||
@@ -117,7 +138,6 @@ export function createRefTools(ctx: RefToolContext) {
           }
         }
 
-        // --- CODE / PATTERNS: scan source files ---
         if (
           effectiveMode === "code" ||
           effectiveMode === "patterns" ||
@@ -146,18 +166,13 @@ export function createRefTools(ctx: RefToolContext) {
             try {
               const content = fs.readFileSync(filePath, "utf-8");
               const relPath = path.relative(resolvedRepo, filePath);
-              const score = scoreRefCode(
-                content,
-                queryTerms,
-                symbol,
-                relPath
-              );
+              const score = scoreRefCode(content, queryTerms, symbol, relPath);
               if (score > 0) {
                 const excerpt = extractRefExcerpt(
                   content,
                   queryTerms,
                   symbol,
-                  6
+                  6,
                 );
                 findings.push({
                   type: "code",
@@ -172,13 +187,11 @@ export function createRefTools(ctx: RefToolContext) {
           }
         }
 
-        // --- STRUCTURE: always included for mode "all" or when no query ---
         if (effectiveMode === "all" || effectiveMode === "structure") {
           const tree = buildRefDirTree(resolvedRepo, 3);
           findings.push({ type: "structure", file: ".", score: 0, tree });
         }
 
-        // Sort by score (structure last), slice to limit
         const sorted = findings
           .sort((a, b) => {
             if (a.type === "structure") return 1;
@@ -199,18 +212,18 @@ export function createRefTools(ctx: RefToolContext) {
           },
           profile,
           `${sorted.length} result(s) from reference repo ${repoName}`,
-          "ref_query"
+          "ref_query",
         );
       } catch (error) {
         return ctx.errorEnvelope(
           "REF_QUERY_FAILED",
           error instanceof Error ? error.message : String(error),
-          true
+          true,
         );
       }
     },
-  };
-}
+  },
+];
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Private Helpers (internal to this module)
@@ -221,13 +234,13 @@ export function createRefTools(ctx: RefToolContext) {
  */
 function inferRefMode(
   query: string,
-  symbol?: string
+  symbol?: string,
 ): "docs" | "code" | "architecture" | "patterns" | "all" {
   if (symbol) return "code";
   const lower = (query || "").toLowerCase();
   if (
     /(architect|structure|pattern|design|layer|module|overview|convention|best.?practice)/.test(
-      lower
+      lower,
     )
   )
     return "architecture";
@@ -235,7 +248,7 @@ function inferRefMode(
     return "docs";
   if (
     /(function|class|method|import|export|interface|type|impl|usage)/.test(
-      lower
+      lower,
     )
   )
     return "code";
@@ -248,7 +261,7 @@ function inferRefMode(
 function scoreRefSection(
   section: ParsedSection,
   queryTerms: string[],
-  symbol?: string
+  symbol?: string,
 ): number {
   let score = 0;
   const text = `${section.heading} ${section.content}`.toLowerCase();
@@ -275,7 +288,7 @@ function scoreRefCode(
   content: string,
   queryTerms: string[],
   symbol: string | undefined,
-  relPath: string
+  relPath: string,
 ): number {
   let score = 0;
   const lower = content.toLowerCase();
@@ -290,7 +303,7 @@ function scoreRefCode(
     const symLower = symbol.toLowerCase();
     const symCount = (
       lower.match(
-        new RegExp(symLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")
+        new RegExp(symLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"),
       ) ?? []
     ).length;
     score += symCount * 5;
@@ -305,7 +318,7 @@ function extractRefExcerpt(
   content: string,
   queryTerms: string[],
   symbol: string | undefined,
-  contextLines: number
+  contextLines: number,
 ): string {
   const lines = content.split("\n");
   let bestLine = 0;
@@ -331,10 +344,7 @@ function extractRefExcerpt(
 /**
  * Recursively scan for source files matching given extensions
  */
-function scanRefSourceFiles(
-  rootPath: string,
-  extensions: string[]
-): string[] {
+function scanRefSourceFiles(rootPath: string, extensions: string[]): string[] {
   const results: string[] = [];
   const ignoreDirs = new Set([
     "node_modules",
@@ -396,9 +406,7 @@ function buildRefDirTree(rootPath: string, maxDepth: number): any {
     const name = path.basename(dir);
     const children: any[] = [];
     try {
-      const entries = fs
-        .readdirSync(dir, { withFileTypes: true })
-        .slice(0, 40);
+      const entries = fs.readdirSync(dir, { withFileTypes: true }).slice(0, 40);
       for (const entry of entries) {
         if (
           entry.isDirectory() &&

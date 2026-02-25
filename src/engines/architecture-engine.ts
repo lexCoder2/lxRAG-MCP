@@ -1,6 +1,7 @@
 /**
- * Architecture Validation Engine
- * Validates code against layer constraints and architectural rules
+ * @file engines/architecture-engine
+ * @description Validates source dependencies against configured architecture layers and rules.
+ * @remarks Supports filesystem scanning and explicit file-list validation modes.
  */
 
 import * as path from "path";

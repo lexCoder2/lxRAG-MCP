@@ -1,6 +1,7 @@
 /**
- * Progress Tracking Migration Engine
- * Migrates existing markdown-based tracking to graph FEATURE/TASK nodes
+ * @file engines/migration-engine
+ * @description Migrates legacy markdown progress tracking into graph FEATURE/TASK nodes.
+ * @remarks Used for one-time or controlled migration workflows.
  */
 
 import * as fs from "fs";

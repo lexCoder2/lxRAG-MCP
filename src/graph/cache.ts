@@ -1,3 +1,9 @@
+/**
+ * @file graph/cache
+ * @description Maintains file hash metadata for incremental graph rebuild decisions.
+ * @remarks Cache storage is filesystem-backed and scoped to the runtime workspace.
+ */
+
 import * as fs from "fs";
 import * as path from "path";
 

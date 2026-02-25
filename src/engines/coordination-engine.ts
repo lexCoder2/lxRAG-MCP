@@ -1,3 +1,9 @@
+/**
+ * @file engines/coordination-engine
+ * @description Manages agent claim lifecycle, conflict detection, and fleet coordination state.
+ * @remarks Uses extracted query/constants and pure utilities for maintainability.
+ */
+
 import type MemgraphClient from "../graph/client.js";
 import { CoordinationQueries as Q } from "./coordination-queries.js";
 import { makeClaimId, rowToClaim } from "./coordination-utils.js";

@@ -1,3 +1,9 @@
+/**
+ * @file graph/watcher
+ * @description Filesystem watcher for incremental rebuild triggering and change batching.
+ * @remarks Debounces events and emits normalized change sets per project context.
+ */
+
 import chokidar from "chokidar";
 
 export interface WatcherOptions {

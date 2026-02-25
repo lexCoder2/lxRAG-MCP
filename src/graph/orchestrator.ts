@@ -1,6 +1,7 @@
 /**
- * Graph Orchestrator
- * Coordinates parsing, building, and persisting the code graph
+ * @file graph/orchestrator
+ * @description Coordinates parsing, graph building, cache updates, and persistence flows.
+ * @remarks Handles full/incremental rebuild orchestration and parser strategy selection.
  */
 
 import * as fs from "fs";

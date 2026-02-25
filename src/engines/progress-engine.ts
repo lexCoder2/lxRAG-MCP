@@ -1,6 +1,7 @@
 /**
- * Progress Tracking Engine
- * Manages features, tasks, and milestones in the code graph
+ * @file engines/progress-engine
+ * @description Manages feature/task status and progress queries backed by graph state.
+ * @remarks Provides both in-memory and Memgraph persistence pathways.
  */
 
 import type { GraphIndexManager } from "../graph/index.js";

@@ -1,3 +1,9 @@
+/**
+ * @file engines/community-detector
+ * @description Builds code communities from graph relationships for higher-level context retrieval.
+ * @remarks Persists detected communities in Memgraph for query-time use.
+ */
+
 import type MemgraphClient from "../graph/client.js";
 
 interface CommunityMember {

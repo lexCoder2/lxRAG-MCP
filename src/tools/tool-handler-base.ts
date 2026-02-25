@@ -25,6 +25,7 @@ import CommunityDetector from "../engines/community-detector.js";
 import HybridRetriever from "../graph/hybrid-retriever.js";
 import FileWatcher from "../graph/watcher.js";
 import { DocsEngine } from "../engines/docs-engine.js";
+import type { EngineSet } from "./types.js";
 
 export interface ToolContext {
   index: GraphIndexManager;
@@ -65,7 +66,7 @@ export abstract class ToolHandlerBase {
   protected lastGraphRebuildMode?: "full" | "incremental";
 
   // Phase 4.5: Track background build errors for diagnostics
-  protected backgroundBuildErrors = new Map<
+  public backgroundBuildErrors = new Map<
     string,
     Array<{ timestamp: number; error: string; context?: string }>
   >();
@@ -75,18 +76,34 @@ export abstract class ToolHandlerBase {
   protected sessionProjectContexts = new Map<string, ProjectContext>();
   protected sessionWatchers = new Map<string, FileWatcher>();
 
-  constructor(protected context: ToolContext) {
+  constructor(public readonly context: ToolContext) {
     this.defaultActiveProjectContext = this.defaultProjectContext();
     this.initializeEngines();
     // Phase 2c: Load index from Memgraph on startup (fire and forget)
     void this.initializeIndexFromMemgraph();
   }
 
+  public get engines(): EngineSet {
+    return {
+      arch: this.archEngine,
+      test: this.testEngine,
+      progress: this.progressEngine,
+      orchestrator: this.orchestrator,
+      qdrant: this.qdrant,
+      embedding: this.embeddingEngine,
+      episode: this.episodeEngine,
+      coordination: this.coordinationEngine,
+      community: this.communityDetector,
+      hybrid: this.hybridRetriever,
+      docs: this.docsEngine,
+    };
+  }
+
   // ──────────────────────────────────────────────────────────────────────────────
   // Session and Context Management
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected getCurrentSessionId(): string | undefined {
+  public getCurrentSessionId(): string | undefined {
     const sessionId = getRequestContext().sessionId;
     if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
       return undefined;
@@ -95,7 +112,7 @@ export abstract class ToolHandlerBase {
     return sessionId;
   }
 
-  protected getActiveProjectContext(): ProjectContext {
+  public getActiveProjectContext(): ProjectContext {
     const sessionId = this.getCurrentSessionId();
     if (!sessionId) {
       return this.defaultActiveProjectContext;
@@ -107,7 +124,7 @@ export abstract class ToolHandlerBase {
     );
   }
 
-  protected setActiveProjectContext(context: ProjectContext): void {
+  public setActiveProjectContext(context: ProjectContext): void {
     const sessionId = this.getCurrentSessionId();
     if (!sessionId) {
       this.defaultActiveProjectContext = context;
@@ -154,7 +171,7 @@ export abstract class ToolHandlerBase {
     };
   }
 
-  protected resolveProjectContext(overrides: any = {}): ProjectContext {
+  public resolveProjectContext(overrides: any = {}): ProjectContext {
     const base = this.getActiveProjectContext() || this.defaultProjectContext();
     const workspaceProvided =
       typeof overrides.workspaceRoot === "string" &&
@@ -181,7 +198,7 @@ export abstract class ToolHandlerBase {
     };
   }
 
-  protected adaptWorkspaceForRuntime(context: ProjectContext): {
+  public adaptWorkspaceForRuntime(context: ProjectContext): {
     context: ProjectContext;
     usedFallback: boolean;
     fallbackReason?: string;
@@ -219,11 +236,11 @@ export abstract class ToolHandlerBase {
     };
   }
 
-  protected runtimePathFallbackAllowed(): boolean {
+  public runtimePathFallbackAllowed(): boolean {
     return env.LXRAG_ALLOW_RUNTIME_PATH_FALLBACK;
   }
 
-  protected watcherEnabledForRuntime(): boolean {
+  public watcherEnabledForRuntime(): boolean {
     return env.MCP_TRANSPORT === "http" || env.LXRAG_ENABLE_WATCHER;
   }
 
@@ -239,7 +256,7 @@ export abstract class ToolHandlerBase {
     return this.sessionWatchers.get(this.watcherKey());
   }
 
-  protected async stopActiveWatcher(): Promise<void> {
+  public async stopActiveWatcher(): Promise<void> {
     const key = this.watcherKey();
     const existing = this.sessionWatchers.get(key);
     if (!existing) {
@@ -250,7 +267,7 @@ export abstract class ToolHandlerBase {
     this.sessionWatchers.delete(key);
   }
 
-  protected async startActiveWatcher(context: ProjectContext): Promise<void> {
+  public async startActiveWatcher(context: ProjectContext): Promise<void> {
     if (!this.watcherEnabledForRuntime()) {
       return;
     }
@@ -529,7 +546,7 @@ export abstract class ToolHandlerBase {
   // Response Formatting
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected errorEnvelope(
+  public errorEnvelope(
     code: string,
     reason: string,
     recoverable = true,
@@ -549,7 +566,7 @@ export abstract class ToolHandlerBase {
     return JSON.stringify(response, null, 2);
   }
 
-  protected canonicalizePaths(text: string): string {
+  public canonicalizePaths(text: string): string {
     return text
       .replaceAll("/workspace/", "")
       .replace(/\/home\/[^/]+\/stratSolver\//g, "")
@@ -581,7 +598,7 @@ export abstract class ToolHandlerBase {
     return value;
   }
 
-  protected formatSuccess(
+  public formatSuccess(
     data: unknown,
     profile: string = "compact",
     summary?: string,
@@ -606,7 +623,7 @@ export abstract class ToolHandlerBase {
   // Input Processing and Normalization
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected classifyIntent(
+  public classifyIntent(
     query: string,
   ): "structure" | "dependency" | "test-impact" | "progress" | "general" {
     const lower = query.toLowerCase();
@@ -768,7 +785,7 @@ export abstract class ToolHandlerBase {
   // Utility Conversions
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected toEpochMillis(asOf?: string): number | null {
+  public toEpochMillis(asOf?: string): number | null {
     if (!asOf || typeof asOf !== "string") {
       return null;
     }
@@ -782,7 +799,7 @@ export abstract class ToolHandlerBase {
     return Number.isNaN(parsed) ? null : parsed;
   }
 
-  protected toSafeNumber(value: unknown): number | null {
+  public toSafeNumber(value: unknown): number | null {
     if (typeof value === "number") {
       return Number.isFinite(value) ? value : null;
     }
@@ -817,7 +834,7 @@ export abstract class ToolHandlerBase {
   // Episode and Entity Validation
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected validateEpisodeInput(args: {
+  public validateEpisodeInput(args: {
     type: string;
     outcome?: unknown;
     entities?: string[];
@@ -874,7 +891,7 @@ export abstract class ToolHandlerBase {
     return null;
   }
 
-  protected async inferEpisodeEntityHints(
+  public async inferEpisodeEntityHints(
     query: string,
     limit: number,
   ): Promise<string[]> {
@@ -905,7 +922,7 @@ export abstract class ToolHandlerBase {
   // Temporal Query Helpers
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected async resolveSinceAnchor(
+  public async resolveSinceAnchor(
     since: string,
     projectId: string,
   ): Promise<{
@@ -967,7 +984,7 @@ export abstract class ToolHandlerBase {
 
   // Phase 4.3: Project-scoped embedding readiness check to prevent race conditions
   // Phase 4.5: Improved error handling for Qdrant operations
-  protected async ensureEmbeddings(projectId?: string): Promise<void> {
+  public async ensureEmbeddings(projectId?: string): Promise<void> {
     const activeProjectId =
       projectId || this.getActiveProjectContext().projectId;
 
@@ -1034,7 +1051,7 @@ export abstract class ToolHandlerBase {
   // Build Error Tracking (Phase 4.5)
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected recordBuildError(
+  public recordBuildError(
     projectId: string,
     error: unknown,
     context?: string,
@@ -1068,7 +1085,7 @@ export abstract class ToolHandlerBase {
   // Element Resolution
   // ──────────────────────────────────────────────────────────────────────────────
 
-  protected resolveElement(elementId: string): GraphNode | undefined {
+  public resolveElement(elementId: string): GraphNode | undefined {
     const requested = String(elementId || "").trim();
     if (!requested) {
       return undefined;

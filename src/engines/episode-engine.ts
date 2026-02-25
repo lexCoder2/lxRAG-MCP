@@ -1,3 +1,9 @@
+/**
+ * @file engines/episode-engine
+ * @description Persists and recalls agent episodes, decisions, and reflective learnings.
+ * @remarks Episode data is project-scoped and designed for long-term memory retrieval.
+ */
+
 import type MemgraphClient from "../graph/client.js";
 
 export type EpisodeType =

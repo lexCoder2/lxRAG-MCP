@@ -1,6 +1,7 @@
 /**
- * Test Intelligence Engine
- * Analyzes test dependencies and selects affected tests
+ * @file engines/test-engine
+ * @description Selects and categorizes tests based on dependency impact analysis.
+ * @remarks Used by tool handlers to drive targeted and risk-aware test execution.
  */
 
 import * as path from "path";
