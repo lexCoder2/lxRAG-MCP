@@ -278,9 +278,9 @@ export const LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS: number = parseInt(
 /**
  * Maximum state history size (bounded for memory efficiency).
  * Env: LXRAG_STATE_HISTORY_MAX_SIZE
- * Default: 100 entries
+ * Default: 200 entries
  */
 export const LXRAG_STATE_HISTORY_MAX_SIZE: number = parseInt(
-  process.env.LXRAG_STATE_HISTORY_MAX_SIZE || "100",
+  process.env.LXRAG_STATE_HISTORY_MAX_SIZE || "200",
   10,
 );

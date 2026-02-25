@@ -295,7 +295,7 @@ export class GraphOrchestrator {
           this.cache.set(filePath, parsed.hash, parsed.LOC);
 
           // Track for index
-          this.addToIndex(parsed);
+          this.addToIndex(parsed, opts.projectId);
           nodesCreated += this.countNodesInStatements(statements);
 
           if (opts.verbose && filesToProcess.indexOf(filePath) % 50 === 0) {
@@ -800,7 +800,7 @@ export class GraphOrchestrator {
   /**
    * Add parsed file to in-memory index
    */
-  private addToIndex(parsed: ParsedFile): void {
+  private addToIndex(parsed: ParsedFile, projectId?: string): void {
     // FILE node
     this.index.addNode(`file:${parsed.relativePath}`, "FILE", {
       path: parsed.filePath,
@@ -809,6 +809,7 @@ export class GraphOrchestrator {
       LOC: parsed.LOC,
       hash: parsed.hash,
       summary: (parsed as ParsedFile & { summary?: string }).summary,
+      ...(projectId ? { projectId } : {}),
     });
 
     // FUNCTION nodes
@@ -822,6 +823,7 @@ export class GraphOrchestrator {
         parameters: fn.parameters,
         isExported: fn.isExported,
         summary: (fn as typeof fn & { summary?: string }).summary,
+        ...(projectId ? { projectId } : {}),
       });
       this.index.addRelationship(
         `contains:${fn.id}`,
@@ -842,6 +844,7 @@ export class GraphOrchestrator {
         isExported: cls.isExported,
         extends: cls.extends,
         summary: (cls as typeof cls & { summary?: string }).summary,
+        ...(projectId ? { projectId } : {}),
       });
       this.index.addRelationship(
         `contains:${cls.id}`,

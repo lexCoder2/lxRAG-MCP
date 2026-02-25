@@ -46,7 +46,7 @@ export class QdrantClient {
     } catch (error) {
       console.warn(
         "[QdrantClient] Connection failed (expected for MVP)",
-        error
+        error,
       );
       this.connected = false;
     }
@@ -82,11 +82,23 @@ export class QdrantClient {
   }
 
   /**
+   * Hash a string ID to a stable unsigned 32-bit integer for Qdrant.
+   * Qdrant REST API only accepts unsigned integers or UUID v4 as point IDs.
+   */
+  private stringToUint32(s: string): number {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) {
+      h = (((h * 33) >>> 0) ^ s.charCodeAt(i)) >>> 0;
+    }
+    return h;
+  }
+
+  /**
    * Upsert points into collection
    */
   async upsertPoints(
     collectionName: string,
-    points: VectorPoint[]
+    points: VectorPoint[],
   ): Promise<void> {
     if (!this.connected) {
       console.warn("[QdrantClient] Not connected, skipping upsert");
@@ -101,17 +113,23 @@ export class QdrantClient {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             points: points.map((p) => ({
-              id: p.id,
+              id: this.stringToUint32(p.id),
               vector: p.vector,
-              payload: p.payload,
+              // Store original string ID in payload so we can recover it
+              payload: { ...p.payload, originalId: p.id },
             })),
           }),
-        }
+        },
       );
 
       if (response.ok) {
         console.error(
-          `[QdrantClient] Upserted ${points.length} points to '${collectionName}'`
+          `[QdrantClient] Upserted ${points.length} points to '${collectionName}'`,
+        );
+      } else {
+        const text = await response.text().catch(() => "(unreadable)");
+        console.error(
+          `[QdrantClient] Upsert failed (${response.status}): ${text}`,
         );
       }
     } catch (error) {
@@ -125,7 +143,7 @@ export class QdrantClient {
   async search(
     collectionName: string,
     vector: number[],
-    limit = 10
+    limit = 10,
   ): Promise<SearchResult[]> {
     if (!this.connected) {
       console.warn("[QdrantClient] Not connected");
@@ -143,14 +161,15 @@ export class QdrantClient {
             limit,
             with_payload: true,
           }),
-        }
+        },
       );
 
       if (response.ok) {
         const data = (await response.json()) as any;
         return (
           data.result?.map((item: any) => ({
-            id: item.id,
+            // Recover original string ID from payload (stored during upsert)
+            id: String(item.payload?.originalId ?? item.id),
             score: item.score,
             payload: item.payload,
           })) || []

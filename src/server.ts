@@ -420,7 +420,7 @@ function createMcpServerInstance(): McpServer {
       inputSchema: z.object({
         tool: z.string().describe("Target tool name"),
         arguments: z
-          .record(z.any())
+          .record(z.string(), z.any())
           .optional()
           .describe("Raw arguments to normalize"),
         profile: z
@@ -950,7 +950,7 @@ function createMcpServerInstance(): McpServer {
           .enum(["success", "failure", "partial"])
           .optional()
           .describe("Outcome classification"),
-        metadata: z.record(z.any()).optional().describe("Extra metadata"),
+        metadata: z.record(z.string(), z.any()).optional().describe("Extra metadata"),
         sensitive: z
           .boolean()
           .optional()
@@ -1175,7 +1175,10 @@ function createMcpServerInstance(): McpServer {
     {
       description: "Get active claims and recent episodes for an agent",
       inputSchema: z.object({
-        agentId: z.string().optional().describe("Agent identifier (omit to list all agents)"),
+        agentId: z
+          .string()
+          .optional()
+          .describe("Agent identifier (omit to list all agents)"),
         profile: z
           .enum(["compact", "balanced", "debug"])
           .default("compact")
