@@ -1,10 +1,10 @@
 import * as path from "node:path";
 import * as url from "node:url";
 import { describe, expect, it } from "vitest";
-import { DocsParser, findMarkdownFiles } from "./docs-parser.js";
+import { DocsParser, findMarkdownFiles } from "../docs-parser.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const FIXTURES = path.join(__dirname, "__fixtures__");
+const FIXTURES = path.join(__dirname, "..", "__fixtures__");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

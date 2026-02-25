@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import GraphIndexManager from "../graph/index.js";
-import { ToolHandlers } from "./tool-handlers.js";
-import { runWithRequestContext } from "../request-context.js";
+import GraphIndexManager from "../../graph/index.js";
+import { ToolHandlers } from "../tool-handlers.js";
+import { runWithRequestContext } from "../../request-context.js";
 
 describe("ToolHandlers contract normalization", () => {
   it("normalizes impact_analyze input from files", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { MemgraphClient } from "./client.js";
+import { MemgraphClient } from "../client.js";
 
 describe("MemgraphClient", () => {
   it("falls back to localhost when initial host is unresolved", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import GraphIndexManager from "../graph/index.js";
-import { ProgressEngine, type Feature, type Task } from "./progress-engine.js";
+import GraphIndexManager from "../../graph/index.js";
+import { ProgressEngine, type Feature, type Task } from "../progress-engine.js";
 
 function buildIndex(): GraphIndexManager {
   const index = new GraphIndexManager();

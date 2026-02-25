@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import QdrantClient from "./qdrant-client.js";
+import QdrantClient from "../qdrant-client.js";
 
 describe("QdrantClient", () => {
   afterEach(() => {

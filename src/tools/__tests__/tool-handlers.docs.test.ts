@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import GraphIndexManager from "../graph/index.js";
-import { ToolHandlers } from "./tool-handlers.js";
+import GraphIndexManager from "../../graph/index.js";
+import { ToolHandlers } from "../tool-handlers.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

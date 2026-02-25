@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FileWatcher } from "./watcher.js";
+import { FileWatcher } from "../watcher.js";
 
 describe("FileWatcher", () => {
   afterEach(() => {

@@ -2,8 +2,8 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { describe, expect, it, vi } from "vitest";
-import { GraphOrchestrator } from "./orchestrator.js";
-import GraphIndexManager from "./index.js";
+import { GraphOrchestrator } from "../orchestrator.js";
+import GraphIndexManager from "../index.js";
 
 describe("GraphOrchestrator", () => {
   it("normalizes incremental changed files and ignores unsupported extensions", async () => {

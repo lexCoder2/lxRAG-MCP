@@ -5,7 +5,7 @@ vi.mock("child_process", () => ({
 }));
 
 import { execSync } from "child_process";
-import { execWithTimeout, execWithTimeoutSafe } from "./exec-utils.js";
+import { execWithTimeout, execWithTimeoutSafe } from "../exec-utils.js";
 
 describe("exec-utils", () => {
   const mockedExecSync = vi.mocked(execSync);

@@ -3,7 +3,7 @@ import {
   applyFieldPriority,
   TOOL_OUTPUT_SCHEMAS,
   type OutputField,
-} from "./schemas.js";
+} from "../schemas.js";
 
 function tokens(value: unknown): number {
   return Math.ceil(JSON.stringify(value).length / 4);

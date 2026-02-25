@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DocsBuilder } from "./docs-builder.js";
-import type { ParsedDoc, ParsedSection } from "../parsers/docs-parser.js";
+import { DocsBuilder } from "../docs-builder.js";
+import type { ParsedDoc, ParsedSection } from "../../parsers/docs-parser.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import GraphIndexManager from "../graph/index.js";
-import EmbeddingEngine from "./embedding-engine.js";
+import GraphIndexManager from "../../graph/index.js";
+import EmbeddingEngine from "../embedding-engine.js";
 
 function buildIndex(): GraphIndexManager {
   const index = new GraphIndexManager();

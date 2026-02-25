@@ -11,7 +11,7 @@ import {
   validateNodeId,
   validateProjectId,
   validateQuery,
-} from "./validation.js";
+} from "../validation.js";
 
 describe("validation utils", () => {
   it("validateProjectId accepts valid IDs and rejects invalid ones", () => {

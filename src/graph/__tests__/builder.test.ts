@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as path from "node:path";
-import { GraphBuilder } from "./builder.js";
-import type { ParsedFile } from "./builder.js";
+import { GraphBuilder } from "../builder.js";
+import type { ParsedFile } from "../builder.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

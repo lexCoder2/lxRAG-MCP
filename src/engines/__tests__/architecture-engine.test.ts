@@ -2,12 +2,12 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import GraphIndexManager from "../graph/index.js";
+import GraphIndexManager from "../../graph/index.js";
 import {
   ArchitectureEngine,
   type ArchitectureRule,
   type LayerDefinition,
-} from "./architecture-engine.js";
+} from "../architecture-engine.js";
 
 const layers: LayerDefinition[] = [
   {

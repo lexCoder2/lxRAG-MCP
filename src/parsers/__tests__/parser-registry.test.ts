@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LanguageParser, ParseResult } from "./parser-interface.js";
-import { ParserRegistry } from "./parser-registry.js";
+import type { LanguageParser, ParseResult } from "../parser-interface.js";
+import { ParserRegistry } from "../parser-registry.js";
 
 function makeParser(
   language: string,

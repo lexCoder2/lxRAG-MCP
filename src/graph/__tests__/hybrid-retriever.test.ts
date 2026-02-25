@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import GraphIndexManager from "./index.js";
-import { HybridRetriever } from "./hybrid-retriever.js";
+import GraphIndexManager from "../index.js";
+import { HybridRetriever } from "../hybrid-retriever.js";
 
 function seedIndex(): GraphIndexManager {
   const index = new GraphIndexManager();

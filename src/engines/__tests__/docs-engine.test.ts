@@ -1,15 +1,15 @@
 import * as path from "node:path";
 import * as url from "node:url";
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { DocsEngine, DOCS_COLLECTION } from "./docs-engine.js";
-import type { DocsIndexOptions } from "./docs-engine.js";
-import type { MemgraphClient, QueryResult } from "../graph/client.js";
-import type { QdrantClient } from "../vector/qdrant-client.js";
-import type { ParsedDoc } from "../parsers/docs-parser.js";
-import { DocsParser } from "../parsers/docs-parser.js";
+import { DocsEngine, DOCS_COLLECTION } from "../docs-engine.js";
+import type { DocsIndexOptions } from "../docs-engine.js";
+import type { MemgraphClient, QueryResult } from "../../graph/client.js";
+import type { QdrantClient } from "../../vector/qdrant-client.js";
+import type { ParsedDoc } from "../../parsers/docs-parser.js";
+import { DocsParser } from "../../parsers/docs-parser.js";
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-const FIXTURES = path.resolve(__dirname, "../parsers/__fixtures__");
+const FIXTURES = path.resolve(__dirname, "../../parsers/__fixtures__");
 
 // ─── Mock factories ───────────────────────────────────────────────────────────
 

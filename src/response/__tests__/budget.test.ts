@@ -4,7 +4,7 @@ import {
   estimateTokens,
   fillSlot,
   makeBudget,
-} from "./budget.js";
+} from "../budget.js";
 
 describe("response/budget", () => {
   it("makeBudget returns profile defaults", () => {

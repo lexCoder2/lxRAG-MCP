@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import GraphIndexManager from "./index.js";
+import GraphIndexManager from "../index.js";
 
 describe("GraphIndexManager syncFrom", () => {
   it("preserves existing node properties when overwrite is false", () => {

@@ -7,8 +7,8 @@
 // cast as any for the mock. See also ./architecture-engine.test.ts for patterns.
 
 import { describe, expect, it, vi } from "vitest";
-import CoordinationEngine from "./coordination-engine.js";
-import { makeClaimId, rowToClaim } from "./coordination-utils.js";
+import CoordinationEngine from "../coordination-engine.js";
+import { makeClaimId, rowToClaim } from "../coordination-utils.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
