@@ -1,44 +1,18 @@
 /**
  * Test Intelligence Tools
- * Phase 5 Step 5: Extract test-related tools
+ * Registry-backed test tool definitions.
  *
  * Tools:
  * - test_select: select affected tests for changed files
  * - test_categorize: categorize tests by type
  * - impact_analyze: analyze blast radius of changes
  * - test_run: execute tests with vitest
- *
- * These tools delegate to TestEngine and use execWithTimeout for execution.
  */
 
 import * as path from "path";
 import { execWithTimeout } from "../../utils/exec-utils.js";
-
-/**
- * Minimal context interface required by test tools
- */
-interface TestToolContext {
-  testEngine?: any; // TestEngine
-  execWithTimeout?: typeof execWithTimeout;
-  /** MemgraphClient — used by impact_analyze for graph traversal */
-  context?: {
-    memgraph?: any;
-    index?: any;
-  };
-  getActiveProjectContext?(): { projectId: string; workspaceRoot: string };
-  errorEnvelope(
-    code: string,
-    reason: string,
-    recoverable?: boolean,
-    hint?: string
-  ): string;
-  formatSuccess(
-    data: unknown,
-    profile?: string,
-    summary?: string,
-    toolName?: string
-  ): string;
-}
+import * as z from "zod";
+import type { HandlerBridge, ToolDefinition } from "../types.js";
 
 /**
  * Resolve which source files directly import the given changed files by
@@ -48,7 +22,7 @@ interface TestToolContext {
  * Returns at most 50 paths, sorted alphabetically.
  */
 async function resolveDirectImpact(
-  ctx: TestToolContext,
+  ctx: HandlerBridge,
   changedFiles: string[],
 ): Promise<string[]> {
   const memgraph = ctx.context?.memgraph;
@@ -138,26 +112,39 @@ async function resolveDirectImpact(
   return Array.from(importers).sort().slice(0, 50);
 }
 
-/**
- * Create test intelligence tools
- * @param ctx - Context object providing testEngine and formatting methods
- */
-export function createTestTools(ctx: TestToolContext) {
-  return {
-    /**
-     * Select affected tests for changed files
-     */
-    async test_select(args: any): Promise<string> {
+export const testToolDefinitions: ToolDefinition[] = [
+  {
+    name: "test_select",
+    category: "test",
+    description: "Select tests affected by changed files",
+    inputShape: {
+      changedFiles: z.array(z.string()).describe("Files that changed"),
+      mode: z
+        .enum(["direct", "transitive", "full"])
+        .default("transitive")
+        .describe("Selection mode"),
+    },
+    async impl(args: any, ctx: HandlerBridge): Promise<string> {
       const {
         changedFiles,
         includeIntegration = true,
         profile = "compact",
       } = args;
 
+      const testEngine = ctx.engines.test as
+        | {
+            selectAffectedTests: (
+              changedFiles: string[],
+              includeIntegration?: boolean,
+              depth?: number,
+            ) => any;
+          }
+        | undefined;
+
       try {
-        const result = ctx.testEngine!.selectAffectedTests(
+        const result = testEngine!.selectAffectedTests(
           changedFiles,
-          includeIntegration
+          includeIntegration,
         );
 
         return ctx.formatSuccess(result, profile);
@@ -165,16 +152,34 @@ export function createTestTools(ctx: TestToolContext) {
         return ctx.errorEnvelope("TEST_SELECT_FAILED", String(error), true);
       }
     },
-
-    /**
-     * Categorize tests by type
-     */
-    async test_categorize(args: any): Promise<string> {
+  },
+  {
+    name: "test_categorize",
+    category: "test",
+    description: "Categorize tests by type",
+    inputShape: {
+      testFiles: z
+        .array(z.string())
+        .optional()
+        .describe("Test files to categorize"),
+    },
+    async impl(args: any, ctx: HandlerBridge): Promise<string> {
       const { testFiles = [], profile = "compact" } = args;
+
+      const testEngine = ctx.engines.test as
+        | {
+            getStatistics: () => {
+              unitTests: number;
+              integrationTests: number;
+              performanceTests: number;
+              e2eTests: number;
+            };
+          }
+        | undefined;
 
       try {
         console.error(`[Test] Categorizing ${testFiles.length} test files...`);
-        const stats = ctx.testEngine!.getStatistics();
+        const stats = testEngine!.getStatistics();
 
         return ctx.formatSuccess(
           {
@@ -202,21 +207,30 @@ export function createTestTools(ctx: TestToolContext) {
               },
             },
           },
-          profile
+          profile,
         );
       } catch (error) {
         return ctx.errorEnvelope("TEST_CATEGORIZE_FAILED", String(error), true);
       }
     },
-
-    /**
-     * Analyze blast radius of changes.
-     *
-     * directImpact is derived from graph traversal (IMPORTS/REFERENCES edges)
-     * to find source files that directly depend on the changed files, rather
-     * than from test selection alone.
-     */
-    async impact_analyze(args: any): Promise<string> {
+  },
+  {
+    name: "impact_analyze",
+    category: "test",
+    description: "Analyze impact of changes",
+    inputShape: {
+      files: z.array(z.string()).optional().describe("Changed files"),
+      changedFiles: z
+        .array(z.string())
+        .optional()
+        .describe("Changed files (alternate contract)"),
+      depth: z.number().default(3).describe("Analysis depth"),
+      profile: z
+        .enum(["compact", "balanced", "debug"])
+        .default("compact")
+        .describe("Response profile"),
+    },
+    async impl(args: any, ctx: HandlerBridge): Promise<string> {
       const profile = args?.profile || "compact";
       const depth = typeof args?.depth === "number" ? args.depth : 2;
       const changedFiles: string[] = Array.isArray(args?.files)
@@ -245,19 +259,30 @@ export function createTestTools(ctx: TestToolContext) {
             },
             warning: "No changed files were provided",
           },
-          profile
+          profile,
         );
       }
 
+      const testEngine = ctx.engines.test as
+        | {
+            selectAffectedTests: (
+              changedFiles: string[],
+              includeIntegration?: boolean,
+              depth?: number,
+            ) => {
+              estimatedTime: number;
+              coverage: { percentage: number };
+              selectedTests: string[];
+            };
+          }
+        | undefined;
+
       try {
-        const result = ctx.testEngine!.selectAffectedTests(
+        const result = testEngine!.selectAffectedTests(
           changedFiles,
           true,
-          depth
+          depth,
         );
-
-        // Compute directImpact via graph traversal to find source files that
-        // directly import the changed files, independent of test selection.
         const directImpact = await resolveDirectImpact(ctx, changedFiles);
 
         return ctx.formatSuccess(
@@ -277,17 +302,22 @@ export function createTestTools(ctx: TestToolContext) {
               },
             },
           },
-          profile
+          profile,
         );
       } catch (error) {
         return ctx.errorEnvelope("IMPACT_ANALYZE_FAILED", String(error), true);
       }
     },
-
-    /**
-     * Execute tests using vitest
-     */
-    async test_run(args: any): Promise<string> {
+  },
+  {
+    name: "test_run",
+    category: "test",
+    description: "Execute test suite",
+    inputShape: {
+      testFiles: z.array(z.string()).describe("Test files to run"),
+      parallel: z.boolean().default(true).describe("Run tests in parallel"),
+    },
+    async impl(args: any, ctx: HandlerBridge): Promise<string> {
       const { testFiles = [], parallel = true, profile = "compact" } = args;
 
       try {
@@ -300,28 +330,20 @@ export function createTestTools(ctx: TestToolContext) {
               passed: 0,
               failed: 0,
             },
-            profile
+            profile,
           );
         }
 
-        // Build vitest command (Phase 3.5 - actual execution).
-        // Use process.execPath (the actual running node binary) + a resolved path to the
-        // local vitest bin instead of `npx vitest`. This avoids SX4: the server process
-        // spawning commands that inherit its launch-time PATH which may point to a
-        // system Node version (e.g. v10.19) instead of the project's managed Node.
         const cwd = process.cwd();
         const vitestBin = path.resolve(cwd, "node_modules", ".bin", "vitest");
         const cmd = [
           `"${process.execPath}" "${vitestBin}" run`,
-          parallel
-            ? "--reporter=verbose"
-            : "--reporter=verbose --no-coverage",
+          parallel ? "--reporter=verbose" : "--reporter=verbose --no-coverage",
           ...testFiles,
         ].join(" ");
 
         console.error(`[ToolHandlers] Executing: ${cmd}`);
 
-        // Execute vitest with timeout and output limits
         try {
           const output = execWithTimeout(cmd, {
             cwd: process.cwd(),
@@ -333,13 +355,12 @@ export function createTestTools(ctx: TestToolContext) {
             {
               status: "passed",
               message: "All tests passed",
-              output: output.substring(0, 1000), // First 1000 chars
+              output: output.substring(0, 1000),
               testsRun: testFiles.length,
             },
-            profile
+            profile,
           );
         } catch (execError: any) {
-          // Tests failed but command executed
           return ctx.formatSuccess(
             {
               status: "failed",
@@ -348,16 +369,16 @@ export function createTestTools(ctx: TestToolContext) {
               output: execError.stdout?.toString().substring(0, 500) || "",
               testsRun: testFiles.length,
             },
-            profile
+            profile,
           );
         }
       } catch (error) {
         return ctx.errorEnvelope(
           "TEST_RUN_FAILED",
           `Test execution failed: ${error instanceof Error ? error.message : String(error)}`,
-          true
+          true,
         );
       }
     },
-  };
-}
+  },
+];
