@@ -213,9 +213,9 @@ RETURN s.id AS sectionId,
        s.startLine AS startLine,
        r.strength AS score
 ORDER BY score DESC
-LIMIT $limit
+LIMIT ${limit}
       `,
-      { projectId, name: symbolName, limit },
+      { projectId, name: symbolName },
     );
 
     if (res.error || !res.data.length) return [];
@@ -271,9 +271,9 @@ RETURN node.id AS sectionId,
        node.startLine AS startLine,
        score
 ORDER BY score DESC
-LIMIT $limit
+LIMIT ${limit}
         `,
-        { query, projectId, limit },
+        { query, projectId },
       );
       if (res.error || res.data.length === 0) return null;
       return res.data.map((row: Record<string, unknown>) =>
@@ -294,7 +294,7 @@ LIMIT $limit
       (_, i) =>
         `(toLower(s.heading) CONTAINS $term${i} OR toLower(s.content) CONTAINS $term${i})`,
     );
-    const params: Record<string, unknown> = { projectId, limit };
+    const params: Record<string, unknown> = { projectId };
     terms.forEach((t, i) => {
       params[`term${i}`] = t;
     });
@@ -311,7 +311,7 @@ RETURN s.id AS sectionId,
        s.startLine AS startLine,
        1.0 AS score
 ORDER BY s.heading
-LIMIT $limit
+LIMIT ${limit}
       `,
       params,
     );

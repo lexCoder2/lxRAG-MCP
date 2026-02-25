@@ -3,14 +3,14 @@
  * Generates vector embeddings for code elements
  */
 
-import type { GraphIndexManager } from '../graph/index.js';
-import type QdrantClient from './qdrant-client.js';
-import type { VectorPoint } from './qdrant-client.js';
-import { extractProjectIdFromScopedId } from '../utils/validation.js';
+import type { GraphIndexManager } from "../graph/index.js";
+import type QdrantClient from "./qdrant-client.js";
+import type { VectorPoint } from "./qdrant-client.js";
+import { extractProjectIdFromScopedId } from "../utils/validation.js";
 
 export interface CodeEmbedding {
   id: string;
-  type: 'function' | 'class' | 'file';
+  type: "function" | "class" | "file";
   name: string;
   vector: number[];
   text: string;
@@ -41,38 +41,50 @@ export class EmbeddingEngine {
   /**
    * Generate embeddings for all code elements
    */
-  async generateAllEmbeddings(): Promise<{ functions: number; classes: number; files: number }> {
-    console.error('[EmbeddingEngine] Starting embedding generation...');
+  async generateAllEmbeddings(): Promise<{
+    functions: number;
+    classes: number;
+    files: number;
+  }> {
+    console.error("[EmbeddingEngine] Starting embedding generation...");
 
     let functionCount = 0;
     let classCount = 0;
     let fileCount = 0;
 
     // Generate embeddings for functions
-    const functions = this.index.getNodesByType('FUNCTION');
+    const functions = this.index.getNodesByType("FUNCTION");
     for (const func of functions) {
-      const embedding = this.generateEmbedding('function', func.id, func.properties);
+      const embedding = this.generateEmbedding(
+        "function",
+        func.id,
+        func.properties,
+      );
       this.embeddings.set(embedding.id, embedding);
       functionCount++;
     }
 
     // Generate embeddings for classes
-    const classes = this.index.getNodesByType('CLASS');
+    const classes = this.index.getNodesByType("CLASS");
     for (const cls of classes) {
-      const embedding = this.generateEmbedding('class', cls.id, cls.properties);
+      const embedding = this.generateEmbedding("class", cls.id, cls.properties);
       this.embeddings.set(embedding.id, embedding);
       classCount++;
     }
 
     // Generate embeddings for files
-    const files = this.index.getNodesByType('FILE');
+    const files = this.index.getNodesByType("FILE");
     for (const file of files) {
-      const embedding = this.generateEmbedding('file', file.id, file.properties);
+      const embedding = this.generateEmbedding(
+        "file",
+        file.id,
+        file.properties,
+      );
       this.embeddings.set(embedding.id, embedding);
       fileCount++;
     }
 
-    console.error('[EmbeddingEngine] Generated embeddings:');
+    console.error("[EmbeddingEngine] Generated embeddings:");
     console.error(`  Functions: ${functionCount}`);
     console.error(`  Classes: ${classCount}`);
     console.error(`  Files: ${fileCount}`);
@@ -84,7 +96,7 @@ export class EmbeddingEngine {
    * Generate embedding for a single element
    */
   private generateEmbedding(
-    type: 'function' | 'class' | 'file',
+    type: "function" | "class" | "file",
     id: string,
     properties: Record<string, any>,
   ): CodeEmbedding {
@@ -94,8 +106,12 @@ export class EmbeddingEngine {
     const text = this.propertiesToText(properties);
     const vector = this.textToVector(text);
 
-    // Phase 4.2: Extract projectId from scoped ID safely (format: projectId:type:name)
-    const projectId = extractProjectIdFromScopedId(id, undefined);
+    // Use projectId from node properties when available; fall back to extracting
+    // from the scoped ID (properties.projectId is set when addToIndex is called
+    // with a projectId, which is the case for all full/incremental rebuilds).
+    const projectId = properties.projectId
+      ? String(properties.projectId)
+      : extractProjectIdFromScopedId(id, undefined);
 
     return {
       id,
@@ -122,12 +138,13 @@ export class EmbeddingEngine {
     if (props.name) parts.push(props.name);
     if (props.description) parts.push(props.description);
     if (props.kind) parts.push(`kind:${props.kind}`);
-    if (props.parameters) parts.push(`params:${props.parameters.join(',')}`);
+    if (props.parameters) parts.push(`params:${props.parameters.join(",")}`);
     if (props.extends) parts.push(`extends:${props.extends}`);
-    if (props.implements) parts.push(`implements:${props.implements.join(',')}`);
+    if (props.implements)
+      parts.push(`implements:${props.implements.join(",")}`);
     if (props.path) parts.push(`path:${props.path}`);
 
-    return parts.join(' ');
+    return parts.join(" ");
   }
 
   /**
@@ -154,14 +171,14 @@ export class EmbeddingEngine {
    */
   async storeInQdrant(): Promise<void> {
     if (!this.qdrant.isConnected()) {
-      console.warn('[EmbeddingEngine] Qdrant not connected, skipping storage');
+      console.warn("[EmbeddingEngine] Qdrant not connected, skipping storage");
       return;
     }
 
     // Create collections
-    await this.qdrant.createCollection('functions', 128);
-    await this.qdrant.createCollection('classes', 128);
-    await this.qdrant.createCollection('files', 128);
+    await this.qdrant.createCollection("functions", 128);
+    await this.qdrant.createCollection("classes", 128);
+    await this.qdrant.createCollection("files", 128);
 
     // Separate embeddings by type
     const functionEmbeddings: VectorPoint[] = [];
@@ -180,23 +197,23 @@ export class EmbeddingEngine {
         },
       };
 
-      if (embedding.type === 'function') functionEmbeddings.push(point);
-      else if (embedding.type === 'class') classEmbeddings.push(point);
-      else if (embedding.type === 'file') fileEmbeddings.push(point);
+      if (embedding.type === "function") functionEmbeddings.push(point);
+      else if (embedding.type === "class") classEmbeddings.push(point);
+      else if (embedding.type === "file") fileEmbeddings.push(point);
     }
 
     // Upsert to Qdrant
     if (functionEmbeddings.length > 0) {
-      await this.qdrant.upsertPoints('functions', functionEmbeddings);
+      await this.qdrant.upsertPoints("functions", functionEmbeddings);
     }
     if (classEmbeddings.length > 0) {
-      await this.qdrant.upsertPoints('classes', classEmbeddings);
+      await this.qdrant.upsertPoints("classes", classEmbeddings);
     }
     if (fileEmbeddings.length > 0) {
-      await this.qdrant.upsertPoints('files', fileEmbeddings);
+      await this.qdrant.upsertPoints("files", fileEmbeddings);
     }
 
-    console.error('[EmbeddingEngine] Embeddings stored in Qdrant');
+    console.error("[EmbeddingEngine] Embeddings stored in Qdrant");
   }
 
   /**
@@ -208,25 +225,34 @@ export class EmbeddingEngine {
    */
   async findSimilar(
     query: string,
-    type: 'function' | 'class' | 'file' = 'function',
+    type: "function" | "class" | "file" = "function",
     limit = 5,
     projectId?: string,
   ): Promise<CodeEmbedding[]> {
     const queryVector = this.textToVector(query);
 
     if (this.qdrant.isConnected()) {
-      const results = await this.qdrant.search(`${type}s`, queryVector, limit * 2);
-      return results
-        .map((result) => {
-          const embedding = this.embeddings.get(result.id);
-          return embedding;
-        })
-        .filter((e) => {
-          if (!e) return false;
-          if (projectId && e.projectId !== projectId) return false;
-          return true;
-        })
-        .slice(0, limit) as CodeEmbedding[];
+      const results = await this.qdrant.search(
+        `${type}s`,
+        queryVector,
+        limit * 2,
+      );
+      // Only return Qdrant results when it actually has data; otherwise fall
+      // through to in-memory cosine similarity (e.g. after a fresh rebuild
+      // before Qdrant has been populated).
+      if (results.length > 0) {
+        return results
+          .map((result) => {
+            const embedding = this.embeddings.get(result.id);
+            return embedding;
+          })
+          .filter((e) => {
+            if (!e) return false;
+            if (projectId && e.projectId !== projectId) return false;
+            return true;
+          })
+          .slice(0, limit) as CodeEmbedding[];
+      }
     }
 
     const candidates = Array.from(this.embeddings.values()).filter((entry) => {

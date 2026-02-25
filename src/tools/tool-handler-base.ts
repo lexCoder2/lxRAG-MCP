@@ -1074,19 +1074,34 @@ export abstract class ToolHandlerBase {
       return undefined;
     }
 
-    const exact = this.context.index.getNode(requested);
+    // Try exact match first, then also try with the active projectId prefix
+    // (Memgraph nodes use "projectId:file:name:line" while the in-memory index
+    // built during a rebuild uses the raw "file:name:line" format)
+    const { projectId } = this.getActiveProjectContext();
+    const exact =
+      this.context.index.getNode(requested) ||
+      (projectId && requested && !requested.startsWith(`${projectId}:`)
+        ? this.context.index.getNode(`${projectId}:${requested}`)
+        : undefined);
     if (exact) {
       return exact;
     }
 
     const normalizedPath = requested.replace(/\\/g, "/");
     const basename = path.basename(normalizedPath);
-    const scopedTail = requested.includes(":")
-      ? requested.split(":").slice(-1)[0]
-      : requested;
+
+    // For IDs in format "file.ts:symbolName:lineNum" (parser output), the last
+    // segment is a line number — use the second-to-last as the symbol name.
+    const parts = requested.split(":");
+    const scopedTail = parts.length > 1 ? parts[parts.length - 1] : requested;
+    // If last segment is a number, treat the preceding segment as the name
+    const scopedName =
+      parts.length > 2 && /^\d+$/.test(scopedTail)
+        ? parts[parts.length - 2]
+        : scopedTail;
     const symbolTail = requested.includes("::")
       ? requested.split("::").slice(-1)[0]
-      : scopedTail;
+      : scopedName;
 
     const files = this.context.index.getNodesByType("FILE");
     const functions = this.context.index.getNodesByType("FUNCTION");
@@ -1114,6 +1129,7 @@ export abstract class ToolHandlerBase {
         return (
           name === requested ||
           name === scopedTail ||
+          name === scopedName ||
           name === symbolTail ||
           node.id === requested ||
           node.id.endsWith(`:${requested}`)
@@ -1124,6 +1140,7 @@ export abstract class ToolHandlerBase {
         return (
           name === requested ||
           name === scopedTail ||
+          name === scopedName ||
           name === symbolTail ||
           node.id === requested ||
           node.id.endsWith(`:${requested}`)
