@@ -1,91 +1,39 @@
 import type MemgraphClient from "../graph/client.js";
+import { CoordinationQueries as Q } from "./coordination-queries.js";
+import { makeClaimId, rowToClaim } from "./coordination-utils.js";
 
-export type ClaimType = "task" | "file" | "function" | "feature";
-export type InvalidationReason =
-  | "released"
-  | "code_changed"
-  | "task_completed"
-  | "expired";
+// Re-export all public types so existing importers keep working.
+export type {
+  AgentClaim,
+  AgentStatus,
+  ClaimInput,
+  ClaimResult,
+  ClaimType,
+  CoordinationOverview,
+  InvalidationReason,
+  ReleaseFeedback,
+} from "./coordination-types.js";
 
-export interface AgentClaim {
-  id: string;
-  agentId: string;
-  sessionId: string;
-  taskId?: string;
-  claimType: ClaimType;
-  targetId: string;
-  intent: string;
-  validFrom: number;
-  targetVersionSHA?: string;
-  validTo: number | null;
-  invalidationReason?: InvalidationReason;
-  outcome?: string;
-  projectId: string;
-}
-
-export interface ClaimInput {
-  agentId: string;
-  sessionId: string;
-  projectId: string;
-  targetId: string;
-  claimType: ClaimType;
-  intent: string;
-  taskId?: string;
-}
-
-export interface ClaimResult {
-  claimId: string;
-  status: "ok" | "CONFLICT";
-  conflict?: { agentId: string; intent: string; since: number };
-  targetVersionSHA: string;
-}
-
-export interface AgentStatus {
-  agentId: string;
-  activeClaims: AgentClaim[];
-  recentEpisodes: Array<{
-    id: string;
-    type: string;
-    content: string;
-    timestamp: number;
-    taskId?: string;
-  }>;
-  currentTask?: string;
-}
-
-export interface CoordinationOverview {
-  activeClaims: AgentClaim[];
-  staleClaims: AgentClaim[];
-  conflicts: Array<{
-    targetId: string;
-    claimA: { claimId: string; agentId: string; intent: string; since: number };
-    claimB: { claimId: string; agentId: string; intent: string; since: number };
-  }>;
-  agentSummary: Array<{
-    agentId: string;
-    claimCount: number;
-    lastSeen: number;
-  }>;
-  totalClaims: number;
-}
+import type {
+  AgentClaim,
+  AgentStatus,
+  ClaimInput,
+  ClaimResult,
+  CoordinationOverview,
+  ReleaseFeedback,
+} from "./coordination-types.js";
 
 export default class CoordinationEngine {
   constructor(private memgraph: MemgraphClient) {}
 
+  // ── Public API ─────────────────────────────────────────────────────────────
+
   async claim(input: ClaimInput): Promise<ClaimResult> {
-    const conflictCheck = await this.memgraph.executeCypher(
-      `MATCH (c:CLAIM)-[:TARGETS]->(t {id: $targetId, projectId: $projectId})
-       WHERE c.validTo IS NULL
-         AND c.agentId <> $agentId
-       RETURN c.id AS claimId, c.agentId AS agentId, c.intent AS intent, c.validFrom AS since
-       ORDER BY c.validFrom DESC
-       LIMIT 1`,
-      {
-        targetId: input.targetId,
-        projectId: input.projectId,
-        agentId: input.agentId,
-      },
-    );
+    const conflictCheck = await this.memgraph.executeCypher(Q.CONFLICT_CHECK, {
+      targetId: input.targetId,
+      projectId: input.projectId,
+      agentId: input.agentId,
+    });
 
     const conflict = conflictCheck.data?.[0];
     if (conflict) {
@@ -102,53 +50,31 @@ export default class CoordinationEngine {
     }
 
     const now = Date.now();
-    const claimId = this.makeId("claim");
+    const claimId = makeClaimId("claim", now);
     const targetSnapshot = await this.getTargetSnapshot(
       input.targetId,
       input.projectId,
     );
 
-    await this.memgraph.executeCypher(
-      `CREATE (c:CLAIM {
-        id: $id,
-        agentId: $agentId,
-        sessionId: $sessionId,
-        taskId: $taskId,
-        claimType: $claimType,
-        targetId: $targetId,
-        intent: $intent,
-        validFrom: $validFrom,
-        targetVersionSHA: $targetVersionSHA,
-        validTo: null,
-        invalidationReason: null,
-        outcome: null,
-        projectId: $projectId
-      })`,
-      {
-        id: claimId,
-        agentId: input.agentId,
-        sessionId: input.sessionId,
-        taskId: input.taskId || null,
-        claimType: input.claimType,
-        targetId: input.targetId,
-        intent: input.intent,
-        validFrom: now,
-        targetVersionSHA: targetSnapshot.targetVersionSHA,
-        projectId: input.projectId,
-      },
-    );
+    await this.memgraph.executeCypher(Q.CREATE_CLAIM, {
+      id: claimId,
+      agentId: input.agentId,
+      sessionId: input.sessionId,
+      taskId: input.taskId || null,
+      claimType: input.claimType,
+      targetId: input.targetId,
+      intent: input.intent,
+      validFrom: now,
+      targetVersionSHA: targetSnapshot.targetVersionSHA,
+      projectId: input.projectId,
+    });
 
     if (targetSnapshot.targetExists) {
-      await this.memgraph.executeCypher(
-        `MATCH (c:CLAIM {id: $claimId, projectId: $projectId})
-         MATCH (t {id: $targetId, projectId: $projectId})
-         MERGE (c)-[:TARGETS]->(t)`,
-        {
-          claimId,
-          targetId: input.targetId,
-          projectId: input.projectId,
-        },
-      );
+      await this.memgraph.executeCypher(Q.LINK_CLAIM_TO_TARGET, {
+        claimId,
+        targetId: input.targetId,
+        projectId: input.projectId,
+      });
     }
 
     return {
@@ -158,44 +84,50 @@ export default class CoordinationEngine {
     };
   }
 
-  async release(claimId: string, outcome?: string): Promise<void> {
-    await this.memgraph.executeCypher(
-      `MATCH (c:CLAIM {id: $claimId})
-       WHERE c.validTo IS NULL
-       SET c.validTo = $now,
-           c.invalidationReason = 'released',
-           c.outcome = $outcome`,
-      {
-        claimId,
-        now: Date.now(),
-        outcome: outcome || null,
-      },
+  /**
+   * Close a claim.  Returns feedback indicating whether the claim was found
+   * and whether it was already closed before this call — instead of silently
+   * returning void.
+   */
+  async release(claimId: string, outcome?: string): Promise<ReleaseFeedback> {
+    // First check current state so we can give accurate feedback.
+    const checkResult = await this.memgraph.executeCypher(
+      Q.RELEASE_CLAIM_OPEN_CHECK,
+      { claimId },
     );
+
+    if (!checkResult.data.length) {
+      return { found: false, alreadyClosed: false };
+    }
+
+    const row = checkResult.data[0] as Record<string, unknown>;
+    if (row.validTo != null) {
+      return { found: true, alreadyClosed: true };
+    }
+
+    await this.memgraph.executeCypher(Q.RELEASE_CLAIM, {
+      claimId,
+      now: Date.now(),
+      outcome: outcome ?? null,
+    });
+
+    return { found: true, alreadyClosed: false };
   }
 
   async status(agentId: string, projectId: string): Promise<AgentStatus> {
-    const claimsResult = await this.memgraph.executeCypher(
-      `MATCH (c:CLAIM)
-       WHERE c.projectId = $projectId
-         AND c.agentId = $agentId
-         AND c.validTo IS NULL
-       RETURN c
-       ORDER BY c.validFrom DESC`,
-      { projectId, agentId },
-    );
-
-    const episodesResult = await this.memgraph.executeCypher(
-      `MATCH (e:EPISODE)
-       WHERE e.projectId = $projectId
-         AND e.agentId = $agentId
-       RETURN e.id AS id, e.type AS type, e.content AS content, e.timestamp AS timestamp, e.taskId AS taskId
-       ORDER BY e.timestamp DESC
-       LIMIT 10`,
-      { projectId, agentId },
-    );
+    const [claimsResult, episodesResult] = await Promise.all([
+      this.memgraph.executeCypher(Q.AGENT_ACTIVE_CLAIMS, {
+        projectId,
+        agentId,
+      }),
+      this.memgraph.executeCypher(Q.AGENT_RECENT_EPISODES, {
+        projectId,
+        agentId,
+      }),
+    ]);
 
     const activeClaims = claimsResult.data
-      .map((row) => this.rowToClaim(row))
+      .map((row) => rowToClaim(row))
       .filter((row): row is AgentClaim => Boolean(row));
 
     return {
@@ -220,62 +152,19 @@ export default class CoordinationEngine {
       summaryResult,
       totalResult,
     ] = await Promise.all([
-      this.memgraph.executeCypher(
-        `MATCH (c:CLAIM)
-           WHERE c.projectId = $projectId
-             AND c.validTo IS NULL
-           RETURN c
-           ORDER BY c.validFrom DESC`,
-        { projectId },
-      ),
-      this.memgraph.executeCypher(
-        `MATCH (c:CLAIM)-[:TARGETS]->(t)
-           WHERE c.projectId = $projectId
-             AND c.validTo IS NULL
-             AND t.projectId = $projectId
-             AND t.validFrom > c.validFrom
-           RETURN c
-           ORDER BY c.validFrom DESC`,
-        { projectId },
-      ),
-      this.memgraph.executeCypher(
-        `MATCH (c1:CLAIM)-[:TARGETS]->(t)<-[:TARGETS]-(c2:CLAIM)
-           WHERE c1.projectId = $projectId
-             AND c2.projectId = $projectId
-             AND c1.validTo IS NULL
-             AND c2.validTo IS NULL
-             AND c1.id < c2.id
-             AND c1.agentId <> c2.agentId
-           RETURN t.id AS targetId,
-                  c1.id AS claimAId, c1.agentId AS claimAAgent, c1.intent AS claimAIntent, c1.validFrom AS claimASince,
-                  c2.id AS claimBId, c2.agentId AS claimBAgent, c2.intent AS claimBIntent, c2.validFrom AS claimBSince
-           ORDER BY targetId`,
-        { projectId },
-      ),
-      this.memgraph.executeCypher(
-        `MATCH (c:CLAIM)
-           WHERE c.projectId = $projectId
-             AND c.validTo IS NULL
-           RETURN c.agentId AS agentId,
-                  count(c) AS claimCount,
-                  max(c.validFrom) AS lastSeen
-           ORDER BY claimCount DESC, lastSeen DESC`,
-        { projectId },
-      ),
-      this.memgraph.executeCypher(
-        `MATCH (c:CLAIM)
-           WHERE c.projectId = $projectId
-           RETURN count(c) AS totalClaims`,
-        { projectId },
-      ),
+      this.memgraph.executeCypher(Q.OVERVIEW_ACTIVE, { projectId }),
+      this.memgraph.executeCypher(Q.OVERVIEW_STALE, { projectId }),
+      this.memgraph.executeCypher(Q.OVERVIEW_CONFLICTS, { projectId }),
+      this.memgraph.executeCypher(Q.OVERVIEW_AGENT_SUMMARY, { projectId }),
+      this.memgraph.executeCypher(Q.OVERVIEW_TOTAL, { projectId }),
     ]);
 
     return {
       activeClaims: activeResult.data
-        .map((row) => this.rowToClaim(row))
+        .map((row) => rowToClaim(row))
         .filter((row): row is AgentClaim => Boolean(row)),
       staleClaims: staleResult.data
-        .map((row) => this.rowToClaim(row))
+        .map((row) => rowToClaim(row))
         .filter((row): row is AgentClaim => Boolean(row)),
       conflicts: conflictsResult.data.map((row) => ({
         targetId: String(row.targetId || "unknown"),
@@ -303,18 +192,10 @@ export default class CoordinationEngine {
 
   async invalidateStaleClaims(projectId: string): Promise<number> {
     const now = Date.now();
-    const staleResult = await this.memgraph.executeCypher(
-      `MATCH (c:CLAIM)-[:TARGETS]->(t)
-       WHERE c.projectId = $projectId
-         AND c.validTo IS NULL
-         AND t.projectId = $projectId
-         AND t.validFrom > c.validFrom
-       SET c.validTo = $now,
-           c.invalidationReason = 'code_changed'
-       RETURN count(c) AS invalidated`,
-      { projectId, now },
-    );
-
+    const staleResult = await this.memgraph.executeCypher(Q.INVALIDATE_STALE, {
+      projectId,
+      now,
+    });
     return Number(staleResult.data?.[0]?.invalidated || 0);
   }
 
@@ -323,37 +204,40 @@ export default class CoordinationEngine {
     agentId: string,
     projectId: string,
   ): Promise<void> {
-    await this.memgraph.executeCypher(
-      `MATCH (c:CLAIM)
-       WHERE c.projectId = $projectId
-         AND c.taskId = $taskId
-         AND c.validTo IS NULL
-       SET c.validTo = $now,
-           c.invalidationReason = 'task_completed',
-           c.outcome = coalesce(c.outcome, $outcome)`,
-      {
-        projectId,
-        taskId,
-        now: Date.now(),
-        outcome: `Task completed by ${agentId}`,
-      },
-    );
+    await this.memgraph.executeCypher(Q.ON_TASK_COMPLETED, {
+      projectId,
+      taskId,
+      now: Date.now(),
+      outcome: `Task completed by ${agentId}`,
+    });
   }
+
+  /**
+   * Expire all open claims older than `maxAgeMs` milliseconds.
+   * Implements the previously orphaned 'expired' InvalidationReason.
+   * @returns number of claims closed
+   */
+  async expireOldClaims(projectId: string, maxAgeMs: number): Promise<number> {
+    const now = Date.now();
+    const cutoffMs = now - maxAgeMs;
+    const result = await this.memgraph.executeCypher(Q.EXPIRE_OLD_CLAIMS, {
+      projectId,
+      now,
+      cutoffMs,
+    });
+    return Number(result.data?.[0]?.expired || 0);
+  }
+
+  // ── Private helpers ────────────────────────────────────────────────────────
 
   private async getTargetSnapshot(
     targetId: string,
     projectId: string,
   ): Promise<{ targetExists: boolean; targetVersionSHA: string }> {
-    const result = await this.memgraph.executeCypher(
-      `MATCH (t {id: $targetId, projectId: $projectId})
-       RETURN t.validFrom AS validFrom,
-              t.contentHash AS contentHash,
-              t.hash AS hash,
-              t.gitCommit AS gitCommit
-       ORDER BY t.validFrom DESC
-       LIMIT 1`,
-      { targetId, projectId },
-    );
+    const result = await this.memgraph.executeCypher(Q.TARGET_SNAPSHOT, {
+      targetId,
+      projectId,
+    });
 
     if (!result.data.length) {
       return { targetExists: false, targetVersionSHA: `unknown-${Date.now()}` };
@@ -370,40 +254,5 @@ export default class CoordinationEngine {
       targetExists: true,
       targetVersionSHA: String(sha),
     };
-  }
-
-  private rowToClaim(row: Record<string, unknown>): AgentClaim | null {
-    const claim =
-      (row.c as Record<string, unknown>) ||
-      (row.claim as Record<string, unknown>) ||
-      row;
-
-    if (!claim || typeof claim !== "object" || !claim.id) {
-      return null;
-    }
-
-    return {
-      id: String(claim.id),
-      agentId: String(claim.agentId || "unknown"),
-      sessionId: String(claim.sessionId || "unknown"),
-      taskId: claim.taskId ? String(claim.taskId) : undefined,
-      claimType: (claim.claimType || "task") as ClaimType,
-      targetId: String(claim.targetId || ""),
-      intent: String(claim.intent || ""),
-      validFrom: Number(claim.validFrom || Date.now()),
-      targetVersionSHA: claim.targetVersionSHA
-        ? String(claim.targetVersionSHA)
-        : undefined,
-      validTo: claim.validTo == null ? null : Number(claim.validTo),
-      invalidationReason: claim.invalidationReason
-        ? (String(claim.invalidationReason) as InvalidationReason)
-        : undefined,
-      outcome: claim.outcome ? String(claim.outcome) : undefined,
-      projectId: String(claim.projectId || "unknown"),
-    };
-  }
-
-  private makeId(prefix: string): string {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
 }

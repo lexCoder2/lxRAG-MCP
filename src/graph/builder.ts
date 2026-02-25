@@ -287,6 +287,7 @@ export class GraphBuilder {
         MERGE (func:FUNCTION {id: $id})
         SET func.name = $name,
             func.kind = $kind,
+          func.filePath = $filePath,
             func.startLine = $startLine,
             func.endLine = $endLine,
             func.LOC = $LOC,
@@ -303,6 +304,7 @@ export class GraphBuilder {
         id: nodeId,
         name: fn.name,
         kind: fn.kind || "function",
+        filePath: parsedFile.filePath,
         startLine: fn.startLine || fn.line || 0,
         endLine: fn.endLine || fn.line || 0,
         LOC: fn.LOC || 1,
@@ -358,6 +360,7 @@ export class GraphBuilder {
         MERGE (cls:CLASS {id: $id})
         SET cls.name = $name,
             cls.kind = $kind,
+          cls.filePath = $filePath,
             cls.startLine = $startLine,
             cls.endLine = $endLine,
             cls.LOC = $LOC,
@@ -373,6 +376,7 @@ export class GraphBuilder {
         id: nodeId,
         name: cls.name,
         kind: cls.kind || "class",
+        filePath: parsedFile.filePath,
         startLine: cls.startLine || cls.line,
         endLine: cls.endLine || cls.line,
         LOC: cls.LOC || 1,
@@ -679,7 +683,9 @@ export class GraphBuilder {
 
       // Create TEST_SUITE -[:CONTAINS]-> TEST_CASE relationship (if parent suite exists)
       if (testCase.parentSuiteId) {
-        const parentNodeId = this.scopedId(`test_suite:${testCase.parentSuiteId}`);
+        const parentNodeId = this.scopedId(
+          `test_suite:${testCase.parentSuiteId}`,
+        );
         this.statements.push({
           query: `
             MATCH (ts:TEST_SUITE {id: $testSuiteId})
@@ -715,7 +721,7 @@ export class GraphBuilder {
     const normalizedSource = source.replace(/\.jsx?$/, "");
     const base = path.resolve(fromDir, normalizedSource);
     const candidates = [
-      base,       // exact match (source had no extension or was already .ts)
+      base, // exact match (source had no extension or was already .ts)
       base + ".ts",
       base + ".tsx",
       path.join(base, "index.ts"),

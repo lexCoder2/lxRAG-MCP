@@ -516,12 +516,21 @@ describe("ToolHandlers regressions", () => {
 });
 
 describe("ToolHandlers P0 integration", () => {
-  it("queues graph_rebuild with resolved workspace context", async () => {
+  it("returns completed or queued graph_rebuild with resolved workspace context", async () => {
     const index = new GraphIndexManager();
     const executeCypher = vi
       .fn()
       .mockResolvedValue({ data: [], error: undefined });
-    const build = vi.fn().mockResolvedValue({ success: true });
+    const build = vi.fn().mockResolvedValue({
+      success: true,
+      duration: 18,
+      filesProcessed: 1,
+      nodesCreated: 3,
+      relationshipsCreated: 2,
+      filesChanged: 1,
+      errors: [],
+      warnings: [],
+    });
 
     const handlers = new ToolHandlers({
       index,
@@ -557,10 +566,14 @@ describe("ToolHandlers P0 integration", () => {
       const parsed = JSON.parse(response);
 
       expect(parsed.ok).toBe(true);
-      expect(parsed.data.status).toBe("QUEUED");
+      expect(["QUEUED", "COMPLETED"]).toContain(parsed.data.status);
       expect(parsed.data.projectId).toBe("proj-integration");
       expect(parsed.data.workspaceRoot).toBe(tempRoot);
       expect(parsed.data.sourceDir).toBe(tempSrc);
+
+      if (parsed.data.status === "COMPLETED") {
+        expect(parsed.data.durationMs).toBe(18);
+      }
 
       expect(build).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1620,7 +1633,9 @@ describe("ToolHandlers deeper integration contracts", () => {
       claimId: "claim-2",
       conflicts: [{ claimId: "claim-1", targetId: "task:1" }],
     });
-    const release = vi.fn().mockResolvedValue(undefined);
+    const release = vi
+      .fn()
+      .mockResolvedValue({ found: true, alreadyClosed: false });
     (handlers as any).coordinationEngine = { claim, release };
 
     const claimResponse = JSON.parse(
@@ -1871,7 +1886,9 @@ describe("ToolHandlers watcher callback integration", () => {
       }),
     );
 
-    expect((handlers as any).isProjectEmbeddingsReady("proj-watch")).toBe(false);
+    expect((handlers as any).isProjectEmbeddingsReady("proj-watch")).toBe(
+      false,
+    );
     expect((handlers as any).lastGraphRebuildMode).toBe("incremental");
   });
 
@@ -1987,7 +2004,10 @@ describe("Medium-priority bug regressions (N6/N8/N9)", () => {
     const getBlockingIssues = vi.fn().mockReturnValue([]);
     (handlers as any).progressEngine = { getBlockingIssues };
 
-    await handlers.blocking_issues({ type: "critical", context: "some context" });
+    await handlers.blocking_issues({
+      type: "critical",
+      context: "some context",
+    });
 
     // type 'critical' must be forwarded, not silently overridden to 'all'
     expect(getBlockingIssues).toHaveBeenCalledWith("critical");
@@ -2007,12 +2027,16 @@ describe("Medium-priority bug regressions (N6/N8/N9)", () => {
   it("N8: task_update adds rationale to DECISION episode metadata on completion", async () => {
     const handlers = makeHandlers();
 
-    const updateTask = vi.fn().mockReturnValue({ id: "task-1", status: "completed" });
+    const updateTask = vi
+      .fn()
+      .mockReturnValue({ id: "task-1", status: "completed" });
     const persistTaskUpdate = vi.fn().mockResolvedValue(true);
     (handlers as any).progressEngine = { updateTask, persistTaskUpdate };
 
     const addEpisode = vi.fn().mockResolvedValue("ep-123");
-    const reflect = vi.fn().mockResolvedValue({ reflectionId: "ref-1", learningsCreated: 0 });
+    const reflect = vi
+      .fn()
+      .mockResolvedValue({ reflectionId: "ref-1", learningsCreated: 0 });
     (handlers as any).episodeEngine = { add: addEpisode, reflect };
 
     const onTaskCompleted = vi.fn().mockResolvedValue(undefined);
@@ -2053,7 +2077,12 @@ describe("Medium-priority bug regressions (N6/N8/N9)", () => {
     });
     // dependentFn -[:CALLS]-> targetFile (incoming relationship to targetFile)
     // addRelationship signature: (id, from, to, type)
-    (handlers as any).context.index.addRelationship("rel-1", dependentFnId, targetFileId, "CALLS");
+    (handlers as any).context.index.addRelationship(
+      "rel-1",
+      dependentFnId,
+      targetFileId,
+      "CALLS",
+    );
 
     const response = await handlers.code_explain({
       element: "src/graph/client.ts",

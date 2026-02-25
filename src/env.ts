@@ -219,6 +219,17 @@ export const LXRAG_COMMAND_EXECUTION_TIMEOUT_MS: number = parseInt(
 );
 
 /**
+ * Maximum time to wait synchronously for graph_rebuild before falling back
+ * to queued/background execution.
+ * Env: LXRAG_SYNC_REBUILD_THRESHOLD_MS
+ * Default: 12000 (12 seconds)
+ */
+export const LXRAG_SYNC_REBUILD_THRESHOLD_MS: number = parseInt(
+  process.env.LXRAG_SYNC_REBUILD_THRESHOLD_MS || "12000",
+  10,
+);
+
+/**
  * Maximum output size for command results in bytes.
  * Prevents DoS from commands producing massive output.
  * Env: LXRAG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES

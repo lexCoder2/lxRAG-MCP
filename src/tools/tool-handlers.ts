@@ -966,10 +966,81 @@ export class ToolHandlers extends ToolHandlerBase {
         );
       }
 
-      // Start the build process WITHOUT waiting for it to complete
-      // This prevents the MCP tool from blocking/timing out
-      // Fire and forget - the build happens in background
-      this.orchestrator
+      const postBuild = async (result: {
+        success: boolean;
+        duration: number;
+        filesProcessed: number;
+        nodesCreated: number;
+        relationshipsCreated: number;
+        filesChanged: number;
+        warnings: string[];
+        errors: string[];
+      }) => {
+        console.error(
+          `[graph_rebuild] ${mode} build completed in ${result.duration}ms (${result.filesProcessed} files, ${result.nodesCreated} nodes, ${result.errors.length} errors, ${result.warnings.length} warnings) for project ${projectId}`,
+        );
+
+        const invalidated =
+          await this.coordinationEngine!.invalidateStaleClaims(projectId);
+        if (invalidated > 0) {
+          console.error(
+            `[coordination] Invalidated ${invalidated} stale claim(s) post-rebuild for project ${projectId}`,
+          );
+        }
+
+        if (mode === "incremental") {
+          // Phase 2a & 4.3: Reset embeddings for incremental builds (per-project to prevent race conditions)
+          // This ensures embeddings are regenerated for changed code on next semantic query
+          this.setProjectEmbeddingsReady(projectId, false);
+          console.error(
+            `[Phase2a] Embeddings flag reset for incremental rebuild of project ${projectId}`,
+          );
+        } else if (mode === "full") {
+          // Phase 2b: Auto-generate embeddings during full rebuild
+          // Make embeddings available immediately after full rebuild completes
+          try {
+            const generated =
+              await this.embeddingEngine?.generateAllEmbeddings();
+            if (
+              generated &&
+              generated.functions + generated.classes + generated.files > 0
+            ) {
+              await this.embeddingEngine?.storeInQdrant();
+              // Phase 4.3: Mark embeddings ready per-project
+              this.setProjectEmbeddingsReady(projectId, true);
+              console.error(
+                `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
+              );
+            }
+          } catch (embeddingError) {
+            console.error(
+              `[Phase2b] Embedding generation failed during full rebuild for project ${projectId}:`,
+              embeddingError,
+            );
+            // Continue even if embeddings fail - not a critical error
+          }
+
+          const communityRun = await this.communityDetector!.run(projectId);
+          console.error(
+            `[community] ${communityRun.mode}: ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,
+          );
+        }
+
+        // Ensure BM25 index exists after every rebuild (full or incremental).
+        // Memgraph may have been restarted, losing the in-memory text index.
+        const bm25Result = await this.hybridRetriever?.ensureBM25Index();
+        if (bm25Result?.created) {
+          console.error(
+            `[bm25] Created text_search symbol_index for project ${projectId}`,
+          );
+        } else if (bm25Result?.error) {
+          console.error(`[bm25] symbol_index unavailable: ${bm25Result.error}`);
+        }
+
+        return result;
+      };
+
+      const buildPromise = this.orchestrator
         .build({
           mode,
           verbose,
@@ -989,68 +1060,8 @@ export class ToolHandlers extends ToolHandlerBase {
             ".git",
           ],
         })
-        .then(async () => {
-          const invalidated =
-            await this.coordinationEngine!.invalidateStaleClaims(projectId);
-          if (invalidated > 0) {
-            console.error(
-              `[coordination] Invalidated ${invalidated} stale claim(s) post-rebuild for project ${projectId}`,
-            );
-          }
-
-          if (mode === "incremental") {
-            // Phase 2a & 4.3: Reset embeddings for incremental builds (per-project to prevent race conditions)
-            // This ensures embeddings are regenerated for changed code on next semantic query
-            this.setProjectEmbeddingsReady(projectId, false);
-            console.error(
-              `[Phase2a] Embeddings flag reset for incremental rebuild of project ${projectId}`,
-            );
-          } else if (mode === "full") {
-            // Phase 2b: Auto-generate embeddings during full rebuild
-            // Make embeddings available immediately after full rebuild completes
-            try {
-              const generated =
-                await this.embeddingEngine?.generateAllEmbeddings();
-              if (
-                generated &&
-                generated.functions + generated.classes + generated.files > 0
-              ) {
-                await this.embeddingEngine?.storeInQdrant();
-                // Phase 4.3: Mark embeddings ready per-project
-                this.setProjectEmbeddingsReady(projectId, true);
-                console.error(
-                  `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
-                );
-              }
-            } catch (embeddingError) {
-              console.error(
-                `[Phase2b] Embedding generation failed during full rebuild for project ${projectId}:`,
-                embeddingError,
-              );
-              // Continue even if embeddings fail - not a critical error
-            }
-
-            const communityRun = await this.communityDetector!.run(projectId);
-            console.error(
-              `[community] ${communityRun.mode}: ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,
-            );
-          }
-
-          // Ensure BM25 index exists after every rebuild (full or incremental).
-          // Memgraph may have been restarted, losing the in-memory text index.
-          const bm25Result = await this.hybridRetriever?.ensureBM25Index();
-          if (bm25Result?.created) {
-            console.error(
-              `[bm25] Created text_search symbol_index for project ${projectId}`,
-            );
-          } else if (bm25Result?.error) {
-            console.error(
-              `[bm25] symbol_index unavailable: ${bm25Result.error}`,
-            );
-          }
-        })
+        .then(postBuild)
         .catch((err) => {
-          // Phase 4.5: Track background build errors for diagnostics
           const context = `mode=${mode}, projectId=${projectId}`;
           this.recordBuildError(projectId, err, context);
 
@@ -1062,12 +1073,58 @@ export class ToolHandlers extends ToolHandlerBase {
           if (stack) {
             console.error(`[Phase4.5] Stack trace: ${stack.substring(0, 500)}`);
           }
+
+          throw err;
         });
+
+      const thresholdMs = Math.max(1000, env.LXRAG_SYNC_REBUILD_THRESHOLD_MS);
+
+      const raceResult = await Promise.race([
+        buildPromise.then((result) => ({
+          status: "completed" as const,
+          result,
+        })),
+        new Promise<{ status: "queued" }>((resolve) =>
+          setTimeout(() => resolve({ status: "queued" }), thresholdMs),
+        ),
+      ]);
 
       this.lastGraphRebuildAt = new Date().toISOString();
       this.lastGraphRebuildMode = mode;
 
-      // Return immediately with status
+      if (raceResult.status === "completed") {
+        return this.formatSuccess(
+          {
+            success: raceResult.result.success,
+            status: "COMPLETED",
+            mode,
+            verbose,
+            sourceDir,
+            workspaceRoot,
+            projectId,
+            txId,
+            txTimestamp,
+            durationMs: raceResult.result.duration,
+            filesProcessed: raceResult.result.filesProcessed,
+            nodesCreated: raceResult.result.nodesCreated,
+            relationshipsCreated: raceResult.result.relationshipsCreated,
+            filesChanged: raceResult.result.filesChanged,
+            warnings: raceResult.result.warnings,
+            errors: raceResult.result.errors,
+            runtimePathFallback: adapted.usedFallback,
+            runtimePathFallbackReason: adapted.fallbackReason || null,
+            message: `Graph rebuild ${mode} mode completed in ${raceResult.result.duration}ms.`,
+          },
+          profile,
+          `Graph rebuild completed in ${raceResult.result.duration}ms for project ${projectId}.`,
+          "graph_rebuild",
+        );
+      }
+
+      buildPromise.catch(() => {
+        // Background errors are already captured above via recordBuildError + logs.
+      });
+
       return this.formatSuccess(
         {
           success: true,
@@ -1079,10 +1136,16 @@ export class ToolHandlers extends ToolHandlerBase {
           projectId,
           txId,
           txTimestamp,
+          syncThresholdMs: thresholdMs,
+          pollIntervalMs: 2000,
+          completionCriteria: {
+            driftDetected: false,
+            embeddingsGeneratedGreaterThan: 0,
+          },
           runtimePathFallback: adapted.usedFallback,
           runtimePathFallbackReason: adapted.fallbackReason || null,
           message: `Graph rebuild ${mode} mode initiated. Processing ${mode === "full" ? "all" : "changed"} files in background...`,
-          note: "Use graph_query tool to check progress or query results",
+          note: "Use graph_health to poll until cache.driftDetected=false and embeddings.generated>0.",
         },
         profile,
         `Graph rebuild queued in ${mode} mode for project ${projectId}.`,
@@ -2052,16 +2115,23 @@ export class ToolHandlers extends ToolHandlerBase {
     }
 
     try {
-      await this.coordinationEngine!.release(String(claimId), outcome);
+      const feedback = await this.coordinationEngine!.release(
+        String(claimId),
+        outcome,
+      );
 
       return this.formatSuccess(
         {
           claimId: String(claimId),
-          released: true,
+          released: feedback.found && !feedback.alreadyClosed,
+          alreadyClosed: feedback.alreadyClosed,
+          notFound: !feedback.found,
           outcome: outcome || null,
         },
         profile,
-        `Claim ${claimId} released.`,
+        feedback.found
+          ? `Claim ${claimId} released.`
+          : `Claim ${claimId} not found.`,
       );
     } catch (error) {
       return this.errorEnvelope("AGENT_RELEASE_FAILED", String(error), true);

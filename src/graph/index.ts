@@ -50,9 +50,50 @@ export class GraphIndexManager {
   /**
    * Add a node to the index
    */
-  addNode(id: string, type: string, properties: Record<string, any>): void {
-    if (this.index.nodeById.has(id)) {
-      return; // Deduplication
+  addNode(
+    id: string,
+    type: string,
+    properties: Record<string, any>,
+    overwrite = false,
+  ): void {
+    const existing = this.index.nodeById.get(id);
+    if (existing) {
+      if (!overwrite) {
+        return; // Deduplication
+      }
+
+      const mergedNode: GraphNode = {
+        id: existing.id,
+        type,
+        properties: {
+          ...existing.properties,
+          ...properties,
+        },
+      };
+
+      this.index.nodeById.set(id, mergedNode);
+
+      const typeNodes = this.index.nodesByType.get(existing.type) || [];
+      const idx = typeNodes.findIndex((node) => node.id === id);
+      if (idx >= 0) {
+        typeNodes.splice(idx, 1);
+      }
+
+      if (!this.index.nodesByType.has(type)) {
+        this.index.nodesByType.set(type, []);
+      }
+      this.index.nodesByType.get(type)!.push(mergedNode);
+
+      if (existing.type !== type) {
+        this.index.statistics.nodesByType[existing.type] = Math.max(
+          (this.index.statistics.nodesByType[existing.type] || 1) - 1,
+          0,
+        );
+        this.index.statistics.nodesByType[type] =
+          (this.index.statistics.nodesByType[type] || 0) + 1;
+      }
+
+      return;
     }
 
     const node: GraphNode = { id, type, properties };
@@ -65,7 +106,8 @@ export class GraphIndexManager {
     this.index.nodesByType.get(type)!.push(node);
 
     this.index.statistics.totalNodes++;
-    this.index.statistics.nodesByType[type] = (this.index.statistics.nodesByType[type] || 0) + 1;
+    this.index.statistics.nodesByType[type] =
+      (this.index.statistics.nodesByType[type] || 0) + 1;
   }
 
   /**
@@ -138,7 +180,7 @@ export class GraphIndexManager {
   /**
    * Get graph statistics
    */
-  getStatistics(): GraphIndex['statistics'] {
+  getStatistics(): GraphIndex["statistics"] {
     return this.index.statistics;
   }
 
@@ -177,24 +219,29 @@ export class GraphIndexManager {
    * Sync nodes and relationships from another index into this one
    * Used to merge orchestrator's built index into the shared context index
    */
-  syncFrom(sourceIndex: GraphIndexManager): { nodesSynced: number; relationshipsSynced: number } {
+  syncFrom(sourceIndex: GraphIndexManager): {
+    nodesSynced: number;
+    relationshipsSynced: number;
+  } {
     let nodesSynced = 0;
     let relationshipsSynced = 0;
 
     // Sync all nodes from source
     for (const node of sourceIndex.getAllNodes()) {
-      try {
-        this.addNode(node.id, node.type, node.properties);
-        nodesSynced++;
-      } catch (e) {
-        // Deduplication may skip nodes - that's okay
-      }
+      this.addNode(node.id, node.type, node.properties, true);
+      nodesSynced++;
     }
 
     // Sync all relationships from source
     for (const rel of sourceIndex.getAllRelationships()) {
       try {
-        this.addRelationship(rel.id, rel.from, rel.to, rel.type, rel.properties);
+        this.addRelationship(
+          rel.id,
+          rel.from,
+          rel.to,
+          rel.type,
+          rel.properties,
+        );
         relationshipsSynced++;
       } catch (e) {
         // Deduplication may skip relationships - that's okay
