@@ -35,3 +35,4 @@ __pycache__/
 # benchmarks
 benchmarks/agent_mode_artifacts/
 benchmarks/graph_tools_benchmark_results.json
+plan

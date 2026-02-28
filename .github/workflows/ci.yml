@@ -1,0 +1,79 @@
+# ── Continuous Integration ─────────────────────────────────────────────────────
+#
+# Runs on every push to main/test/* branches and on all pull requests.
+# Steps: checkout → install → build → lint → test (with coverage)
+#
+# Memgraph / Qdrant are NOT required — the entire test suite uses vi.fn() mocks
+# and does not open real network connections to databases.
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "test/**"
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    name: Build, Lint & Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: ["24"]
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Node.js setup ─────────────────────────────────────────────────────────
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      # ── Install ───────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Build ─────────────────────────────────────────────────────────────────
+      - name: TypeScript build
+        run: npm run build
+
+      # ── Lint ──────────────────────────────────────────────────────────────────
+      - name: ESLint (errors only)
+        # We allow warnings (no-console, no-explicit-any) but fail on any error.
+        run: npm run lint -- --max-warnings 9999
+
+      # ── Test + Coverage ───────────────────────────────────────────────────────
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        env:
+          # Suppress INFO-level log output during test runs for cleaner CI logs.
+          LXRAG_LOG_LEVEL: error
+
+      # ── Upload coverage report ────────────────────────────────────────────────
+      - name: Upload coverage to GitHub Actions artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-node-${{ matrix.node-version }}
+          path: coverage/
+          retention-days: 14
+
+      # ── Optional: post coverage summary to PR ─────────────────────────────────
+      - name: Report coverage summary
+        if: github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          name: "lxRAG-MCP"
+          json-summary-compare-path: coverage/coverage-summary.json
+        continue-on-error: true
