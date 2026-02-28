@@ -6,6 +6,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import { logger } from "../utils/logger.js";
 
 export interface CacheEntry {
   path: string;
@@ -40,7 +41,7 @@ export class CacheManager {
         return JSON.parse(data);
       }
     } catch (error) {
-      console.warn(`[CacheManager] Failed to load cache: ${error}`);
+      logger.warn(`[CacheManager] Failed to load cache: ${error}`);
     }
 
     return {
@@ -62,7 +63,7 @@ export class CacheManager {
       this.cache.lastBuild = Date.now();
       fs.writeFileSync(this.cachePath, JSON.stringify(this.cache, null, 2));
     } catch (error) {
-      console.error(`[CacheManager] Failed to save cache: ${error}`);
+      logger.error(`[CacheManager] Failed to save cache: ${error}`);
     }
   }
 
@@ -98,13 +99,8 @@ export class CacheManager {
   /**
    * Get all changed files since last build
    */
-  getChangedFiles(
-    files: Array<{ path: string; hash: string; LOC: number }>,
-  ): string[] {
+  getChangedFiles(files: Array<{ path: string; hash: string; LOC: number }>): string[] {
     const changed: string[] = [];
-    // @ts-expect-error - now will be used for timestamp comparison
-    const now = Date.now();
-
     for (const file of files) {
       const entry = this.get(file.path);
       if (!entry || entry.hash !== file.hash) {

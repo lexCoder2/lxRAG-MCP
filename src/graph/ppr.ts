@@ -44,10 +44,7 @@ const DEFAULT_EDGE_WEIGHTS: Record<string, number> = {
  *
  * Falls back to JS power-iteration when MAGE is unavailable or graph is empty.
  */
-export async function runPPR(
-  opts: PPROptions,
-  client: MemgraphClient,
-): Promise<PPRResult[]> {
+export async function runPPR(opts: PPROptions, client: MemgraphClient): Promise<PPRResult[]> {
   const seedIds = [...new Set((opts.seedIds || []).filter(Boolean))];
   if (!seedIds.length) return [];
 
@@ -55,13 +52,7 @@ export async function runPPR(
   const damping = Number.isFinite(opts.damping) ? Number(opts.damping) : 0.85;
   const iterations = Math.max(1, Math.min(opts.iterations || 20, 100));
 
-  const mageResult = await tryMagePPR(
-    opts,
-    client,
-    seedIds,
-    maxResults,
-    damping,
-  );
+  const mageResult = await tryMagePPR(opts, client, seedIds, maxResults, damping);
   if (mageResult) return mageResult;
 
   return runJsPPR(opts, client, seedIds, maxResults, damping, iterations);
@@ -92,19 +83,12 @@ async function tryMagePPR(
       { projectId: opts.projectId },
     );
 
-    if (
-      pagerankRes.error ||
-      !Array.isArray(pagerankRes.data) ||
-      pagerankRes.data.length === 0
-    ) {
+    if (pagerankRes.error || !Array.isArray(pagerankRes.data) || pagerankRes.data.length === 0) {
       return null;
     }
 
     const prestige = new Map<string, number>();
-    const nodeMeta = new Map<
-      string,
-      { type: string; filePath: string; name: string }
-    >();
+    const nodeMeta = new Map<string, { type: string; filePath: string; name: string }>();
     for (const row of pagerankRes.data) {
       const id = String(row.nodeId || "");
       if (!id) continue;
@@ -195,10 +179,7 @@ async function runJsPPR(
   );
 
   const nodes = new Set<string>(seedIds);
-  const nodeMeta = new Map<
-    string,
-    { type: string; filePath: string; name: string }
-  >();
+  const nodeMeta = new Map<string, { type: string; filePath: string; name: string }>();
   const outgoing = new Map<string, Array<{ to: string; weight: number }>>();
 
   for (const row of edgeResult.data || []) {

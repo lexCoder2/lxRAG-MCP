@@ -7,9 +7,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as env from "../env.js";
-import TypeScriptParser, {
-  type ParsedFile,
-} from "../parsers/typescript-parser.js";
+import TypeScriptParser, { type ParsedFile } from "../parsers/typescript-parser.js";
 import ParserRegistry from "../parsers/parser-registry.js";
 import type { ParseResult } from "../parsers/parser-interface.js";
 import {
@@ -40,6 +38,7 @@ import CacheManager from "./cache.js";
 import MemgraphClient from "./client.js";
 import CodeSummarizer from "../response/summarizer.js";
 import { DocsEngine } from "../engines/docs-engine.js";
+import { logger } from "../utils/logger.js";
 
 export interface BuildOptions {
   mode: "full" | "incremental";
@@ -85,11 +84,7 @@ export class GraphOrchestrator {
   private verbose: boolean;
   private summarizer: CodeSummarizer;
 
-  constructor(
-    memgraph?: MemgraphClient,
-    verbose = false,
-    sharedIndex?: GraphIndexManager,
-  ) {
+  constructor(memgraph?: MemgraphClient, verbose = false, sharedIndex?: GraphIndexManager) {
     this.parser = new TypeScriptParser();
     this.parserRegistry = new ParserRegistry();
     this.sharedIndex = sharedIndex;
@@ -128,12 +123,7 @@ export class GraphOrchestrator {
     // regex parsers when the native binding is unavailable.
     const tsParsers = getTreeSitterParsers();
     const availability = checkTreeSitterAvailability();
-    const regexFallbacks = [
-      new PythonParser(),
-      new GoParser(),
-      new RustParser(),
-      new JavaParser(),
-    ];
+    const regexFallbacks = [new PythonParser(), new GoParser(), new RustParser(), new JavaParser()];
 
     const tsByLang = new Map(tsParsers.map((p) => [p.language, p]));
     for (const fallback of regexFallbacks) {
@@ -164,12 +154,10 @@ export class GraphOrchestrator {
       else allFallback.push(lang);
     }
     if (allAvailable.length > 0) {
-      console.error(
-        `[parsers] tree-sitter active for: ${allAvailable.join(", ")}`,
-      );
+      logger.error(`[parsers] tree-sitter active for: ${allAvailable.join(", ")}`);
     }
     if (allFallback.length > 0) {
-      console.error(
+      logger.error(
         `[parsers] regex fallback for: ${allFallback.join(", ")} (install tree-sitter grammar packages for AST accuracy)`,
       );
     }
@@ -191,10 +179,11 @@ export class GraphOrchestrator {
       mode: options.mode || "incremental",
       verbose: options.verbose ?? this.verbose,
       workspaceRoot: options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT,
-      projectId:
+      projectId: (
         options.projectId ||
         env.LXRAG_PROJECT_ID ||
-        path.basename(options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT),
+        path.basename(options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT)
+      ).toLowerCase(),
       sourceDir: options.sourceDir || "src",
       exclude: options.exclude || ["node_modules", "dist", ".next", ".lxrag"],
       txId: options.txId,
@@ -206,19 +195,15 @@ export class GraphOrchestrator {
 
     try {
       if (opts.verbose) {
-        console.error("[GraphOrchestrator] Starting build...");
-        console.error(`[GraphOrchestrator] Mode: ${opts.mode}`);
+        logger.error("[GraphOrchestrator] Starting build...");
+        logger.error(`[GraphOrchestrator] Mode: ${opts.mode}`);
       }
 
       // Get all source files across supported languages
-      const files = await this.findSourceFiles(
-        opts.sourceDir,
-        opts.exclude,
-        opts.workspaceRoot,
-      );
+      const files = await this.findSourceFiles(opts.sourceDir, opts.exclude, opts.workspaceRoot);
 
       if (opts.verbose) {
-        console.error(`[GraphOrchestrator] Found ${files.length} source files`);
+        logger.error(`[GraphOrchestrator] Found ${files.length} source files`);
       }
 
       // Determine which files to process
@@ -238,7 +223,7 @@ export class GraphOrchestrator {
           filesChanged = filesToProcess.length;
 
           if (opts.verbose) {
-            console.error(
+            logger.error(
               `[GraphOrchestrator] Incremental (explicit): ${filesToProcess.length} existing of ${filesChanged} changed file(s)`,
             );
           }
@@ -257,20 +242,32 @@ export class GraphOrchestrator {
           filesChanged = filesToProcess.length;
 
           if (opts.verbose) {
-            console.error(
+            logger.error(
               `[GraphOrchestrator] Incremental: ${filesChanged} changed of ${files.length}`,
             );
           }
         }
       } else {
-        // Full rebuild
+        // Full rebuild — clear cache and purge all stale graph nodes (including
+        // any nodes created under old projectId case variants)
         this.cache.clear();
         filesChanged = files.length;
+        if (this.memgraph.isConnected()) {
+          await this.memgraph.executeCypher(
+            `MATCH (n)
+             WHERE toLower(n.projectId) = $projectIdLower
+               AND (n:FILE OR n:FUNCTION OR n:CLASS OR n:VARIABLE
+                    OR n:IMPORT OR n:EXPORT OR n:FOLDER
+                    OR n:TEST_SUITE OR n:TEST_CASE OR n:SECTION OR n:DOCUMENT)
+             DETACH DELETE n`,
+            { projectIdLower: opts.projectId },
+          );
+        }
       }
 
       // Parse files and build graph
       let nodesCreated = 0;
-      let statementsToExecute: CypherStatement[] = [];
+      const statementsToExecute: CypherStatement[] = [];
       const parsedFiles: Array<{ filePath: string; parsed: ParsedFile }> = [];
       this.builder = new GraphBuilder(
         opts.projectId,
@@ -281,10 +278,7 @@ export class GraphOrchestrator {
 
       for (const filePath of filesToProcess) {
         try {
-          const parsed = await this.parseSourceFile(
-            filePath,
-            opts.workspaceRoot,
-          );
+          const parsed = await this.parseSourceFile(filePath, opts.workspaceRoot);
           await this.attachSummaries(parsed);
           parsedFiles.push({ filePath, parsed });
           const adaptedParsed = this.adaptParsedFile(parsed);
@@ -300,7 +294,7 @@ export class GraphOrchestrator {
           nodesCreated += this.countNodesInStatements(statements);
 
           if (opts.verbose && filesToProcess.indexOf(filePath) % 50 === 0) {
-            console.error(
+            logger.error(
               `[GraphOrchestrator] Processed ${filesToProcess.indexOf(filePath)}/${filesToProcess.length} files`,
             );
           }
@@ -319,7 +313,7 @@ export class GraphOrchestrator {
 
       // Seed progress nodes if config has progress section (Phase 5.2)
       if (opts.verbose) {
-        console.error("[GraphOrchestrator] Seeding progress tracking nodes...");
+        logger.error("[GraphOrchestrator] Seeding progress tracking nodes...");
       }
       const progressStatements = this.seedProgressNodes(opts.projectId);
       statementsToExecute.push(...progressStatements);
@@ -329,7 +323,7 @@ export class GraphOrchestrator {
 
       if (this.memgraph.isConnected()) {
         if (opts.verbose) {
-          console.error(
+          logger.error(
             `[GraphOrchestrator] Executing ${statementsToExecute.length} Cypher statements...`,
           );
         }
@@ -340,7 +334,7 @@ export class GraphOrchestrator {
         }
       } else {
         if (opts.verbose) {
-          console.error(
+          logger.error(
             `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`,
           );
         }
@@ -348,22 +342,19 @@ export class GraphOrchestrator {
 
       // Index documentation files (Phase 6 — Docs/ADR Indexing)
       const shouldIndexDocs =
-        (opts.indexDocs ?? true) &&
-        opts.mode === "full" &&
-        this.memgraph.isConnected();
+        (opts.indexDocs ?? true) && opts.mode === "full" && this.memgraph.isConnected();
       if (shouldIndexDocs) {
         if (opts.verbose) {
-          console.error("[GraphOrchestrator] Indexing documentation files...");
+          logger.error("[GraphOrchestrator] Indexing documentation files...");
         }
         try {
           const docsEngine = new DocsEngine(this.memgraph);
-          const docsResult = await docsEngine.indexWorkspace(
-            opts.workspaceRoot,
-            opts.projectId,
-            { incremental: true, txId: opts.txId },
-          );
+          const docsResult = await docsEngine.indexWorkspace(opts.workspaceRoot, opts.projectId, {
+            incremental: true,
+            txId: opts.txId,
+          });
           if (opts.verbose) {
-            console.error(
+            logger.error(
               `[GraphOrchestrator] Docs indexed: ${docsResult.indexed} files, ` +
                 `${docsResult.skipped} skipped, ${docsResult.errors.length} errors`,
             );
@@ -388,7 +379,7 @@ export class GraphOrchestrator {
         try {
           const syncResult = this.sharedIndex.syncFrom(this.index);
           if (opts.verbose) {
-            console.error(
+            logger.error(
               `[GraphOrchestrator] Index synced: ${syncResult.nodesSynced} nodes, ${syncResult.relationshipsSynced} relationships`,
             );
           }
@@ -403,16 +394,12 @@ export class GraphOrchestrator {
 
       if (opts.verbose) {
         const stats = this.index.getStatistics();
-        console.error("[GraphOrchestrator] Build complete!");
-        console.error(`[GraphOrchestrator] Duration: ${duration}ms`);
-        console.error(
-          `[GraphOrchestrator] Files processed: ${filesToProcess.length}`,
-        );
-        console.error(`[GraphOrchestrator] Nodes created: ${nodesCreated}`);
-        console.error(
-          `[GraphOrchestrator] Relationships: ${relationshipsCreated}`,
-        );
-        console.error(`[GraphOrchestrator] Statistics:`, stats);
+        logger.error("[GraphOrchestrator] Build complete!");
+        logger.error(`[GraphOrchestrator] Duration: ${duration}ms`);
+        logger.error(`[GraphOrchestrator] Files processed: ${filesToProcess.length}`);
+        logger.error(`[GraphOrchestrator] Nodes created: ${nodesCreated}`);
+        logger.error(`[GraphOrchestrator] Relationships: ${relationshipsCreated}`);
+        logger.error(`[GraphOrchestrator] Statistics:`, stats);
       }
 
       return {
@@ -460,11 +447,9 @@ export class GraphOrchestrator {
       : path.resolve(workspaceRoot, sourceDir);
 
     if (fs.existsSync(basePath)) {
-      console.error(`[GraphOrchestrator] Scanning directory: ${basePath}`);
+      logger.error(`[GraphOrchestrator] Scanning directory: ${basePath}`);
     } else {
-      console.warn(
-        `[GraphOrchestrator] Source directory not found: ${basePath}`,
-      );
+      logger.warn(`[GraphOrchestrator] Source directory not found: ${basePath}`);
       return files;
     }
 
@@ -490,9 +475,7 @@ export class GraphOrchestrator {
           }
         }
       } catch (error) {
-        console.warn(
-          `[GraphOrchestrator] Error scanning directory ${dir}: ${error}`,
-        );
+        logger.warn(`[GraphOrchestrator] Error scanning directory ${dir}: ${error}`);
       }
     };
 
@@ -515,21 +498,13 @@ export class GraphOrchestrator {
       .map((entry) => String(entry || "").trim())
       .filter(Boolean)
       .map((entry) =>
-        path.isAbsolute(entry)
-          ? path.normalize(entry)
-          : path.resolve(workspaceRoot, entry),
+        path.isAbsolute(entry) ? path.normalize(entry) : path.resolve(workspaceRoot, entry),
       )
       .filter((filePath) => {
         const relative = path.relative(normalizedWorkspaceRoot, filePath);
-        return (
-          relative.length > 0 &&
-          !relative.startsWith("..") &&
-          !path.isAbsolute(relative)
-        );
+        return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
       })
-      .filter((filePath) =>
-        /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java)$/.test(filePath),
-      )
+      .filter((filePath) => /\.(ts|tsx|js|jsx|mjs|cjs|py|go|rs|java)$/.test(filePath))
       .filter((filePath) => {
         if (seen.has(filePath)) {
           return false;
@@ -539,26 +514,17 @@ export class GraphOrchestrator {
       });
   }
 
-  private async parseSourceFile(
-    filePath: string,
-    workspaceRoot: string,
-  ): Promise<ParsedFile> {
+  private async parseSourceFile(filePath: string, workspaceRoot: string): Promise<ParsedFile> {
     const extension = path.extname(filePath).toLowerCase();
     if (extension === ".ts" || extension === ".tsx") {
       // Prefer tree-sitter when available and opted in
       if (this.useTsTreeSitter) {
-        const tsParser =
-          extension === ".tsx" ? this.tsTsxParser : this.tsTsParser;
+        const tsParser = extension === ".tsx" ? this.tsTsxParser : this.tsTsParser;
         if (tsParser?.isAvailable) {
           const content = fs.readFileSync(filePath, "utf-8");
           const result = await tsParser.parse(filePath, content);
           if (result.symbols.length > 0) {
-            return this.adaptLanguageParseResult(
-              filePath,
-              workspaceRoot,
-              content,
-              result,
-            );
+            return this.adaptLanguageParseResult(filePath, workspaceRoot, content, result);
           }
         }
       }
@@ -572,18 +538,12 @@ export class GraphOrchestrator {
       extension === ".cjs"
     ) {
       if (this.useJsTreeSitter) {
-        const jsParser =
-          extension === ".jsx" ? this.tsJsxParser : this.tsJsParser;
+        const jsParser = extension === ".jsx" ? this.tsJsxParser : this.tsJsParser;
         if (jsParser?.isAvailable) {
           const content = fs.readFileSync(filePath, "utf-8");
           const result = await jsParser.parse(filePath, content);
           if (result.symbols.length > 0) {
-            return this.adaptLanguageParseResult(
-              filePath,
-              workspaceRoot,
-              content,
-              result,
-            );
+            return this.adaptLanguageParseResult(filePath, workspaceRoot, content, result);
           }
         }
       }
@@ -599,12 +559,7 @@ export class GraphOrchestrator {
     const content = fs.readFileSync(filePath, "utf-8");
     const parsed = await this.parserRegistry.parse(filePath, content);
     if (parsed) {
-      return this.adaptLanguageParseResult(
-        filePath,
-        workspaceRoot,
-        content,
-        parsed,
-      );
+      return this.adaptLanguageParseResult(filePath, workspaceRoot, content, parsed);
     }
 
     return this.adaptLanguageParseResult(filePath, workspaceRoot, content, {
@@ -618,57 +573,53 @@ export class GraphOrchestrator {
     const fileHash = parsed.hash || "no-hash";
     const relativePath = parsed.relativePath || parsed.filePath;
 
-    (parsed as ParsedFile & { summary?: string }).summary =
-      await this.summarizer.summarize({
-        kind: "file",
-        cacheKey: `file:${relativePath}:${fileHash}`,
-        name: path.basename(parsed.filePath),
-        path: relativePath,
-        language: parsed.language,
-        loc: parsed.LOC,
-        metadata: {
-          functionCount: parsed.functions.length,
-          classCount: parsed.classes.length,
-          importCount: parsed.imports.length,
-        },
-      });
+    (parsed as ParsedFile & { summary?: string }).summary = await this.summarizer.summarize({
+      kind: "file",
+      cacheKey: `file:${relativePath}:${fileHash}`,
+      name: path.basename(parsed.filePath),
+      path: relativePath,
+      language: parsed.language,
+      loc: parsed.LOC,
+      metadata: {
+        functionCount: parsed.functions.length,
+        classCount: parsed.classes.length,
+        importCount: parsed.imports.length,
+      },
+    });
 
     for (const [index, fn] of parsed.functions.entries()) {
-      (fn as typeof fn & { summary?: string }).summary =
-        await this.summarizer.summarize({
-          kind: "function",
-          cacheKey: `function:${relativePath}:${fn.name}:${index}:${fileHash}`,
-          name: fn.name,
-          path: relativePath,
-          language: parsed.language,
-          loc: fn.LOC,
-          metadata: { startLine: fn.startLine, endLine: fn.endLine },
-        });
+      (fn as typeof fn & { summary?: string }).summary = await this.summarizer.summarize({
+        kind: "function",
+        cacheKey: `function:${relativePath}:${fn.name}:${index}:${fileHash}`,
+        name: fn.name,
+        path: relativePath,
+        language: parsed.language,
+        loc: fn.LOC,
+        metadata: { startLine: fn.startLine, endLine: fn.endLine },
+      });
     }
 
     for (const [index, cls] of parsed.classes.entries()) {
-      (cls as typeof cls & { summary?: string }).summary =
-        await this.summarizer.summarize({
-          kind: "class",
-          cacheKey: `class:${relativePath}:${cls.name}:${index}:${fileHash}`,
-          name: cls.name,
-          path: relativePath,
-          language: parsed.language,
-          loc: cls.LOC,
-          metadata: { kind: cls.kind, extends: cls.extends },
-        });
+      (cls as typeof cls & { summary?: string }).summary = await this.summarizer.summarize({
+        kind: "class",
+        cacheKey: `class:${relativePath}:${cls.name}:${index}:${fileHash}`,
+        name: cls.name,
+        path: relativePath,
+        language: parsed.language,
+        loc: cls.LOC,
+        metadata: { kind: cls.kind, extends: cls.extends },
+      });
     }
 
     for (const [index, imp] of parsed.imports.entries()) {
-      (imp as typeof imp & { summary?: string }).summary =
-        await this.summarizer.summarize({
-          kind: "import",
-          cacheKey: `import:${relativePath}:${imp.source}:${index}:${fileHash}`,
-          name: imp.source,
-          path: relativePath,
-          language: parsed.language,
-          metadata: { specifierCount: imp.specifiers.length },
-        });
+      (imp as typeof imp & { summary?: string }).summary = await this.summarizer.summarize({
+        kind: "import",
+        cacheKey: `import:${relativePath}:${imp.source}:${index}:${fileHash}`,
+        name: imp.source,
+        path: relativePath,
+        language: parsed.language,
+        metadata: { specifierCount: imp.specifiers.length },
+      });
     }
   }
 
@@ -678,9 +629,7 @@ export class GraphOrchestrator {
     content: string,
     parsed: ParseResult,
   ): ParsedFile {
-    const relativePath = path
-      .relative(workspaceRoot, filePath)
-      .replace(/\\/g, "/");
+    const relativePath = path.relative(workspaceRoot, filePath).replace(/\\/g, "/");
     const hash = this.simpleHash(content);
     const LOC = content.split("\n").length;
 
@@ -699,17 +648,23 @@ export class GraphOrchestrator {
         startLine: symbol.startLine,
       }));
 
+    // Group call expressions by their innermost enclosing scope (function name)
+    const callsByScope = new Map<string, Array<{ name: string; line: number }>>();
+    parsed.symbols
+      .filter((symbol) => symbol.type === "call")
+      .forEach((symbol) => {
+        const scope = (symbol as any).scopePath ?? "";
+        if (!callsByScope.has(scope)) callsByScope.set(scope, []);
+        callsByScope.get(scope)!.push({ name: symbol.name, line: symbol.startLine });
+      });
+
     const functions = parsed.symbols
-      .filter(
-        (symbol) => symbol.type === "function" || symbol.type === "method",
-      )
+      .filter((symbol) => symbol.type === "function" || symbol.type === "method")
       .map((symbol, index) => ({
         id: `${relativePath}:function:${symbol.name}:${index}`,
         name: symbol.name,
         // Preserve kind from symbol ("arrow", "method", etc.) when present
-        kind:
-          (symbol.kind as "function" | "arrow" | "method" | undefined) ??
-          ("function" as const),
+        kind: (symbol.kind as "function" | "arrow" | "method" | undefined) ?? ("function" as const),
         startLine: symbol.startLine,
         endLine: symbol.endLine,
         LOC: Math.max(1, symbol.endLine - symbol.startLine + 1),
@@ -717,6 +672,8 @@ export class GraphOrchestrator {
         isExported: false,
         // Preserve scopePath for SCIP method-ID generation (builder uses (fn as any).scopePath)
         scopePath: symbol.scopePath,
+        // Call sites extracted by tree-sitter; used by builder to create CALLS_TO edges
+        calls: callsByScope.get(symbol.name) ?? [],
       }));
 
     const classes = parsed.symbols
@@ -871,6 +828,24 @@ export class GraphOrchestrator {
         "IMPORTS",
       );
     });
+
+    // TEST_SUITE nodes
+    parsed.testSuites?.forEach((suite) => {
+      this.index.addNode(`test_suite:${suite.id}`, "TEST_SUITE", {
+        name: suite.name,
+        type: suite.type,
+        category: suite.category ?? "unit",
+        path: parsed.filePath,
+        filePath: parsed.filePath,
+        ...(projectId ? { projectId } : {}),
+      });
+      this.index.addRelationship(
+        `contains:test_suite:${suite.id}`,
+        `file:${parsed.relativePath}`,
+        `test_suite:${suite.id}`,
+        "CONTAINS",
+      );
+    });
   }
 
   /**
@@ -926,6 +901,7 @@ export class GraphOrchestrator {
         LOC: fn.LOC,
         isExported: fn.isExported,
         summary: (fn as typeof fn & { summary?: string }).summary,
+        calls: (fn as typeof fn & { calls?: Array<{ name: string; line: number }> }).calls ?? [],
       })),
       classes: parsed.classes.map((cls) => ({
         id: cls.id,
@@ -942,6 +918,8 @@ export class GraphOrchestrator {
         summary: (cls as typeof cls & { summary?: string }).summary,
       })),
       variables: parsed.variables || [],
+      testSuites: parsed.testSuites ?? [],
+      testCases: parsed.testCases ?? [],
     };
   }
 

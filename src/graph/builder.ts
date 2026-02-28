@@ -5,6 +5,16 @@
  */
 
 // Local type definitions (avoid importing from typescript-parser which has dependencies)
+
+/** Minimal symbol descriptor shared by parser adapters */
+export interface ParsedSymbol {
+  name: string;
+  type: string;
+  startLine: number;
+  endLine: number;
+  [key: string]: unknown;
+}
+
 export interface ParsedFile {
   path: string;
   filePath: string;
@@ -17,7 +27,7 @@ export interface ParsedFile {
   exports: Array<{ name: string; type: string }>;
   functions: FunctionNode[];
   classes: ClassNode[];
-  variables?: any[];
+  variables?: ParsedSymbol[];
   testSuites?: Array<{
     id: string;
     name: string;
@@ -54,7 +64,7 @@ interface FunctionNode {
 interface ClassNode {
   id: string;
   name: string;
-  methods: Array<{ name: string; parameters: any[]; returnType?: string }>;
+  methods: Array<{ name: string; parameters: ParsedSymbol[]; returnType?: string }>;
   properties: Array<{ name: string; type?: string }>;
   line: number;
   implements?: string[];
@@ -84,16 +94,9 @@ export class GraphBuilder {
   private txId: string;
   private txTimestamp: number;
 
-  constructor(
-    projectId?: string,
-    workspaceRoot?: string,
-    txId?: string,
-    txTimestamp?: number,
-  ) {
-    this.workspaceRoot =
-      workspaceRoot || env.LXRAG_WORKSPACE_ROOT || process.cwd();
-    this.projectId =
-      projectId || env.LXRAG_PROJECT_ID || path.basename(this.workspaceRoot);
+  constructor(projectId?: string, workspaceRoot?: string, txId?: string, txTimestamp?: number) {
+    this.workspaceRoot = workspaceRoot || env.LXRAG_WORKSPACE_ROOT || process.cwd();
+    this.projectId = (projectId || env.LXRAG_PROJECT_ID || path.basename(this.workspaceRoot)).toLowerCase();
     this.txId = txId || env.LXRAG_TX_ID || `tx-${Date.now()}`;
     this.txTimestamp = txTimestamp || Date.now();
   }
@@ -126,8 +129,7 @@ export class GraphBuilder {
 
   private fileNodeId(parsedFile: ParsedFile): string {
     const relativePath =
-      parsedFile.relativePath ||
-      path.relative(this.workspaceRoot, parsedFile.filePath);
+      parsedFile.relativePath || path.relative(this.workspaceRoot, parsedFile.filePath);
     return this.scopedId(`file:${relativePath}`);
   }
 
@@ -147,27 +149,19 @@ export class GraphBuilder {
     this.createFileNode(parsedFile);
 
     // Create FUNCTION nodes and relationships
-    parsedFile.functions.forEach((fn) =>
-      this.createFunctionNode(fn, parsedFile),
-    );
+    parsedFile.functions.forEach((fn) => this.createFunctionNode(fn, parsedFile));
 
     // Create CLASS nodes and relationships
     parsedFile.classes.forEach((cls) => this.createClassNode(cls, parsedFile));
 
     // Create VARIABLE nodes
-    parsedFile.variables?.forEach((variable) =>
-      this.createVariableNode(variable, parsedFile),
-    );
+    parsedFile.variables?.forEach((variable) => this.createVariableNode(variable, parsedFile));
 
     // Create IMPORT nodes and relationships
-    parsedFile.imports?.forEach((imp) =>
-      this.createImportNode(imp, parsedFile),
-    );
+    parsedFile.imports?.forEach((imp) => this.createImportNode(imp, parsedFile));
 
     // Create EXPORT nodes
-    parsedFile.exports?.forEach((exp) =>
-      this.createExportNode(exp, parsedFile),
-    );
+    parsedFile.exports?.forEach((exp) => this.createExportNode(exp, parsedFile));
 
     // Create TEST_SUITE nodes (if this is a test file)
     this.buildTestNodes(parsedFile);
@@ -177,8 +171,7 @@ export class GraphBuilder {
 
   private createFileNode(parsedFile: ParsedFile): void {
     const relativePath =
-      parsedFile.relativePath ||
-      path.relative(this.workspaceRoot, parsedFile.filePath);
+      parsedFile.relativePath || path.relative(this.workspaceRoot, parsedFile.filePath);
     const nodeId = this.fileNodeId(parsedFile);
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
@@ -282,9 +275,7 @@ export class GraphBuilder {
   }
 
   private createFunctionNode(fn: FunctionNode, parsedFile: ParsedFile): void {
-    const nodeId = this.scopedId(
-      fn.id || `func:${parsedFile.relativePath}:${fn.name}:${fn.line}`,
-    );
+    const nodeId = this.scopedId(fn.id || `func:${parsedFile.relativePath}:${fn.name}:${fn.line}`);
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
@@ -294,6 +285,8 @@ export class GraphBuilder {
         SET func.name = $name,
             func.kind = $kind,
           func.filePath = $filePath,
+          func.path = $path,
+          func.relativePath = $relativePath,
             func.startLine = $startLine,
             func.endLine = $endLine,
             func.LOC = $LOC,
@@ -311,6 +304,8 @@ export class GraphBuilder {
         name: fn.name,
         kind: fn.kind || "function",
         filePath: parsedFile.filePath,
+        path: parsedFile.filePath,
+        relativePath: parsedFile.relativePath || parsedFile.filePath,
         startLine: fn.startLine || fn.line || 0,
         endLine: fn.endLine || fn.line || 0,
         LOC: fn.LOC || 1,
@@ -354,6 +349,30 @@ export class GraphBuilder {
         params: { id: nodeId },
       });
     }
+
+    // CALLS_TO edges — one per call site extracted by the parser
+    const calls: Array<{ name: string; line: number }> = (fn as any).calls ?? [];
+    for (const call of calls) {
+      const calleeStubId = this.scopedId(`func-stub:${call.name}`);
+      this.statements.push({
+        query: `
+          MERGE (stub:FUNCTION {id: $calleeId})
+          ON CREATE SET stub.name = $calleeName,
+                        stub.projectId = $projectId,
+                        stub.stub = true
+          WITH stub
+          MATCH (caller:FUNCTION {id: $callerId})
+          MERGE (caller)-[:CALLS_TO {line: $line}]->(stub)
+        `,
+        params: {
+          calleeId: calleeStubId,
+          calleeName: call.name,
+          callerId: nodeId,
+          projectId: this.projectId,
+          line: call.line,
+        },
+      });
+    }
   }
 
   private createClassNode(cls: ClassNode, parsedFile: ParsedFile): void {
@@ -367,6 +386,8 @@ export class GraphBuilder {
         SET cls.name = $name,
             cls.kind = $kind,
           cls.filePath = $filePath,
+          cls.path = $path,
+          cls.relativePath = $relativePath,
             cls.startLine = $startLine,
             cls.endLine = $endLine,
             cls.LOC = $LOC,
@@ -383,6 +404,8 @@ export class GraphBuilder {
         name: cls.name,
         kind: cls.kind || "class",
         filePath: parsedFile.filePath,
+        path: parsedFile.filePath,
+        relativePath: parsedFile.relativePath || parsedFile.filePath,
         startLine: cls.startLine || cls.line,
         endLine: cls.endLine || cls.line,
         LOC: cls.LOC || 1,
@@ -460,8 +483,8 @@ export class GraphBuilder {
     }
   }
 
-  private createVariableNode(variable: any, parsedFile: ParsedFile): void {
-    const nodeId = this.scopedId(variable.id);
+  private createVariableNode(variable: ParsedSymbol & { id?: string; kind?: string }, parsedFile: ParsedFile): void {
+    const nodeId = this.scopedId((variable.id as string | undefined) ?? `var:${parsedFile.relativePath}:${variable.name}`);
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
@@ -477,7 +500,7 @@ export class GraphBuilder {
       params: {
         id: nodeId,
         name: variable.name,
-        kind: variable.kind,
+        kind: String(variable.kind ?? ""),
         startLine: variable.startLine,
         type: variable.type || null,
         projectId: this.projectId,
@@ -498,8 +521,11 @@ export class GraphBuilder {
     });
   }
 
-  private createImportNode(imp: any, parsedFile: ParsedFile): void {
-    const nodeId = this.scopedId(imp.id);
+  private createImportNode(
+    imp: { source: string; specifiers?: string[]; summary?: string; id?: string; startLine?: number },
+    parsedFile: ParsedFile,
+  ): void {
+    const nodeId = this.scopedId(imp.id ?? `import:${parsedFile.relativePath}:${imp.source}`);
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
@@ -544,24 +570,26 @@ export class GraphBuilder {
     });
 
     // Try to resolve the imported module
-    const resolvedPath = this.resolveImportPath(
-      imp.source,
-      path.dirname(parsedFile.filePath),
-    );
+    const resolvedPath = this.resolveImportPath(imp.source, path.dirname(parsedFile.filePath));
     if (resolvedPath) {
       // resolvedPath is relative to workspaceRoot; compute absolute path so
       // that FILE.path is always absolute, consistent with createFileNode.
       const absoluteTargetPath = path.resolve(this.workspaceRoot, resolvedPath);
+      // Single query: MERGE targetFile, wire REFERENCES, and DEPENDS_ON atomically.
+      // Using one statement avoids the MATCH-visibility race between separate executeCypher calls.
       this.statements.push({
         query: `
+          MATCH (sourceFile:FILE {id: $sourceFileId})
           MATCH (imp:IMPORT {id: $impId})
           MERGE (targetFile:FILE {id: $targetId})
           SET targetFile.path = $absoluteTargetPath,
               targetFile.relativePath = $relativePath,
               targetFile.projectId = $projectId
           MERGE (imp)-[:REFERENCES]->(targetFile)
+          MERGE (sourceFile)-[:DEPENDS_ON]->(targetFile)
         `,
         params: {
+          sourceFileId: this.fileNodeId(parsedFile),
           impId: nodeId,
           targetId: this.fileNodeIdFromRelative(resolvedPath),
           absoluteTargetPath,
@@ -572,8 +600,11 @@ export class GraphBuilder {
     }
   }
 
-  private createExportNode(exp: any, parsedFile: ParsedFile): void {
-    const nodeId = this.scopedId(exp.id);
+  private createExportNode(
+    exp: { name: string; type?: string; id?: string; startLine?: number; isDefault?: boolean },
+    parsedFile: ParsedFile,
+  ): void {
+    const nodeId = this.scopedId(exp.id ?? `export:${parsedFile.relativePath}:${exp.name}`);
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
@@ -587,8 +618,8 @@ export class GraphBuilder {
       `,
       params: {
         id: nodeId,
-        name: exp.name,
-        isDefault: exp.isDefault,
+        name: String(exp.name ?? ""),
+        isDefault: exp.isDefault ?? false,
         startLine: exp.startLine,
         projectId: this.projectId,
       },
@@ -614,8 +645,7 @@ export class GraphBuilder {
     if (testSuites.length === 0 && testCases.length === 0) return;
 
     const relativePath =
-      parsedFile.relativePath ||
-      path.relative(this.workspaceRoot, parsedFile.filePath);
+      parsedFile.relativePath || path.relative(this.workspaceRoot, parsedFile.filePath);
 
     // Create TEST_SUITE nodes
     testSuites.forEach((suite) => {
@@ -662,7 +692,7 @@ export class GraphBuilder {
     });
 
     // Phase 3.1: Create individual TEST_CASE nodes
-    testCases.forEach((testCase: any) => {
+    testCases.forEach((testCase) => {
       const nodeId = this.scopedId(`test_case:${testCase.id}`);
       if (this.processedNodes.has(nodeId)) return;
       this.processedNodes.add(nodeId);
@@ -689,9 +719,7 @@ export class GraphBuilder {
 
       // Create TEST_SUITE -[:CONTAINS]-> TEST_CASE relationship (if parent suite exists)
       if (testCase.parentSuiteId) {
-        const parentNodeId = this.scopedId(
-          `test_suite:${testCase.parentSuiteId}`,
-        );
+        const parentNodeId = this.scopedId(`test_suite:${testCase.parentSuiteId}`);
         this.statements.push({
           query: `
             MATCH (ts:TEST_SUITE {id: $testSuiteId})

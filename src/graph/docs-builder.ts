@@ -18,16 +18,9 @@ export class DocsBuilder {
   private readonly txId: string;
   private readonly txTimestamp: number;
 
-  constructor(
-    projectId?: string,
-    workspaceRoot?: string,
-    txId?: string,
-    txTimestamp?: number,
-  ) {
-    this.workspaceRoot =
-      workspaceRoot ?? env.LXRAG_WORKSPACE_ROOT ?? process.cwd();
-    this.projectId =
-      projectId ?? env.LXRAG_PROJECT_ID ?? path.basename(this.workspaceRoot);
+  constructor(projectId?: string, workspaceRoot?: string, txId?: string, txTimestamp?: number) {
+    this.workspaceRoot = workspaceRoot ?? env.LXRAG_WORKSPACE_ROOT ?? process.cwd();
+    this.projectId = projectId ?? env.LXRAG_PROJECT_ID ?? path.basename(this.workspaceRoot);
     this.txId = txId ?? env.LXRAG_TX_ID ?? `tx-${Date.now()}`;
     this.txTimestamp = txTimestamp ?? Date.now();
   }
@@ -173,11 +166,7 @@ MERGE (a)-[:NEXT_SECTION]->(b)
    *   (The 0.9 code-fence-path and 0.6 prose-word-boundary variants are
    *    produced by the engine layer which has richer context.)
    */
-  private upsertDocDescribes(
-    secId: string,
-    ref: string,
-    _docRelPath: string,
-  ): CypherStatement[] {
+  private upsertDocDescribes(secId: string, ref: string, _docRelPath: string): CypherStatement[] {
     const stmts: CypherStatement[] = [];
 
     // Match FILE nodes by relativePath ending with the ref

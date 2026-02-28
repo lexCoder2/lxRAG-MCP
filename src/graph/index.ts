@@ -50,12 +50,7 @@ export class GraphIndexManager {
   /**
    * Add a node to the index
    */
-  addNode(
-    id: string,
-    type: string,
-    properties: Record<string, any>,
-    overwrite = false,
-  ): void {
+  addNode(id: string, type: string, properties: Record<string, any>, overwrite = false): void {
     const existing = this.index.nodeById.get(id);
     if (existing) {
       if (!overwrite) {
@@ -106,8 +101,7 @@ export class GraphIndexManager {
     this.index.nodesByType.get(type)!.push(node);
 
     this.index.statistics.totalNodes++;
-    this.index.statistics.nodesByType[type] =
-      (this.index.statistics.nodesByType[type] || 0) + 1;
+    this.index.statistics.nodesByType[type] = (this.index.statistics.nodesByType[type] || 0) + 1;
   }
 
   /**
@@ -235,15 +229,9 @@ export class GraphIndexManager {
     // Sync all relationships from source
     for (const rel of sourceIndex.getAllRelationships()) {
       try {
-        this.addRelationship(
-          rel.id,
-          rel.from,
-          rel.to,
-          rel.type,
-          rel.properties,
-        );
+        this.addRelationship(rel.id, rel.from, rel.to, rel.type, rel.properties);
         relationshipsSynced++;
-      } catch (e) {
+      } catch (_e) {
         // Deduplication may skip relationships - that's okay
       }
     }

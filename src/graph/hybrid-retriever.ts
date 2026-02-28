@@ -85,10 +85,7 @@ export class HybridRetriever {
     return filtered.slice(0, limit);
   }
 
-  private async vectorSearch(
-    query: string,
-    opts: RetrievalOptions,
-  ): Promise<RankedNode[]> {
+  private async vectorSearch(query: string, opts: RetrievalOptions): Promise<RankedNode[]> {
     const limit = Math.max(1, Math.min(opts.limit || 10, 100));
     const rows: RankedNode[] = [];
 
@@ -120,10 +117,7 @@ export class HybridRetriever {
     return this.lexicalFallback(query, opts.projectId, "vector", limit);
   }
 
-  private async bm25Search(
-    query: string,
-    opts: RetrievalOptions,
-  ): Promise<RankedNode[]> {
+  private async bm25Search(query: string, opts: RetrievalOptions): Promise<RankedNode[]> {
     const limit = Math.max(1, Math.min(opts.limit || 10, 100));
 
     if (this.memgraph) {
@@ -153,9 +147,7 @@ export class HybridRetriever {
               score: Number(row.score || 0),
               source: "bm25" as const,
             }))
-            .filter(
-              (row) => row.nodeId.length > 0 && Number.isFinite(row.score),
-            )
+            .filter((row) => row.nodeId.length > 0 && Number.isFinite(row.score))
             .slice(0, limit);
         }
       } catch {
@@ -184,8 +176,8 @@ export class HybridRetriever {
         `CALL text_search.list_indices() YIELD name RETURN name`,
         {},
       );
-      const names: string[] = (check.data || []).map(
-        (r: Record<string, unknown>) => String(r["name"] ?? ""),
+      const names: string[] = (check.data || []).map((r: Record<string, unknown>) =>
+        String(r["name"] ?? ""),
       );
       if (names.includes("symbol_index")) {
         // Upgrade path: symbol_index already exists but docs_index may be missing
@@ -220,10 +212,7 @@ export class HybridRetriever {
     }
   }
 
-  private async graphExpansion(
-    seedIds: string[],
-    opts: RetrievalOptions,
-  ): Promise<RankedNode[]> {
+  private async graphExpansion(seedIds: string[], opts: RetrievalOptions): Promise<RankedNode[]> {
     const limit = Math.max(1, Math.min(opts.limit || 10, 100));
     if (!seedIds.length) {
       return [];
@@ -267,10 +256,7 @@ export class HybridRetriever {
 
   private fusionRRF(lists: RankedNode[][], k: number): RetrievalResult[] {
     const scores = new Map<string, number>();
-    const sourceScores = new Map<
-      string,
-      { vector?: number; bm25?: number; graph?: number }
-    >();
+    const sourceScores = new Map<string, { vector?: number; bm25?: number; graph?: number }>();
 
     lists.forEach((list) => {
       list.forEach((node, idx) => {
@@ -317,9 +303,7 @@ export class HybridRetriever {
     ];
 
     return nodes
-      .filter(
-        (node) => String(node.properties.projectId || "") === String(projectId),
-      )
+      .filter((node) => String(node.properties.projectId || "") === String(projectId))
       .map((node) => ({
         nodeId: node.id,
         score: this.scoreNode(node, tokens),
@@ -333,10 +317,7 @@ export class HybridRetriever {
   private scoreNode(node: GraphNode, tokens: string[]): number {
     const haystack =
       `${node.id} ${node.properties.name || ""} ${node.properties.path || ""} ${node.properties.summary || ""}`.toLowerCase();
-    return tokens.reduce(
-      (sum, token) => sum + (haystack.includes(token) ? 1 : 0),
-      0,
-    );
+    return tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
   }
 
   private nodeMeta(nodeId: string): {
@@ -360,10 +341,7 @@ export class HybridRetriever {
     };
   }
 
-  private filterByType(
-    results: RetrievalResult[],
-    types?: string[],
-  ): RetrievalResult[] {
+  private filterByType(results: RetrievalResult[], types?: string[]): RetrievalResult[] {
     if (!types?.length) {
       return results;
     }
@@ -372,10 +350,7 @@ export class HybridRetriever {
     return results.filter((row) => allowed.has(row.type.toUpperCase()));
   }
 
-  private filterByProject(
-    results: RetrievalResult[],
-    projectId: string,
-  ): RetrievalResult[] {
+  private filterByProject(results: RetrievalResult[], projectId: string): RetrievalResult[] {
     return results.filter((row) => {
       const node = this.index.getNode(row.nodeId);
       return String(node?.properties?.projectId || "") === String(projectId);
