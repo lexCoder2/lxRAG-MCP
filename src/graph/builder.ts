@@ -80,6 +80,7 @@ interface ClassNode {
 import * as path from "path";
 import { existsSync } from "fs";
 import * as env from "../env.js";
+import { computeProjectFingerprint } from "../utils/validation.js";
 
 export interface CypherStatement {
   query: string;
@@ -90,13 +91,21 @@ export class GraphBuilder {
   private statements: CypherStatement[] = [];
   private processedNodes = new Set<string>();
   private projectId: string;
+  private projectFingerprint: string;
   private workspaceRoot: string;
   private txId: string;
   private txTimestamp: number;
 
-  constructor(projectId?: string, workspaceRoot?: string, txId?: string, txTimestamp?: number) {
+  constructor(
+    projectId?: string,
+    workspaceRoot?: string,
+    txId?: string,
+    txTimestamp?: number,
+    projectFingerprint?: string,
+  ) {
     this.workspaceRoot = workspaceRoot || env.LXRAG_WORKSPACE_ROOT || process.cwd();
     this.projectId = (projectId || env.LXRAG_PROJECT_ID || path.basename(this.workspaceRoot)).toLowerCase();
+    this.projectFingerprint = projectFingerprint ?? computeProjectFingerprint(this.workspaceRoot);
     this.txId = txId || env.LXRAG_TX_ID || `tx-${Date.now()}`;
     this.txTimestamp = txTimestamp || Date.now();
   }
@@ -188,6 +197,7 @@ export class GraphBuilder {
             f.relativePath = $relativePath,
             f.scipId = $scipId,
             f.projectId = $projectId,
+            f.projectFingerprint = $projectFingerprint,
           f.validFrom = $validFrom,
           f.validTo = $validTo,
           f.createdAt = $createdAt,
@@ -205,6 +215,7 @@ export class GraphBuilder {
         relativePath: relativePath,
         scipId: this.toScipId("file", relativePath),
         projectId: this.projectId,
+        projectFingerprint: this.projectFingerprint,
         validFrom: this.txTimestamp,
         validTo: null,
         createdAt: this.txTimestamp,

@@ -38,6 +38,7 @@ import CacheManager from "./cache.js";
 import MemgraphClient from "./client.js";
 import CodeSummarizer from "../response/summarizer.js";
 import { DocsEngine } from "../engines/docs-engine.js";
+import { computeProjectFingerprint } from "../utils/validation.js";
 import { logger } from "../utils/logger.js";
 
 export interface BuildOptions {
@@ -45,6 +46,8 @@ export interface BuildOptions {
   verbose: boolean;
   workspaceRoot: string;
   projectId: string;
+  /** 4-char alphanumeric hash of workspaceRoot — stable workspace identity fingerprint */
+  projectFingerprint?: string;
   sourceDir: string;
   exclude: string[];
   changedFiles?: string[];
@@ -175,15 +178,18 @@ export class GraphOrchestrator {
    */
   async build(options: Partial<BuildOptions> = {}): Promise<BuildResult> {
     const startTime = Date.now();
+    const resolvedWorkspaceRoot = options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT;
     const opts: BuildOptions = {
       mode: options.mode || "incremental",
       verbose: options.verbose ?? this.verbose,
-      workspaceRoot: options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT,
+      workspaceRoot: resolvedWorkspaceRoot,
       projectId: (
         options.projectId ||
         env.LXRAG_PROJECT_ID ||
-        path.basename(options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT)
+        path.basename(resolvedWorkspaceRoot)
       ).toLowerCase(),
+      projectFingerprint:
+        options.projectFingerprint ?? computeProjectFingerprint(resolvedWorkspaceRoot),
       sourceDir: options.sourceDir || "src",
       exclude: options.exclude || ["node_modules", "dist", ".next", ".lxrag"],
       txId: options.txId,
@@ -211,6 +217,28 @@ export class GraphOrchestrator {
       let filesChanged = 0;
 
       if (opts.mode === "incremental") {
+        // Validate fingerprint against what is stored in the graph to catch stale/moved workspaces
+        if (this.memgraph.isConnected() && opts.projectFingerprint) {
+          try {
+            const fpResult = await this.memgraph.executeCypher(
+              `MATCH (f:FILE {projectId: $projectId})
+               WHERE f.projectFingerprint IS NOT NULL
+               RETURN f.projectFingerprint AS stored LIMIT 1`,
+              { projectId: opts.projectId },
+            );
+            const storedFingerprint = fpResult.data?.[0]?.stored as string | undefined;
+            if (storedFingerprint && storedFingerprint !== opts.projectFingerprint) {
+              warnings.push(
+                `⚠️ Graph fingerprint mismatch (stored: ${storedFingerprint}, current: ${opts.projectFingerprint}). ` +
+                  `The workspace may have moved or this graph belongs to a different project. ` +
+                  `Run graph_rebuild(mode: "full") to re-index.`,
+              );
+            }
+          } catch {
+            // Non-fatal — fingerprint validation is advisory only
+          }
+        }
+
         const scopedChangedFiles = this.normalizeChangedFiles(
           opts.changedFiles,
           opts.workspaceRoot,
@@ -274,6 +302,7 @@ export class GraphOrchestrator {
         opts.workspaceRoot,
         opts.txId,
         opts.txTimestamp,
+        opts.projectFingerprint,
       );
 
       for (const filePath of filesToProcess) {

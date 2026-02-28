@@ -6,7 +6,7 @@
 import * as fs from "fs";
 import * as z from "zod";
 import * as env from "../../env.js";
-import { generateSecureId } from "../../utils/validation.js";
+import { generateSecureId, computeProjectFingerprint } from "../../utils/validation.js";
 import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
 import { logger } from "../../utils/logger.js";
 

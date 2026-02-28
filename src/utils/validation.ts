@@ -3,7 +3,7 @@
  * Phase 4: Security hardening
  */
 
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 
 /**
  * Validate a projectId string
@@ -234,4 +234,18 @@ export function parseScopedId(id: string): {
 export function generateSecureId(prefix: string = "id", length: number = 8): string {
   const hex = randomBytes(length).toString("hex");
   return `${prefix}-${hex}`;
+}
+
+/**
+ * Compute a stable 4-character alphanumeric fingerprint for a workspace root path.
+ * Used to detect workspace moves and stale graph states across rebuilds.
+ *
+ * Algorithm: SHA-256(workspaceRoot) → first 6 hex chars → mod 36^4 → base-36, padded to 4 chars
+ * Output characters: [0-9a-z], always exactly 4 characters.
+ * Collision probability for 100 local projects: < 0.3%.
+ */
+export function computeProjectFingerprint(workspaceRoot: string): string {
+  const hex = createHash("sha256").update(workspaceRoot).digest("hex");
+  const n = parseInt(hex.slice(0, 6), 16) % Math.pow(36, 4);
+  return n.toString(36).padStart(4, "0");
 }
