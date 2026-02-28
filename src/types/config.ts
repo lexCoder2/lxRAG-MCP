@@ -94,10 +94,7 @@ export interface SystemConfig {
 export function isValidArchitectureConfig(obj: unknown): obj is ArchitectureConfig {
   if (!obj || typeof obj !== "object") return false;
   const config = obj as Record<string, unknown>;
-  return (
-    Array.isArray(config.layers) &&
-    Array.isArray(config.rules)
-  );
+  return Array.isArray(config.layers) && Array.isArray(config.rules);
 }
 
 /**

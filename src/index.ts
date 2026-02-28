@@ -15,6 +15,7 @@ import GraphOrchestrator from "./graph/orchestrator.js";
 import ToolHandlers from "./tools/tool-handlers.js";
 import { loadConfig } from "./config.js";
 import * as env from "./env.js";
+import { logger } from "./utils/logger.js";
 
 // All tool names exposed by this entry point
 const TOOL_NAMES = [
@@ -68,7 +69,7 @@ class CodeGraphServer {
   private mcpServer: McpServer;
   private memgraph: MemgraphClient;
   private index: GraphIndexManager;
-  private config: any;
+  private config: Record<string, unknown>;
   private toolHandlers: ToolHandlers | null = null;
 
   constructor() {
@@ -90,15 +91,15 @@ class CodeGraphServer {
       // Load configuration
       try {
         this.config = await loadConfig();
-        console.error("[CodeGraphServer] Configuration loaded");
+        logger.error("[CodeGraphServer] Configuration loaded");
       } catch {
-        console.error("[CodeGraphServer] Using default configuration");
+        logger.error("[CodeGraphServer] Using default configuration");
         this.config = { architecture: { layers: [], rules: [] } };
       }
 
       // Connect to Memgraph
       await this.memgraph.connect();
-      console.error("[CodeGraphServer] Memgraph connected");
+      logger.error("[CodeGraphServer] Memgraph connected");
 
       // Initialize tool handlers
       // Pass sharedIndex so graph_rebuild syncs the in-memory index after each
@@ -112,43 +113,35 @@ class CodeGraphServer {
         orchestrator,
       });
 
-      console.error("[CodeGraphServer] Tool handlers initialized");
+      logger.error("[CodeGraphServer] Tool handlers initialized");
 
       // Register all tools — dispatch through callTool()
       for (const name of TOOL_NAMES) {
-        this.mcpServer.registerTool(
-          name,
-          { inputSchema: passthroughSchema },
-          async (args: any) => {
-            if (!this.toolHandlers) {
-              return {
-                content: [
-                  { type: "text" as const, text: "Server not initialized" },
-                ],
-                isError: true,
-              };
-            }
-            try {
-              const result = await this.toolHandlers.callTool(name, args);
-              return { content: [{ type: "text" as const, text: result }] };
-            } catch (error: any) {
-              return {
-                content: [
-                  { type: "text" as const, text: `Error: ${error.message}` },
-                ],
-                isError: true,
-              };
-            }
-          },
-        );
+        this.mcpServer.registerTool(name, { inputSchema: passthroughSchema }, async (args: Record<string, unknown>) => {
+          if (!this.toolHandlers) {
+            return {
+              content: [{ type: "text" as const, text: "Server not initialized" }],
+              isError: true,
+            };
+          }
+          try {
+            const result = await this.toolHandlers.callTool(name, args);
+            return { content: [{ type: "text" as const, text: result }] };
+          } catch (error: unknown) {
+            return {
+              content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+              isError: true,
+            };
+          }
+        });
       }
 
       // Start stdio transport
       const transport = new StdioServerTransport();
       await this.mcpServer.connect(transport);
-      console.error("[CodeGraphServer] Started successfully (stdio transport)");
+      logger.error("[CodeGraphServer] Started successfully (stdio transport)");
     } catch (error) {
-      console.error("[CodeGraphServer] Startup error:", error);
+      logger.error("[CodeGraphServer] Startup error:", error);
       process.exit(1);
     }
   }

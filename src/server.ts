@@ -15,9 +15,10 @@ import MemgraphClient from "./graph/client.js";
 import GraphIndexManager from "./graph/index.js";
 import { ToolHandlers } from "./tools/tool-handlers.js";
 import { toolRegistry } from "./tools/registry.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, type Config } from "./config.js";
 import GraphOrchestrator from "./graph/orchestrator.js";
 import { runWithRequestContext } from "./request-context.js";
+import { logger } from "./utils/logger.js";
 
 // Initialize components
 const memgraph = new MemgraphClient({
@@ -27,7 +28,7 @@ const memgraph = new MemgraphClient({
 
 const index = new GraphIndexManager();
 let toolHandlers: ToolHandlers;
-let config: any = {};
+let config: Config = { architecture: { layers: [], rules: [] } };
 let orchestrator: GraphOrchestrator;
 
 /**
@@ -40,14 +41,14 @@ let orchestrator: GraphOrchestrator;
 async function initialize() {
   try {
     await memgraph.connect();
-    console.error("[MCP] Memgraph connected");
+    logger.error("[MCP] Memgraph connected");
 
     // Load architecture config if exists
     try {
       config = await loadConfig();
-      console.error("[MCP] Configuration loaded");
-    } catch (err) {
-      console.error("[MCP] No configuration file found, using defaults");
+      logger.error("[MCP] Configuration loaded");
+    } catch (_err) {
+      logger.error("[MCP] No configuration file found, using defaults");
       config = { architecture: { layers: [], rules: [] } };
     }
 
@@ -61,9 +62,9 @@ async function initialize() {
       orchestrator: orchestrator,
     });
 
-    console.error("[MCP] Tool handlers initialized");
+    logger.error("[MCP] Tool handlers initialized");
   } catch (error) {
-    console.error("[MCP] Initialization error:", error);
+    logger.error("[MCP] Initialization error:", error);
   }
 }
 
@@ -84,7 +85,7 @@ function createMcpServerInstance(): McpServer {
   /**
    * Wraps registry-based tool execution into MCP response envelopes.
    */
-  const invokeRegisteredTool = (toolName: string) => async (args: any) => {
+  const invokeRegisteredTool = (toolName: string) => async (args: unknown) => {
     if (!toolHandlers) {
       return {
         content: [{ type: "text" as const, text: "Server not initialized" }],
@@ -92,11 +93,11 @@ function createMcpServerInstance(): McpServer {
       };
     }
     try {
-      const result = await toolHandlers.callTool(toolName, args);
+      const result = await toolHandlers.callTool(toolName, args as Record<string, unknown>);
       return { content: [{ type: "text" as const, text: result }] };
-    } catch (error: any) {
+    } catch (error: unknown) {
       return {
-        content: [{ type: "text" as const, text: `Error: ${error.message}` }],
+        content: [{ type: "text" as const, text: `Error: ${(error as Error).message}` }],
         isError: true,
       };
     }
@@ -105,11 +106,7 @@ function createMcpServerInstance(): McpServer {
   /**
    * Registers one tool definition with zod input validation.
    */
-  const registerTool = (
-    name: string,
-    description: string,
-    inputSchema: z.ZodTypeAny,
-  ) => {
+  const registerTool = (name: string, description: string, inputSchema: z.ZodTypeAny) => {
     mcpServer.registerTool(
       name,
       {
@@ -122,11 +119,7 @@ function createMcpServerInstance(): McpServer {
 
   // Register all tools from centralized registry.
   for (const definition of toolRegistry) {
-    registerTool(
-      definition.name,
-      definition.description,
-      z.object(definition.inputShape),
-    );
+    registerTool(definition.name, definition.description, z.object(definition.inputShape));
   }
 
   return mcpServer;
@@ -152,6 +145,7 @@ async function main() {
       { server: McpServer; transport: StreamableHTTPServerTransport }
     >();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handleMcpRequest = async (req: any, res: any) => {
       try {
         const headerSessionId = req.headers?.["mcp-session-id"];
@@ -185,7 +179,7 @@ async function main() {
             if (existing?.transport === transport) {
               sessions.delete(closedSessionId);
               void existing.server.close().catch((closeError) => {
-                console.warn(
+                logger.warn(
                   "[MCP] Failed to close session server after transport close:",
                   closeError,
                 );
@@ -195,12 +189,9 @@ async function main() {
 
           await sessionServer.connect(transport);
 
-          await runWithRequestContext(
-            { sessionId: transport.sessionId },
-            async () => {
-              await transport!.handleRequest(req, res, req.body);
-            },
-          );
+          await runWithRequestContext({ sessionId: transport.sessionId }, async () => {
+            await transport!.handleRequest(req, res, req.body);
+          });
           return;
         }
 
@@ -220,14 +211,14 @@ async function main() {
         await runWithRequestContext({ sessionId }, async () => {
           await sessionState.transport.handleRequest(req, res, req.body);
         });
-      } catch (error: any) {
-        console.error("[MCP] HTTP transport error:", error);
+      } catch (error: unknown) {
+        logger.error("[MCP] HTTP transport error:", error);
         if (!res.headersSent) {
           res.status(500).json({
             jsonrpc: "2.0",
             error: {
               code: -32603,
-              message: error?.message || "Internal server error",
+              message: (error as Error)?.message || "Internal server error",
             },
             id: null,
           });
@@ -235,17 +226,17 @@ async function main() {
       }
     };
 
-    app.post("/", handleMcpRequest);
-    app.post("/mcp", handleMcpRequest);
+    app.post("/", (req, res) => { void handleMcpRequest(req, res); });
+    app.post("/mcp", (req, res) => { void handleMcpRequest(req, res); });
 
-    app.get("/health", (_req: any, res: any) => {
+    app.get("/health", (_req, res) => {
       res.status(200).json({ status: "ok", transport: "http" });
     });
 
     // A2A Agent Card — Phase 4 / Section 0.4 of AGENT_CONTEXT_ENGINE_PLAN.md
     // Allows A2A-aware orchestrators (LangGraph, AutoGen, etc.) to discover
     // this server as a memory + coordination specialist agent.
-    app.get("/.well-known/agent.json", (_req: any, res: any) => {
+    app.get("/.well-known/agent.json", (_req, res) => {
       const serverName = env.LXRAG_SERVER_NAME;
       res.status(200).json({
         "@context": "https://schema.a2aprotocol.dev/v1",
@@ -269,10 +260,10 @@ async function main() {
     });
 
     app.listen(port, () => {
-      console.error(`[MCP] Server started on HTTP transport (port ${port})`);
-      console.error("[MCP] Endpoints: POST / and POST /mcp");
-      console.error("[MCP] A2A Agent Card: GET /.well-known/agent.json");
-      console.error(
+      logger.error(`[MCP] Server started on HTTP transport (port ${port})`);
+      logger.error("[MCP] Endpoints: POST / and POST /mcp");
+      logger.error("[MCP] A2A Agent Card: GET /.well-known/agent.json");
+      logger.error(
         `[MCP] Available tools: 38 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs + 1 Reference + 2 Setup)`,
       );
     });
@@ -284,13 +275,13 @@ async function main() {
   const stdioTransport = new StdioServerTransport();
   await mcpServer.connect(stdioTransport);
 
-  console.error("[MCP] Server started on stdio transport");
-  console.error(
+  logger.error("[MCP] Server started on stdio transport");
+  logger.error(
     `[MCP] Available tools: 38 (5 GraphRAG + 2 Architecture + 4 Test + 4 Progress + 4 Utility + 5 Vector Search + 2 Docs + 1 Reference + 2 Setup)`,
   );
 }
 
 main().catch((error) => {
-  console.error("[MCP] Fatal error:", error);
+  logger.error("[MCP] Fatal error:", error);
   process.exit(1);
 });

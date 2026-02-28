@@ -154,7 +154,11 @@ export function getProfileFromArgs(args: ToolArgs): "compact" | "balanced" | "de
 /**
  * Get limit from tool arguments with validation
  */
-export function getLimitFromArgs(args: ToolArgs, defaultLimit: number = 100, maxLimit: number = 10000): number {
+export function getLimitFromArgs(
+  args: ToolArgs,
+  defaultLimit: number = 100,
+  maxLimit: number = 10000,
+): number {
   const limit = args.limit;
   if (typeof limit === "number") {
     return Math.max(1, Math.min(limit, maxLimit));

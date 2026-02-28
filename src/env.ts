@@ -33,8 +33,7 @@ export const CODE_GRAPH_WORKSPACE_ROOT = LXRAG_WORKSPACE_ROOT;
  * Default: <WORKSPACE_ROOT>/src
  */
 export const GRAPH_SOURCE_DIR: string = (() => {
-  const raw =
-    process.env.GRAPH_SOURCE_DIR || path.join(LXRAG_WORKSPACE_ROOT, "src");
+  const raw = process.env.GRAPH_SOURCE_DIR || path.join(LXRAG_WORKSPACE_ROOT, "src");
   return path.isAbsolute(raw) ? raw : path.resolve(LXRAG_WORKSPACE_ROOT, raw);
 })();
 
@@ -54,8 +53,7 @@ export const CODE_GRAPH_PROJECT_ID = LXRAG_PROJECT_ID;
  * Env: LXRAG_TX_ID
  * Default: undefined (callers generate a fresh `tx-<timestamp>` per invocation)
  */
-export const LXRAG_TX_ID: string | undefined =
-  process.env.LXRAG_TX_ID || undefined;
+export const LXRAG_TX_ID: string | undefined = process.env.LXRAG_TX_ID || undefined;
 
 // ── MCP Transport ─────────────────────────────────────────────────────────────
 
@@ -79,8 +77,7 @@ export const MCP_PORT: number = parseInt(process.env.MCP_PORT || "9000", 10);
  * Env: LXRAG_SERVER_NAME
  * Default: "lxRAG MCP"
  */
-export const LXRAG_SERVER_NAME: string =
-  process.env.LXRAG_SERVER_NAME || "lxRAG MCP";
+export const LXRAG_SERVER_NAME: string = process.env.LXRAG_SERVER_NAME || "lxRAG MCP";
 
 // Alias for backward compatibility
 export const CODE_GRAPH_SERVER_NAME = LXRAG_SERVER_NAME;
@@ -99,10 +96,7 @@ export const MEMGRAPH_HOST: string = process.env.MEMGRAPH_HOST || "localhost";
  * Env: MEMGRAPH_PORT
  * Default: 7687
  */
-export const MEMGRAPH_PORT: number = parseInt(
-  process.env.MEMGRAPH_PORT || "7687",
-  10,
-);
+export const MEMGRAPH_PORT: number = parseInt(process.env.MEMGRAPH_PORT || "7687", 10);
 
 // ── Qdrant (vector store) ─────────────────────────────────────────────────────
 
@@ -118,10 +112,7 @@ export const QDRANT_HOST: string = process.env.QDRANT_HOST || "localhost";
  * Env: QDRANT_PORT
  * Default: 6333
  */
-export const QDRANT_PORT: number = parseInt(
-  process.env.QDRANT_PORT || "6333",
-  10,
-);
+export const QDRANT_PORT: number = parseInt(process.env.QDRANT_PORT || "6333", 10);
 
 // ── Code Summarizer ───────────────────────────────────────────────────────────
 
@@ -143,8 +134,7 @@ export const CODE_GRAPH_SUMMARIZER_URL = LXRAG_SUMMARIZER_URL;
  * Env: LXRAG_AGENT_ID
  * Default: "agent-local"
  */
-export const LXRAG_AGENT_ID: string =
-  process.env.LXRAG_AGENT_ID || "agent-local";
+export const LXRAG_AGENT_ID: string = process.env.LXRAG_AGENT_ID || "agent-local";
 
 // Alias for backward compatibility
 export const CODE_GRAPH_AGENT_ID = LXRAG_AGENT_ID;
@@ -156,8 +146,7 @@ export const CODE_GRAPH_AGENT_ID = LXRAG_AGENT_ID;
  * Env: LXRAG_USE_TREE_SITTER
  * Default: false
  */
-export const LXRAG_USE_TREE_SITTER: boolean =
-  process.env.LXRAG_USE_TREE_SITTER === "true";
+export const LXRAG_USE_TREE_SITTER: boolean = process.env.LXRAG_USE_TREE_SITTER === "true";
 
 // Alias for backward compatibility
 export const CODE_GRAPH_USE_TREE_SITTER = LXRAG_USE_TREE_SITTER;
@@ -170,8 +159,7 @@ export const CODE_GRAPH_USE_TREE_SITTER = LXRAG_USE_TREE_SITTER;
  * Env: LXRAG_ENABLE_WATCHER
  * Default: false
  */
-export const LXRAG_ENABLE_WATCHER: boolean =
-  process.env.LXRAG_ENABLE_WATCHER === "true";
+export const LXRAG_ENABLE_WATCHER: boolean = process.env.LXRAG_ENABLE_WATCHER === "true";
 
 // Alias for backward compatibility
 export const CODE_GRAPH_ENABLE_WATCHER = LXRAG_ENABLE_WATCHER;
@@ -181,9 +169,7 @@ export const CODE_GRAPH_ENABLE_WATCHER = LXRAG_ENABLE_WATCHER;
  * Env: LXRAG_IGNORE_PATTERNS
  * Example: "node_modules/**,dist/**,.git/**"
  */
-export const LXRAG_IGNORE_PATTERNS: string[] = (
-  process.env.LXRAG_IGNORE_PATTERNS || ""
-)
+export const LXRAG_IGNORE_PATTERNS: string[] = (process.env.LXRAG_IGNORE_PATTERNS || "")
   .split(",")
   .map((p) => p.trim())
   .filter(Boolean);
@@ -203,8 +189,7 @@ export const LXRAG_ALLOW_RUNTIME_PATH_FALLBACK: boolean =
   process.env.LXRAG_ALLOW_RUNTIME_PATH_FALLBACK === "true";
 
 // Alias for backward compatibility
-export const CODE_GRAPH_ALLOW_RUNTIME_PATH_FALLBACK =
-  LXRAG_ALLOW_RUNTIME_PATH_FALLBACK;
+export const CODE_GRAPH_ALLOW_RUNTIME_PATH_FALLBACK = LXRAG_ALLOW_RUNTIME_PATH_FALLBACK;
 
 // ── Command Execution ──────────────────────────────────────────────────────
 
@@ -295,3 +280,13 @@ export const LXRAG_STATE_HISTORY_MAX_SIZE: number = parseInt(
   process.env.LXRAG_STATE_HISTORY_MAX_SIZE || "200",
   10,
 );
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+
+/**
+ * Minimum log level emitted by the structured logger.
+ * Env: LXRAG_LOG_LEVEL
+ * Accepted values: "debug" | "info" | "warn" | "error"
+ * Default: "info"
+ */
+export const LXRAG_LOG_LEVEL: string = process.env.LXRAG_LOG_LEVEL ?? "info";
