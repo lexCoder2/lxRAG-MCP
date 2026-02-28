@@ -87,9 +87,7 @@ describe("ProgressEngine", () => {
       status: "pending",
     };
 
-    await expect(engine.createFeature(feature)).rejects.toThrow(
-      "Memgraph is not connected",
-    );
+    await expect(engine.createFeature(feature)).rejects.toThrow("Memgraph is not connected");
   });
 
   it("reload filters features/tasks by project id", () => {
@@ -110,20 +108,14 @@ describe("ProgressEngine", () => {
     const featureQuery = engine.query("feature");
     const taskQuery = engine.query("task");
 
-    expect(
-      featureQuery.items.every((item) => item.id.startsWith("proj-a:")),
-    ).toBe(true);
-    expect(taskQuery.items.every((item) => item.id.startsWith("proj-a:"))).toBe(
-      true,
-    );
+    expect(featureQuery.items.every((item) => item.id.startsWith("proj-a:"))).toBe(true);
+    expect(taskQuery.items.every((item) => item.id.startsWith("proj-a:"))).toBe(true);
   });
 
   it("returns false when persisting task update fails", async () => {
     const memgraph = {
       isConnected: vi.fn().mockReturnValue(true),
-      executeCypher: vi
-        .fn()
-        .mockResolvedValue({ error: "write failed", data: [] }),
+      executeCypher: vi.fn().mockResolvedValue({ error: "write failed", data: [] }),
     } as any;
     const engine = new ProgressEngine(buildIndex(), memgraph);
 

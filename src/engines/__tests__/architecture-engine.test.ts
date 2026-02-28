@@ -60,30 +60,16 @@ describe("ArchitectureEngine", () => {
       path.join(srcDir, "feature", "feature-a.ts"),
       "import { view } from '../ui/view';\nexport const x = view;\n",
     );
-    fs.writeFileSync(
-      path.join(srcDir, "ui", "view.ts"),
-      "export const view = 1;\n",
-    );
+    fs.writeFileSync(path.join(srcDir, "ui", "view.ts"), "export const view = 1;\n");
 
     process.chdir(root);
 
-    const engine = new ArchitectureEngine(
-      layers,
-      rules,
-      new GraphIndexManager(),
-    );
-    const result = await engine.validate([
-      "src/feature/feature-a.ts",
-      "src/ui/view.ts",
-    ]);
+    const engine = new ArchitectureEngine(layers, rules, new GraphIndexManager());
+    const result = await engine.validate(["src/feature/feature-a.ts", "src/ui/view.ts"]);
 
     expect(result.success).toBe(false);
-    expect(result.violations.some((v) => v.type === "layer-violation")).toBe(
-      true,
-    );
-    expect(
-      result.violations.some((v) => v.message.includes("explicitly forbidden")),
-    ).toBe(true);
+    expect(result.violations.some((v) => v.type === "layer-violation")).toBe(true);
+    expect(result.violations.some((v) => v.message.includes("explicitly forbidden"))).toBe(true);
   });
 
   it("detects circular dependencies during validation", async () => {
@@ -102,22 +88,14 @@ describe("ArchitectureEngine", () => {
 
     process.chdir(root);
 
-    const engine = new ArchitectureEngine(
-      layers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(layers, rules, new GraphIndexManager());
     const result = await engine.validate();
 
     expect(result.violations.some((v) => v.type === "circular")).toBe(true);
   });
 
   it("returns placement suggestion when dependencies are allowed", () => {
-    const engine = new ArchitectureEngine(
-      layers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(layers, rules, new GraphIndexManager());
     const suggestion = engine.getSuggestion("Data", "service", ["core"]);
 
     expect(suggestion).not.toBeNull();
@@ -174,11 +152,7 @@ describe("ArchitectureEngine", () => {
   ];
 
   it("T18: arch_suggest(type=service) does not return src/types/ layer", () => {
-    const engine = new ArchitectureEngine(
-      realisticLayers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(realisticLayers, rules, new GraphIndexManager());
     // External package deps are not layer IDs and must not restrict layer selection
     const suggestion = engine.getSuggestion("GraphDataService", "service", [
       "react",
@@ -196,11 +170,7 @@ describe("ArchitectureEngine", () => {
   });
 
   it("T19: arch_suggest does not duplicate Service suffix in filename", () => {
-    const engine = new ArchitectureEngine(
-      realisticLayers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(realisticLayers, rules, new GraphIndexManager());
     const suggestion = engine.getSuggestion("GraphDataService", "service", []);
 
     expect(suggestion).not.toBeNull();
@@ -214,11 +184,7 @@ describe("ArchitectureEngine", () => {
   });
 
   it("T18b: arch_suggest reasoning string is non-empty", () => {
-    const engine = new ArchitectureEngine(
-      realisticLayers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(realisticLayers, rules, new GraphIndexManager());
     const suggestion = engine.getSuggestion("MyService", "service", []);
 
     expect(suggestion).not.toBeNull();
@@ -286,21 +252,12 @@ describe("ArchitectureEngine", () => {
   });
 
   it("external package names in deps do not constrain layer selection", () => {
-    const engine = new ArchitectureEngine(
-      realisticLayers,
-      rules,
-      new GraphIndexManager(),
-    );
+    const engine = new ArchitectureEngine(realisticLayers, rules, new GraphIndexManager());
     // With no deps, all layers are eligible; with external deps, same result
     const noDepSuggestion = engine.getSuggestion("MyHook", "hook", []);
-    const withExternal = engine.getSuggestion("MyHook", "hook", [
-      "react",
-      "react-dom",
-    ]);
+    const withExternal = engine.getSuggestion("MyHook", "hook", ["react", "react-dom"]);
 
     // External package deps must not block any layer from being selected
-    expect(noDepSuggestion?.suggestedLayer.id).toBe(
-      withExternal?.suggestedLayer.id,
-    );
+    expect(noDepSuggestion?.suggestedLayer.id).toBe(withExternal?.suggestedLayer.id);
   });
 });

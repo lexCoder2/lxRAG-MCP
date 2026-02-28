@@ -129,10 +129,7 @@ describe("DocsEngine.indexWorkspace", () => {
     const qdrant = makeQdrant(true);
     const engine = new DocsEngine(mg, { qdrant });
     await engine.indexWorkspace(FIXTURES, "proj", { withEmbeddings: true });
-    expect(qdrant.upsertPoints).toHaveBeenCalledWith(
-      DOCS_COLLECTION,
-      expect.any(Array),
-    );
+    expect(qdrant.upsertPoints).toHaveBeenCalledWith(DOCS_COLLECTION, expect.any(Array));
   });
 
   it("with withEmbeddings=true does NOT upsert when Qdrant not connected", async () => {
@@ -144,9 +141,7 @@ describe("DocsEngine.indexWorkspace", () => {
   });
 
   it("uses the custom buildCypher override when provided", async () => {
-    const customBuild = vi
-      .fn()
-      .mockReturnValue([{ query: "RETURN 1", params: {} }]);
+    const customBuild = vi.fn().mockReturnValue([{ query: "RETURN 1", params: {} }]);
     const mg = makeMemgraph();
     const engine = new DocsEngine(mg, { buildCypher: customBuild });
     await engine.indexWorkspace(FIXTURES, "proj");
