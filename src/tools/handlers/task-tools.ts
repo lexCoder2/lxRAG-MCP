@@ -6,7 +6,8 @@
 
 import * as z from "zod";
 import * as env from "../../env.js";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition, ToolArgs } from "../types.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Registry definitions for task/progress tool endpoints.
@@ -28,22 +29,17 @@ export const taskToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const profile = args?.profile || "compact";
       const status = args?.status || args?.filter?.status;
-      const queryText = String(
-        args?.query || args?.type || "task",
-      ).toLowerCase();
-      const type: "feature" | "task" = queryText.includes("feature")
-        ? "feature"
-        : "task";
+      const queryText = String(args?.query || args?.type || "task").toLowerCase();
+      const type: "feature" | "task" = queryText.includes("feature") ? "feature" : "task";
 
       const normalizedStatus =
-        status === "active"
-          ? "in-progress"
-          : status === "all"
-            ? undefined
-            : status;
+        status === "active" ? "in-progress" : status === "all" ? undefined : status;
 
       const filter = {
         ...(args?.filter || {}),
@@ -52,10 +48,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
 
       const progressEngine = ctx.engines.progress as
         | {
-            query: (
-              type: "feature" | "task",
-              filter?: Record<string, unknown>,
-            ) => unknown;
+            query: (type: "feature" | "task", filter?: Record<string, unknown>) => unknown;
           }
         | undefined;
 
@@ -83,15 +76,11 @@ export const taskToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        taskId,
-        status,
-        assignee,
-        dueDate,
-        notes,
-        profile = "compact",
-      } = args;
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
+      const { taskId, status, assignee, dueDate, notes, profile = "compact" } = args;
 
       const progressEngine = ctx.engines.progress as
         | {
@@ -108,11 +97,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
 
       const coordinationEngine = ctx.engines.coordination as
         | {
-            onTaskCompleted: (
-              taskId: string,
-              agentId: string,
-              projectId: string,
-            ) => Promise<void>;
+            onTaskCompleted: (taskId: string, agentId: string, projectId: string) => Promise<void>;
           }
         | undefined;
 
@@ -147,42 +132,33 @@ export const taskToolDefinitions: ToolDefinition[] = [
         });
 
         if (!updated) {
-          return ctx.formatSuccess(
-            { success: false, error: `Task not found: ${taskId}` },
-            profile,
+          return ctx.errorEnvelope(
+            "TASK_NOT_FOUND",
+            `Task not found: ${taskId}`,
+            false,
+            "Use feature_status to list valid task IDs",
           );
         }
 
         if (status || assignee || dueDate) {
-          const persistedSuccessfully = await progressEngine!.persistTaskUpdate(
-            taskId,
-            {
-              status,
-              assignee,
-              dueDate,
-            },
-          );
+          const persistedSuccessfully = await progressEngine!.persistTaskUpdate(taskId, {
+            status,
+            assignee,
+            dueDate,
+          });
           if (!persistedSuccessfully) {
-            console.warn(
-              `[task_update] Failed to persist task update to Memgraph for ${taskId}`,
-            );
+            logger.warn(`[task_update] Failed to persist task update to Memgraph for ${taskId}`);
           }
         }
 
         const postActions: Record<string, unknown> = {};
         if (String(status || "").toLowerCase() === "completed") {
           const sessionId = ctx.getCurrentSessionId() || "session-unknown";
-          const runtimeAgentId = String(
-            assignee || args?.agentId || env.LXRAG_AGENT_ID,
-          );
+          const runtimeAgentId = String(assignee || args?.agentId || env.LXRAG_AGENT_ID);
           const { projectId } = ctx.getActiveProjectContext();
 
           try {
-            await coordinationEngine!.onTaskCompleted(
-              String(taskId),
-              runtimeAgentId,
-              projectId,
-            );
+            await coordinationEngine!.onTaskCompleted(String(taskId), runtimeAgentId, projectId);
             postActions.claimsReleased = true;
           } catch (error) {
             postActions.claimsReleased = false;
@@ -228,10 +204,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
           }
         }
 
-        return ctx.formatSuccess(
-          { success: true, task: updated, notes, postActions },
-          profile,
-        );
+        return ctx.formatSuccess({ success: true, task: updated, notes, postActions }, profile);
       } catch (error) {
         return ctx.errorEnvelope("TASK_UPDATE_FAILED", String(error), true);
       }
@@ -248,7 +221,10 @@ export const taskToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { featureId, profile = "compact" } = args;
 
       const progressEngine = ctx.engines.progress as
@@ -264,11 +240,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
         const allFeatures = progressEngine!.query("feature").items;
 
         const requested = String(featureId || "").trim();
-        if (
-          !requested ||
-          requested === "*" ||
-          requested.toLowerCase() === "list"
-        ) {
+        if (!requested || requested === "*" || requested.toLowerCase() === "list") {
           return ctx.formatSuccess(
             {
               success: true,
@@ -309,9 +281,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
             {
               success: false,
               error: `Feature not found: ${featureId}`,
-              availableFeatureIds: allFeatures
-                .map((feature) => feature.id)
-                .slice(0, 50),
+              availableFeatureIds: allFeatures.map((feature) => feature.id).slice(0, 50),
               hint: "Use feature_status with featureId='list' to inspect available IDs",
             },
             profile,
@@ -335,17 +305,17 @@ export const taskToolDefinitions: ToolDefinition[] = [
     category: "task",
     description: "Find blocking issues",
     inputShape: {
-      type: z
-        .enum(["all", "feature", "task"])
-        .optional()
-        .describe("Scope of blockers"),
+      type: z.enum(["all", "feature", "task"]).optional().describe("Scope of blockers"),
       context: z.string().optional().describe("Issue context"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const type = args?.type ?? "all";
       const profile = args?.profile || "compact";
 

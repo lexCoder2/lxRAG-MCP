@@ -5,6 +5,7 @@
 
 import type EmbeddingEngine from "../vector/embedding-engine.js";
 import type { GraphIndexManager } from "../graph/index.js";
+import type { ToolArgs } from "./types.js";
 
 export interface SemanticSearchResult {
   id: string;
@@ -21,13 +22,13 @@ export interface SemanticSearchResult {
 export class VectorTools {
   constructor(
     private embeddingEngine: EmbeddingEngine | null,
-    private index: GraphIndexManager
+    private index: GraphIndexManager,
   ) {}
 
   /**
    * Find similar code to a query
    */
-  async code_search_semantic(args: any): Promise<string> {
+  async code_search_semantic(args: ToolArgs): Promise<string> {
     if (!this.embeddingEngine) {
       return JSON.stringify({
         error: "Embedding engine not initialized",
@@ -35,14 +36,12 @@ export class VectorTools {
       });
     }
 
-    const { query, type = "function", limit = 5 } = args;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { query, type = "function", limit = 5 } = a;
 
     try {
-      const results = await this.embeddingEngine.findSimilar(
-        query,
-        type,
-        limit
-      );
+      const results = await this.embeddingEngine.findSimilar(query, type, limit);
 
       const formatted = results.map((r) => ({
         id: r.id,
@@ -61,7 +60,7 @@ export class VectorTools {
           note: "Results ranked by semantic similarity",
         },
         null,
-        2
+        2,
       );
     } catch (error) {
       return JSON.stringify({ error: `Search failed: ${error}` });
@@ -71,19 +70,21 @@ export class VectorTools {
   /**
    * Find duplicate or similar implementations
    */
-  async code_find_duplicates(args: any): Promise<string> {
+  async code_find_duplicates(args: ToolArgs): Promise<string> {
     if (!this.embeddingEngine) {
       return JSON.stringify({
         error: "Embedding engine not initialized",
       });
     }
 
-    const { name, type = "function" } = args;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { name, type = "function" } = a;
 
     try {
       const similar = await this.embeddingEngine.findSimilar(name, type, 10);
 
-      const grouped: Record<string, any[]> = {};
+      const grouped: Record<string, Record<string, unknown>[]> = {};
       for (const result of similar) {
         const group = result.metadata.path?.split("/")[1] || "other";
         if (!grouped[group]) grouped[group] = [];
@@ -106,7 +107,7 @@ export class VectorTools {
               : "No significant duplicates",
         },
         null,
-        2
+        2,
       );
     } catch (error) {
       return JSON.stringify({ error: `Duplicate search failed: ${error}` });
@@ -116,38 +117,36 @@ export class VectorTools {
   /**
    * Find code by semantic meaning
    */
-  async code_search_meaning(args: any): Promise<string> {
+  async code_search_meaning(args: ToolArgs): Promise<string> {
     if (!this.embeddingEngine) {
       return JSON.stringify({
         error: "Embedding engine not initialized",
       });
     }
 
-    const { meaning, limit = 10 } = args;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { meaning, limit = 10 } = a;
 
     try {
       // Search across all types
       const functionResults = await this.embeddingEngine.findSimilar(
         meaning,
         "function",
-        Math.ceil(limit / 3)
+        Math.ceil(limit / 3),
       );
       const classResults = await this.embeddingEngine.findSimilar(
         meaning,
         "class",
-        Math.ceil(limit / 3)
+        Math.ceil(limit / 3),
       );
       const fileResults = await this.embeddingEngine.findSimilar(
         meaning,
         "file",
-        Math.ceil(limit / 3)
+        Math.ceil(limit / 3),
       );
 
-      const allResults = [
-        ...functionResults,
-        ...classResults,
-        ...fileResults,
-      ].slice(0, limit);
+      const allResults = [...functionResults, ...classResults, ...fileResults].slice(0, limit);
 
       return JSON.stringify(
         {
@@ -161,7 +160,7 @@ export class VectorTools {
           count: allResults.length,
         },
         null,
-        2
+        2,
       );
     } catch (error) {
       return JSON.stringify({ error: `Semantic search failed: ${error}` });
@@ -171,14 +170,16 @@ export class VectorTools {
   /**
    * Suggest refactoring opportunities based on similarity
    */
-  async code_suggest_refactor(args: any): Promise<string> {
+  async code_suggest_refactor(args: ToolArgs): Promise<string> {
     if (!this.embeddingEngine) {
       return JSON.stringify({
         error: "Embedding engine not initialized",
       });
     }
 
-    const { element, type = "function" } = args;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { element, type = "function" } = a;
 
     try {
       const similar = await this.embeddingEngine.findSimilar(element, type, 5);
@@ -194,7 +195,7 @@ export class VectorTools {
       const suggestions: string[] = [];
       if (similar.length >= 3) {
         suggestions.push(
-          `Found ${similar.length} similar implementations - consider extracting common logic`
+          `Found ${similar.length} similar implementations - consider extracting common logic`,
         );
         suggestions.push("Create a shared utility or service class");
         suggestions.push("Document the pattern for team consistency");
@@ -213,7 +214,7 @@ export class VectorTools {
           priority: similar.length >= 3 ? "high" : "medium",
         },
         null,
-        2
+        2,
       );
     } catch (error) {
       return JSON.stringify({ error: `Refactor suggestion failed: ${error}` });
@@ -223,18 +224,16 @@ export class VectorTools {
   /**
    * Hybrid search combining graph and vector queries
    */
-  async code_hybrid_search(args: any): Promise<string> {
-    const { query, type = "function" } = args;
+  async code_hybrid_search(args: ToolArgs): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { query, type = "function" } = a;
 
     try {
       // Vector search (semantic)
-      let vectorResults: any[] = [];
+      let vectorResults: Record<string, unknown>[] = [];
       if (this.embeddingEngine) {
-        const embedResults = await this.embeddingEngine.findSimilar(
-          query,
-          type,
-          5
-        );
+        const embedResults = await this.embeddingEngine.findSimilar(query, type, 5);
         vectorResults = embedResults.map((r) => ({
           id: r.id,
           name: r.name,
@@ -244,14 +243,11 @@ export class VectorTools {
       }
 
       // Graph search (structural)
-      const graphResults: any[] = [];
+      const graphResults: Record<string, unknown>[] = [];
       if (type === "function") {
         const nodes = this.index.getNodesByType("FUNCTION");
         nodes
-          .filter(
-            (n) =>
-              n.properties.name?.includes(query) || n.properties.name === query
-          )
+          .filter((n) => n.properties.name?.includes(query) || n.properties.name === query)
           .slice(0, 5)
           .forEach((n) => {
             graphResults.push({
@@ -263,27 +259,24 @@ export class VectorTools {
           });
       }
 
-      // Combine and rank
+      type HybridResult = Record<string, unknown> & { combinedScore: number; sources: unknown[] };
       const combined = [...graphResults, ...vectorResults];
-      const ranked = combined
-        .reduce((acc, item) => {
-          const existing = acc.find((a: any) => a.id === item.id);
+      const ranked: HybridResult[] = combined
+        .reduce((acc: HybridResult[], item) => {
+          const existing = acc.find((a) => a.id === item.id);
           if (existing) {
-            existing.combinedScore = Math.max(
-              existing.combinedScore,
-              item.score
-            );
+            existing.combinedScore = Math.max(existing.combinedScore, (item.score as number) ?? 0);
             existing.sources.push(item.source);
           } else {
             acc.push({
               ...item,
-              combinedScore: item.score,
+              combinedScore: (item.score as number) ?? 0,
               sources: [item.source],
             });
           }
           return acc;
-        }, [] as any[])
-        .sort((a: any, b: any) => b.combinedScore - a.combinedScore)
+        }, [])
+        .sort((a, b) => b.combinedScore - a.combinedScore)
         .slice(0, 10);
 
       return JSON.stringify(
@@ -295,7 +288,7 @@ export class VectorTools {
           method: "hybrid (graph + vector)",
         },
         null,
-        2
+        2,
       );
     } catch (error) {
       return JSON.stringify({ error: `Hybrid search failed: ${error}` });

@@ -41,9 +41,7 @@ function filterTemporalRows(
     const validFrom = Number(node?.properties?.validFrom);
     const validToRaw = node?.properties?.validTo;
     const validTo =
-      validToRaw === null || validToRaw === undefined
-        ? undefined
-        : Number(validToRaw);
+      validToRaw === null || validToRaw === undefined ? undefined : Number(validToRaw);
 
     if (!Number.isFinite(validFrom)) {
       return true;
@@ -109,14 +107,10 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
   {
     name: "graph_query",
     category: "graph",
-    description:
-      "Execute Cypher or natural language query against the code graph",
+    description: "Execute Cypher or natural language query against the code graph",
     inputShape: {
       query: z.string().describe("Cypher or natural language query"),
-      language: z
-        .enum(["cypher", "natural"])
-        .default("natural")
-        .describe("Query language"),
+      language: z.enum(["cypher", "natural"]).default("natural").describe("Query language"),
       mode: z
         .enum(["local", "global", "hybrid"])
         .default("local")
@@ -152,14 +146,11 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         let result;
         const { projectId, workspaceRoot } = ctx.getActiveProjectContext();
         const asOfTs = ctx.toEpochMillis(asOf);
-        const queryMode =
-          mode === "global" || mode === "hybrid" ? mode : "local";
+        const queryMode = mode === "global" || mode === "hybrid" ? mode : "local";
 
         if (language === "cypher") {
           const cypherQuery =
-            asOfTs !== null
-              ? (ctx as any).applyTemporalFilterToCypher(query)
-              : query;
+            asOfTs !== null ? (ctx as any).applyTemporalFilterToCypher(query) : query;
 
           result =
             asOfTs !== null
@@ -169,12 +160,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
               : await ctx.context.memgraph.executeCypher(cypherQuery);
         } else {
           if (queryMode === "global" || queryMode === "hybrid") {
-            const globalRows = await fetchGlobalCommunityRows(
-              ctx,
-              query,
-              projectId,
-              limit,
-            );
+            const globalRows = await fetchGlobalCommunityRows(ctx, query, projectId, limit);
 
             if (queryMode === "global") {
               result = { data: globalRows };
@@ -185,11 +171,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
                 limit,
                 mode: "hybrid",
               });
-              const filteredLocal = filterTemporalRows(
-                ctx,
-                localResults,
-                asOfTs,
-              );
+              const filteredLocal = filterTemporalRows(ctx, localResults, asOfTs);
               result = {
                 data: [
                   {
@@ -227,10 +209,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         const limited = result.data.slice(0, limit);
         return ctx.formatSuccess(
           {
-            intent:
-              language === "natural"
-                ? (ctx as any).classifyIntent(query)
-                : "cypher",
+            intent: language === "natural" ? (ctx as any).classifyIntent(query) : "cypher",
             mode: queryMode,
             projectId,
             workspaceRoot,
@@ -291,8 +270,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           if (target) {
             explanation.dependencies.push({
               type: rel.type,
-              target:
-                target.properties.name || target.properties.path || target.id,
+              target: target.properties.name || target.properties.path || target.id,
             });
           }
         }
@@ -303,8 +281,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           if (source) {
             explanation.dependents.push({
               type: rel.type,
-              source:
-                source.properties.name || source.properties.path || source.id,
+              source: source.properties.name || source.properties.path || source.id,
             });
           }
         }
@@ -320,26 +297,15 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
     category: "graph",
     description: "Rebuild code graph from source",
     inputShape: {
-      mode: z
-        .enum(["full", "incremental"])
-        .default("incremental")
-        .describe("Build mode"),
+      mode: z.enum(["full", "incremental"]).default("incremental").describe("Build mode"),
       verbose: z.boolean().default(false).describe("Verbose output"),
-      workspaceRoot: z
-        .string()
-        .optional()
-        .describe("Workspace root path (absolute preferred)"),
+      workspaceRoot: z.string().optional().describe("Workspace root path (absolute preferred)"),
       workspacePath: z.string().optional().describe("Alias for workspaceRoot"),
       sourceDir: z
         .string()
         .optional()
-        .describe(
-          "Source directory path (absolute or relative to workspace root)",
-        ),
-      projectId: z
-        .string()
-        .optional()
-        .describe("Project namespace for graph isolation"),
+        .describe("Source directory path (absolute or relative to workspace root)"),
+      projectId: z.string().optional().describe("Project namespace for graph isolation"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
@@ -352,12 +318,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         ),
     },
     async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        mode = "incremental",
-        verbose = false,
-        profile = "compact",
-        indexDocs = true,
-      } = args;
+      const { mode = "incremental", verbose = false, profile = "compact", indexDocs = true } = args;
 
       const orchestrator = ctx.engines.orchestrator as
         | {
@@ -403,9 +364,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
 
       const hybridRetriever = ctx.engines.hybrid as
         | {
-            ensureBM25Index: () => Promise<
-              { created?: boolean; error?: string } | undefined
-            >;
+            ensureBM25Index: () => Promise<{ created?: boolean; error?: string } | undefined>;
           }
         | undefined;
 
@@ -421,8 +380,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         let resolvedContext = ctx.resolveProjectContext(args || {});
         const adapted = (ctx as any).adaptWorkspaceForRuntime(resolvedContext);
         const explicitWorkspaceProvided =
-          typeof args?.workspaceRoot === "string" &&
-          args.workspaceRoot.trim().length > 0;
+          typeof args?.workspaceRoot === "string" && args.workspaceRoot.trim().length > 0;
 
         if (
           adapted.usedFallback &&
@@ -489,8 +447,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             `[graph_rebuild] ${mode} build completed in ${result.duration}ms (${result.filesProcessed} files, ${result.nodesCreated} nodes, ${result.errors.length} errors, ${result.warnings.length} warnings) for project ${projectId}`,
           );
 
-          const invalidated =
-            await coordinationEngine!.invalidateStaleClaims(projectId);
+          const invalidated = await coordinationEngine!.invalidateStaleClaims(projectId);
           if (invalidated > 0) {
             console.error(
               `[coordination] Invalidated ${invalidated} stale claim(s) post-rebuild for project ${projectId}`,
@@ -505,10 +462,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           } else if (mode === "full") {
             try {
               const generated = await embeddingEngine?.generateAllEmbeddings();
-              if (
-                generated &&
-                generated.functions + generated.classes + generated.files > 0
-              ) {
+              if (generated && generated.functions + generated.classes + generated.files > 0) {
                 await embeddingEngine?.storeInQdrant();
                 (ctx as any).setProjectEmbeddingsReady(projectId, true);
                 console.error(
@@ -530,13 +484,9 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
 
           const bm25Result = await hybridRetriever?.ensureBM25Index();
           if (bm25Result?.created) {
-            console.error(
-              `[bm25] Created text_search symbol_index for project ${projectId}`,
-            );
+            console.error(`[bm25] Created text_search symbol_index for project ${projectId}`);
           } else if (bm25Result?.error) {
-            console.error(
-              `[bm25] symbol_index unavailable: ${bm25Result.error}`,
-            );
+            console.error(`[bm25] symbol_index unavailable: ${bm25Result.error}`);
           }
 
           return result;
@@ -552,15 +502,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             txId,
             txTimestamp,
             indexDocs,
-            exclude: [
-              "node_modules",
-              "dist",
-              ".next",
-              ".lxrag",
-              "__tests__",
-              "coverage",
-              ".git",
-            ],
+            exclude: ["node_modules", "dist", ".next", ".lxrag", "__tests__", "coverage", ".git"],
           })
           .then(postBuild)
           .catch((err) => {
@@ -573,9 +515,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
               `[Phase4.5] Background build failed for project ${projectId} (${mode}): ${errorMsg}`,
             );
             if (stack) {
-              console.error(
-                `[Phase4.5] Stack trace: ${stack.substring(0, 500)}`,
-              );
+              console.error(`[Phase4.5] Stack trace: ${stack.substring(0, 500)}`);
             }
 
             throw err;
@@ -667,24 +607,15 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
   {
     name: "graph_set_workspace",
     category: "graph",
-    description:
-      "Set active workspace/project context for subsequent graph tools",
+    description: "Set active workspace/project context for subsequent graph tools",
     inputShape: {
-      workspaceRoot: z
-        .string()
-        .optional()
-        .describe("Workspace root path (absolute preferred)"),
+      workspaceRoot: z.string().optional().describe("Workspace root path (absolute preferred)"),
       workspacePath: z.string().optional().describe("Alias for workspaceRoot"),
       sourceDir: z
         .string()
         .optional()
-        .describe(
-          "Source directory path (absolute or relative to workspace root)",
-        ),
-      projectId: z
-        .string()
-        .optional()
-        .describe("Project namespace for graph isolation"),
+        .describe("Source directory path (absolute or relative to workspace root)"),
+      projectId: z.string().optional().describe("Project namespace for graph isolation"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
@@ -697,8 +628,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         let nextContext = ctx.resolveProjectContext(args || {});
         const adapted = (ctx as any).adaptWorkspaceForRuntime(nextContext);
         const explicitWorkspaceProvided =
-          typeof args?.workspaceRoot === "string" &&
-          args.workspaceRoot.trim().length > 0;
+          typeof args?.workspaceRoot === "string" && args.workspaceRoot.trim().length > 0;
 
         if (
           adapted.usedFallback &&
@@ -747,8 +677,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             pendingChanges: watcher?.pendingChanges ?? 0,
             runtimePathFallback: adapted.usedFallback,
             runtimePathFallbackReason: adapted.fallbackReason || null,
-            message:
-              "Workspace context updated. Subsequent graph tools will use this project.",
+            message: "Workspace context updated. Subsequent graph tools will use this project.",
           },
           profile,
         );
@@ -783,8 +712,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         | undefined;
 
       try {
-        const { workspaceRoot, sourceDir, projectId } =
-          ctx.getActiveProjectContext();
+        const { workspaceRoot, sourceDir, projectId } = ctx.getActiveProjectContext();
 
         const healthStatsResult = await ctx.context.memgraph.executeCypher(
           `MATCH (n {projectId: $projectId})
@@ -803,32 +731,20 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         );
 
         const stats = healthStatsResult.data?.[0] || {};
-        const memgraphNodeCount =
-          (ctx as any).toSafeNumber(stats.totalNodes) ?? 0;
-        const memgraphRelCount =
-          (ctx as any).toSafeNumber(stats.totalRels) ?? 0;
-        const memgraphFileCount =
-          (ctx as any).toSafeNumber(stats.fileCount) ?? 0;
-        const memgraphFuncCount =
-          (ctx as any).toSafeNumber(stats.funcCount) ?? 0;
-        const memgraphClassCount =
-          (ctx as any).toSafeNumber(stats.classCount) ?? 0;
-        const memgraphImportCount =
-          (ctx as any).toSafeNumber(stats.importCount) ?? 0;
+        const memgraphNodeCount = (ctx as any).toSafeNumber(stats.totalNodes) ?? 0;
+        const memgraphRelCount = (ctx as any).toSafeNumber(stats.totalRels) ?? 0;
+        const memgraphFileCount = (ctx as any).toSafeNumber(stats.fileCount) ?? 0;
+        const memgraphFuncCount = (ctx as any).toSafeNumber(stats.funcCount) ?? 0;
+        const memgraphClassCount = (ctx as any).toSafeNumber(stats.classCount) ?? 0;
+        const memgraphImportCount = (ctx as any).toSafeNumber(stats.importCount) ?? 0;
         const memgraphIndexableCount =
-          memgraphFileCount +
-          memgraphFuncCount +
-          memgraphClassCount +
-          memgraphImportCount;
+          memgraphFileCount + memgraphFuncCount + memgraphClassCount + memgraphImportCount;
 
         const indexStats = ctx.context.index.getStatistics();
         const indexFileCount = ctx.context.index.getNodesByType("FILE").length;
-        const indexFuncCount =
-          ctx.context.index.getNodesByType("FUNCTION").length;
-        const indexClassCount =
-          ctx.context.index.getNodesByType("CLASS").length;
-        const indexedSymbols =
-          indexFileCount + indexFuncCount + indexClassCount;
+        const indexFuncCount = ctx.context.index.getNodesByType("FUNCTION").length;
+        const indexClassCount = ctx.context.index.getNodesByType("CLASS").length;
+        const indexedSymbols = indexFileCount + indexFuncCount + indexClassCount;
 
         let embeddingCount = 0;
         if ((ctx.engines.qdrant as any)?.isConnected?.()) {
@@ -839,9 +755,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
               (ctx.engines.qdrant as any).getCollection("files"),
             ]);
             embeddingCount =
-              (fnColl?.pointCount ?? 0) +
-              (clsColl?.pointCount ?? 0) +
-              (fileColl?.pointCount ?? 0);
+              (fnColl?.pointCount ?? 0) + (clsColl?.pointCount ?? 0) + (fileColl?.pointCount ?? 0);
           } catch {
             // Fall back to in-memory count below.
           }
@@ -850,8 +764,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           embeddingCount =
             ((ctx.engines.embedding as any)
               ?.getAllEmbeddings()
-              .filter((e: any) => e.projectId === projectId)
-              .length as number) || 0;
+              .filter((e: any) => e.projectId === projectId).length as number) || 0;
         }
         const embeddingCoverage =
           memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
@@ -863,8 +776,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
               )
             : 0;
 
-        const indexDrift =
-          Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
+        const indexDrift = Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
         const embeddingDrift = embeddingCount < indexedSymbols;
 
         const txMetadataResult = await ctx.context.memgraph.executeCypher(
@@ -887,10 +799,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             "Index is out of sync with Memgraph - run graph_rebuild to synchronize",
           );
         }
-        if (
-          embeddingDrift &&
-          (ctx as any).isProjectEmbeddingsReady(projectId)
-        ) {
+        if (embeddingDrift && (ctx as any).isProjectEmbeddingsReady(projectId)) {
           recommendations.push(
             "Some entities don't have embeddings - run semantic_search or graph_rebuild to generate them",
           );
@@ -903,8 +812,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             workspaceRoot,
             sourceDir,
             memgraphConnected: ctx.context.memgraph.isConnected(),
-            qdrantConnected:
-              (ctx.engines.qdrant as any)?.isConnected() || false,
+            qdrantConnected: (ctx.engines.qdrant as any)?.isConnected() || false,
             graphIndex: {
               totalNodes: memgraphNodeCount,
               totalRelationships: memgraphRelCount,
@@ -947,11 +855,9 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             rebuild: {
               lastRequestedAt: (ctx as any).lastGraphRebuildAt || null,
               lastMode: (ctx as any).lastGraphRebuildMode || null,
-              latestTxId: latestTxRow.id ?? null,
+              latestTxId: (latestTxRow as any).id ?? null,
               latestTxTimestamp:
-                (ctx as any).toSafeNumber(latestTxRow.timestamp) ??
-                latestTxRow.timestamp ??
-                null,
+                (ctx as any).toSafeNumber((latestTxRow as any).timestamp) ?? (latestTxRow as any).timestamp ?? null,
               txCount: txCountRow.txCount ?? 0,
               recentErrors: (ctx as any).getRecentBuildErrors(projectId, 3),
             },
@@ -964,9 +870,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             recommendations,
           },
           profile,
-          indexDrift
-            ? "Graph drift detected - see recommendations"
-            : "Graph health is OK.",
+          indexDrift ? "Graph drift detected - see recommendations" : "Graph health is OK.",
           "graph_health",
         );
       } catch (error) {
@@ -1009,20 +913,8 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           "blocking_issues",
         ],
         docs: ["index_docs", "search_docs"],
-        test: [
-          "test_select",
-          "test_categorize",
-          "test_run",
-          "suggest_tests",
-          "impact_analyze",
-        ],
-        memory: [
-          "episode_add",
-          "episode_recall",
-          "decision_query",
-          "reflect",
-          "context_pack",
-        ],
+        test: ["test_select", "test_categorize", "test_run", "suggest_tests", "impact_analyze"],
+        memory: ["episode_add", "episode_recall", "decision_query", "reflect", "context_pack"],
         progress: ["progress_query", "task_update", "feature_status"],
         coordination: [
           "agent_claim",
@@ -1033,10 +925,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         ],
       };
 
-      const result: Record<
-        string,
-        { available: string[]; unavailable: string[] }
-      > = {};
+      const result: Record<string, { available: string[]; unavailable: string[] }> = {};
 
       for (const [category, tools] of Object.entries(KNOWN_CATEGORIES)) {
         const available: string[] = [];
@@ -1074,14 +963,9 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
   {
     name: "diff_since",
     category: "utility",
-    description:
-      "Summarize temporal graph changes since txId, timestamp, git commit, or agentId",
+    description: "Summarize temporal graph changes since txId, timestamp, git commit, or agentId",
     inputShape: {
-      since: z
-        .string()
-        .describe(
-          "Anchor value: txId, ISO timestamp, git commit SHA, or agentId",
-        ),
+      since: z.string().describe("Anchor value: txId, ISO timestamp, git commit SHA, or agentId"),
       projectId: z
         .string()
         .optional()
@@ -1096,11 +980,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         .describe("Response profile"),
     },
     async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        since,
-        types = ["FILE", "FUNCTION", "CLASS"],
-        profile = "compact",
-      } = args || {};
+      const { since, types = ["FILE", "FUNCTION", "CLASS"], profile = "compact" } = args || {};
 
       if (!since || typeof since !== "string") {
         return ctx.errorEnvelope(
@@ -1114,8 +994,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       try {
         const active = ctx.getActiveProjectContext();
         const projectId =
-          typeof args?.projectId === "string" &&
-          args.projectId.trim().length > 0
+          typeof args?.projectId === "string" && args.projectId.trim().length > 0
             ? args.projectId
             : active.projectId;
 
@@ -1150,9 +1029,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
            ORDER BY tx.timestamp ASC`,
           { projectId, sinceTs: anchor.sinceTs },
         );
-        const txIds = (txResult.data || [])
-          .map((row: any) => String(row.id || ""))
-          .filter(Boolean);
+        const txIds = (txResult.data || []).map((row: any) => String(row.id || "")).filter(Boolean);
 
         const addedResult = await ctx.context.memgraph.executeCypher(
           `MATCH (n)
@@ -1253,25 +1130,17 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
   {
     name: "contract_validate",
     category: "utility",
-    description:
-      "Normalize and validate tool argument contracts before execution",
+    description: "Normalize and validate tool argument contracts before execution",
     inputShape: {
       tool: z.string().describe("Target tool name"),
-      arguments: z
-        .record(z.string(), z.any())
-        .optional()
-        .describe("Raw arguments to normalize"),
+      arguments: z.record(z.string(), z.any()).optional().describe("Raw arguments to normalize"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
     async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        tool,
-        arguments: inputArgs = {},
-        profile = "compact",
-      } = args || {};
+      const { tool, arguments: inputArgs = {}, profile = "compact" } = args || {};
 
       if (!tool || typeof tool !== "string") {
         return ctx.errorEnvelope(
@@ -1282,26 +1151,27 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       }
 
       try {
-        const { normalized, warnings } = ctx.normalizeForDispatch(
-          tool,
-          inputArgs,
-        );
+        // Step 1: normalise field aliases (e.g. changedFiles → files)
+        const { normalized, warnings: normWarnings } = ctx.normalizeForDispatch(tool, inputArgs);
+
+        // Step 2: validate normalised args against the tool's Zod schema
+        const validation = ctx.validateToolArgs(tool, normalized);
+
         return ctx.formatSuccess(
           {
             tool,
             input: inputArgs,
             normalized,
-            warnings,
-            valid: true,
+            valid: validation.valid,
+            errors: validation.errors,
+            missingRequired: validation.missingRequired,
+            extraFields: validation.extraFields,
+            warnings: [...normWarnings, ...validation.warnings],
           },
           profile,
         );
       } catch (error) {
-        return ctx.errorEnvelope(
-          "CONTRACT_VALIDATE_FAILED",
-          String(error),
-          true,
-        );
+        return ctx.errorEnvelope("CONTRACT_VALIDATE_FAILED", String(error), true);
       }
     },
   },
@@ -1416,10 +1286,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             if (!normalized.length) return "";
             let best = normalized;
             for (let i = 1; i < normalized.length; i++) {
-              const rotated = [
-                ...normalized.slice(i),
-                ...normalized.slice(0, i),
-              ];
+              const rotated = [...normalized.slice(i), ...normalized.slice(0, i)];
               if (rotated.join("|") < best.join("|")) {
                 best = rotated;
               }
@@ -1471,11 +1338,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             length: Math.max(1, cycle.length - 1),
           }));
 
-          if (
-            !results.matches.length &&
-            !files.length &&
-            ctx.context.memgraph.isConnected()
-          ) {
+          if (!results.matches.length && !files.length && ctx.context.memgraph.isConnected()) {
             const { projectId: pid } = ctx.getActiveProjectContext();
             const cypherCycles = await ctx.context.memgraph.executeCypher(
               `MATCH (a:FILE)-[:IMPORTS]->(:IMPORT)-[:REFERENCES]->(b:FILE)
@@ -1490,11 +1353,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             );
             if (cypherCycles.data?.length) {
               results.matches = cypherCycles.data.map((row: any) => ({
-                cycle: [
-                  String(row.fileA),
-                  String(row.fileB),
-                  String(row.fileA),
-                ],
+                cycle: [String(row.fileA), String(row.fileB), String(row.fileA)],
                 length: 2,
                 source: "cypher",
               }));
@@ -1540,18 +1399,14 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
             const lp = String(pattern || "").toLowerCase();
             results.matches = allNodes
               .filter((n: any) => {
-                const name = String(
-                  n.properties.name || n.properties.path || n.id,
-                );
+                const name = String(n.properties.name || n.properties.path || n.id);
                 return name.toLowerCase().includes(lp);
               })
               .slice(0, 20)
               .map((n: any) => ({
                 type: n.type,
                 name: String(n.properties.name || n.properties.path || n.id),
-                location: String(
-                  n.properties.relativePath || n.properties.path || "",
-                ),
+                location: String(n.properties.relativePath || n.properties.path || ""),
               }));
           }
         }
@@ -1568,10 +1423,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
     description: "Search code semantically using vector similarity",
     inputShape: {
       query: z.string().describe("Search query"),
-      type: z
-        .enum(["function", "class", "file"])
-        .optional()
-        .describe("Code type to search"),
+      type: z.enum(["function", "class", "file"]).optional().describe("Code type to search"),
       limit: z.number().default(5).describe("Result limit"),
       profile: z
         .enum(["compact", "balanced", "debug"])
@@ -1602,12 +1454,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       try {
         await ctx.ensureEmbeddings();
         const { projectId } = ctx.getActiveProjectContext();
-        const results = await embeddingEngine!.findSimilar(
-          query,
-          type,
-          limit,
-          projectId,
-        );
+        const results = await embeddingEngine!.findSimilar(query, type, limit, projectId);
 
         return ctx.formatSuccess(
           {
@@ -1642,12 +1489,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         .describe("Response profile"),
     },
     async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        elementId,
-        threshold = 0.7,
-        limit = 10,
-        profile = "compact",
-      } = args;
+      const { elementId, threshold = 0.7, limit = 10, profile = "compact" } = args;
 
       const embeddingEngine = ctx.engines.embedding as
         | {
@@ -1670,12 +1512,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       try {
         await ctx.ensureEmbeddings();
         const { projectId } = ctx.getActiveProjectContext();
-        const results = await embeddingEngine!.findSimilar(
-          elementId,
-          "function",
-          limit,
-          projectId,
-        );
+        const results = await embeddingEngine!.findSimilar(elementId, "function", limit, projectId);
         const filtered = results.slice(0, limit);
 
         return ctx.formatSuccess(
@@ -1693,11 +1530,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           profile,
         );
       } catch (error) {
-        return ctx.errorEnvelope(
-          "FIND_SIMILAR_CODE_FAILED",
-          String(error),
-          true,
-        );
+        return ctx.errorEnvelope("FIND_SIMILAR_CODE_FAILED", String(error), true);
       }
     },
   },
@@ -1706,9 +1539,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
     category: "code",
     description: "Find clusters of related code",
     inputShape: {
-      type: z
-        .enum(["function", "class", "file"])
-        .describe("Code type to cluster"),
+      type: z.enum(["function", "class", "file"]).describe("Code type to cluster"),
       count: z.number().default(5).describe("Number of clusters"),
       profile: z
         .enum(["compact", "balanced", "debug"])
@@ -1799,8 +1630,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         const commonKeys = [...leftKeys].filter((key) => rightKeys.has(key));
 
         const changedKeys = commonKeys.filter(
-          (key) =>
-            JSON.stringify(leftProps[key]) !== JSON.stringify(rightProps[key]),
+          (key) => JSON.stringify(leftProps[key]) !== JSON.stringify(rightProps[key]),
         );
 
         return ctx.formatSuccess(
@@ -1855,9 +1685,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           resolved?.properties.path ||
           resolved?.properties.filePath ||
           resolved?.properties.relativePath ||
-          (typeof elementId === "string" && elementId.includes("/")
-            ? elementId
-            : undefined);
+          (typeof elementId === "string" && elementId.includes("/") ? elementId : undefined);
 
         if (!candidatePath) {
           return ctx.errorEnvelope(
@@ -1867,11 +1695,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           );
         }
 
-        const selection = testEngine!.selectAffectedTests(
-          [candidatePath],
-          true,
-          2,
-        );
+        const selection = testEngine!.selectAffectedTests([candidatePath], true, 2);
         const suggested = selection.selectedTests.slice(0, limit);
 
         return ctx.formatSuccess(
@@ -1898,14 +1722,8 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       task: z.string().describe("Task description"),
       taskId: z.string().optional().describe("Optional task id"),
       agentId: z.string().optional().describe("Agent identifier"),
-      includeDecisions: z
-        .boolean()
-        .default(true)
-        .describe("Include decision episodes"),
-      includeEpisodes: z
-        .boolean()
-        .default(true)
-        .describe("Include recent episodes"),
+      includeDecisions: z.boolean().default(true).describe("Include decision episodes"),
+      includeEpisodes: z.boolean().default(true).describe("Include recent episodes"),
       includeLearnings: z.boolean().default(true).describe("Include learnings"),
       profile: z
         .enum(["compact", "balanced", "debug"])
@@ -1927,26 +1745,16 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
   {
     name: "semantic_slice",
     category: "code",
-    description:
-      "Return relevant exact source lines with optional dependency and memory context",
+    description: "Return relevant exact source lines with optional dependency and memory context",
     inputShape: {
-      file: z
-        .string()
-        .optional()
-        .describe("Relative or absolute source file path"),
-      symbol: z
-        .string()
-        .optional()
-        .describe("Symbol id/name (e.g. ToolHandlers.callTool)"),
+      file: z.string().optional().describe("Relative or absolute source file path"),
+      symbol: z.string().optional().describe("Symbol id/name (e.g. ToolHandlers.callTool)"),
       query: z.string().optional().describe("Natural-language fallback query"),
       context: z
         .enum(["signature", "body", "with-deps", "full"])
         .default("body")
         .describe("Slice detail mode"),
-      pprScore: z
-        .number()
-        .optional()
-        .describe("Optional PPR score from context_pack pipeline"),
+      pprScore: z.number().optional().describe("Optional PPR score from context_pack pipeline"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
@@ -1970,9 +1778,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
     description:
       "One-shot project initialization: sets workspace context, triggers graph rebuild, and generates .github/copilot-instructions.md if not present. Use this as the first step when onboarding a new project or starting a fresh session.",
     inputShape: {
-      workspaceRoot: z
-        .string()
-        .describe("Absolute path to the project root to initialize"),
+      workspaceRoot: z.string().describe("Absolute path to the project root to initialize"),
       sourceDir: z
         .string()
         .optional()
@@ -1984,13 +1790,8 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       rebuildMode: z
         .enum(["incremental", "full"])
         .default("incremental")
-        .describe(
-          "incremental = changed files only; full = rebuild entire graph",
-        ),
-      withDocs: z
-        .boolean()
-        .default(true)
-        .describe("Also index markdown docs during rebuild"),
+        .describe("incremental = changed files only; full = rebuild entire graph"),
+      withDocs: z.boolean().default(true).describe("Also index markdown docs during rebuild"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
@@ -2025,8 +1826,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         );
       }
 
-      const steps: Array<{ step: string; status: string; detail?: string }> =
-        [];
+      const steps: Array<{ step: string; status: string; detail?: string }> = [];
 
       try {
         const setArgs: any = { workspaceRoot: resolvedRoot, profile };
@@ -2080,10 +1880,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         if (projectId) rebuildArgs.projectId = projectId;
 
         try {
-          const rebuildResult = await ctx.callTool(
-            "graph_rebuild",
-            rebuildArgs,
-          );
+          const rebuildResult = await ctx.callTool("graph_rebuild", rebuildArgs);
           const rebuildJson = JSON.parse(rebuildResult);
           if (rebuildJson?.error) {
             steps.push({
@@ -2106,11 +1903,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
           });
         }
 
-        const copilotPath = path.join(
-          resolvedRoot,
-          ".github",
-          "copilot-instructions.md",
-        );
+        const copilotPath = path.join(resolvedRoot, ".github", "copilot-instructions.md");
         if (!fs.existsSync(copilotPath)) {
           try {
             await ctx.callTool("setup_copilot_instructions", {
@@ -2176,21 +1969,13 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
       targetPath: z
         .string()
         .optional()
-        .describe(
-          "Absolute path to the target repository (defaults to the active workspace)",
-        ),
-      projectName: z
-        .string()
-        .optional()
-        .describe("Override the detected project name"),
+        .describe("Absolute path to the target repository (defaults to the active workspace)"),
+      projectName: z.string().optional().describe("Override the detected project name"),
       dryRun: z
         .boolean()
         .default(false)
         .describe("Return the generated content without writing the file"),
-      overwrite: z
-        .boolean()
-        .default(false)
-        .describe("Replace an existing copilot-instructions.md"),
+      overwrite: z.boolean().default(false).describe("Replace an existing copilot-instructions.md"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
@@ -2222,11 +2007,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         );
       }
 
-      const destFile = path.join(
-        resolvedTarget,
-        ".github",
-        "copilot-instructions.md",
-      );
+      const destFile = path.join(resolvedTarget, ".github", "copilot-instructions.md");
       if (fs.existsSync(destFile) && !overwrite && !dryRun) {
         return ctx.formatSuccess(
           {
@@ -2256,10 +2037,8 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
 
         const stack: string[] = [];
         const isTypeScript =
-          fs.existsSync(path.join(resolvedTarget, "tsconfig.json")) ||
-          !!deps["typescript"];
-        const isNode =
-          !!pkgJson || fs.existsSync(path.join(resolvedTarget, "package.json"));
+          fs.existsSync(path.join(resolvedTarget, "tsconfig.json")) || !!deps["typescript"];
+        const isNode = !!pkgJson || fs.existsSync(path.join(resolvedTarget, "package.json"));
         const isPython =
           fs.existsSync(path.join(resolvedTarget, "pyproject.toml")) ||
           fs.existsSync(path.join(resolvedTarget, "setup.py")) ||
@@ -2294,9 +2073,7 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
 
         const candidateSrcDirs = ["src", "lib", "app", "packages", "source"];
         const srcDir =
-          candidateSrcDirs.find((d) =>
-            fs.existsSync(path.join(resolvedTarget, d)),
-          ) ?? "src";
+          candidateSrcDirs.find((d) => fs.existsSync(path.join(resolvedTarget, d))) ?? "src";
 
         const srcPath = path.join(resolvedTarget, srcDir);
         let subDirs: string[] = [];
@@ -2345,56 +2122,141 @@ export const coreToolDefinitionsAll: ToolDefinition[] = [
         if (isMcpServer) {
           lines.push(
             "",
-            "## Required Session Flow (HTTP)",
+            "## Required Session Flow",
             "",
-            "1. Send `initialize`",
-            "2. Capture `mcp-session-id` from response header",
-            "3. Include `mcp-session-id` on all subsequent requests",
-            "4. Call `graph_set_workspace` — or use `init_project_setup` for a one-shot setup",
-            "5. Call `graph_rebuild`",
-            "6. Validate via `graph_health` and `graph_query`",
+            "**One-shot (recommended):**",
+            "```",
+            'init_project_setup({ projectId: "my-proj", workspaceRoot: "/abs/path" })',
+            "```",
+            "",
+            "**Manual:**",
+            "1. `graph_set_workspace({ projectId, workspaceRoot })` — anchor the session",
+            '2. `graph_rebuild({ projectId, mode: "full", workspaceRoot })` — capture `txId` from response',
+            '3. `graph_health({ profile: "balanced" })` — verify nodes > 0',
+            '4. `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) LIMIT 8", projectId })` — confirm data',
+            "",
+            "**HTTP transport only:** capture `mcp-session-id` from `initialize` response and include on every request.",
           );
         } else {
           lines.push(
             "",
             "## Required Session Flow",
             "",
-            "1. Call `init_project_setup` with the workspace path — this sets context, triggers graph rebuild, and creates copilot instructions in one step.",
-            "2. Validate with `graph_health`",
-            "3. Explore with `graph_query`",
+            "1. Call `init_project_setup({ projectId, workspaceRoot })` — sets context, triggers graph rebuild, writes copilot instructions.",
+            '2. Validate with `graph_health({ profile: "balanced" })`',
+            '3. Explore with `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) DESC LIMIT 10" })`',
           );
         }
 
         lines.push(
           "",
-          "## Tool Priority",
+          "## Tool Decision Guide",
           "",
-          "- Discovery/counts/listing: `graph_query`",
-          "- Dependency context: `code_explain`",
-          "- Architecture checks: `arch_validate`, `arch_suggest`",
-          "- Test impact: `impact_analyze`, `test_select`",
-          "- Similarity/search: `semantic_search`, `find_similar_code`",
-          "- Reference patterns: `ref_query` — query another repo on the same machine",
-          "- Docs: `search_docs`, `index_docs`",
-          "- Init: `init_project_setup` — one-shot workspace initialization",
+          "| Goal | First choice | Fallback |",
+          "|---|---|---|",
+          "| Count/list nodes | `graph_query` (Cypher) | `graph_health` |",
+          "| Understand a symbol | `code_explain` (symbol name) | `semantic_slice` |",
+          "| Find related code | `find_similar_code` | `semantic_search` |",
+          "| Check arch violations | `arch_validate` | `blocking_issues` |",
+          "| Place new code | `arch_suggest` | — |",
+          "| Docs lookup | `search_docs` → `index_docs` if empty | file read |",
+          "| Tests after change | `test_select` → `test_run` | `suggest_tests` |",
+          "| Track decisions | `episode_add` (DECISION) | — |",
+          "| Release agent lock | `agent_release` with `claimId` | — |",
         );
 
         lines.push(
           "",
-          "## Output Requirements",
+          "## Correct Tool Signatures (verified)",
           "",
-          "Always include:",
+          "```jsonc",
+          `// graph — capture txId from graph_rebuild response for diff_since`,
+          `graph_rebuild({ "projectId": "proj", "mode": "full" })  // → { txId }`,
+          `diff_since({ "since": "<txId | ISO-8601>" })            // NOT git refs like HEAD~3`,
           "",
-          "1. Active context (`projectId`, `workspaceRoot`)",
-          "2. Whether results are final or pending async rebuild",
-          "3. The single best next action",
+          `// semantic`,
+          `code_explain({ "element": "SymbolName", "depth": 2 })   // symbol name, NOT qualified ID`,
+          `semantic_diff({ "elementId1": "...", "elementId2": "..." })  // NOT elementA/elementB`,
+          `semantic_slice({ "symbol": "MyClass" })                 // NOT entryPoint`,
+          "",
+          `// clustering`,
+          `code_clusters({ "type": "file" })  // type: "function"|"class"|"file"  NOT granularity`,
+          `arch_suggest({ "name": "NewEngine", "codeType": "engine" })  // NOT codeName`,
+          "",
+          `// memory — DECISION requires metadata.rationale, type is uppercase`,
+          `episode_add({ "type": "DECISION", "content": "...", "outcome": "success",`,
+          `             "metadata": { "rationale": "because..." } })`,
+          `episode_add({ "type": "LEARNING", "content": "..." })`,
+          `decision_query({ "query": "..." })   // NOT topic`,
+          `progress_query({ "query": "..." })   // query is required, NOT status`,
+          "",
+          `// coordination — capture claimId from agent_claim for release`,
+          `agent_claim({ "agentId": "a1", "targetId": "src/file.ts", "intent": "..." })  // NOT target`,
+          `agent_release({ "claimId": "claim-xxx" })   // NOT agentId/taskId`,
+          `context_pack({ "task": "Description..." }) // task string is REQUIRED`,
+          "",
+          `// tests — suggest_tests needs fully-qualified element ID`,
+          `suggest_tests({ "elementId": "proj:file.ts:symbolName:line" })`,
+          "```",
+        );
+
+        lines.push(
+          "",
+          "## Common Pitfalls",
+          "",
+          "| Wrong | Correct |",
+          "|---|---|",
+          '| `code_explain({ elementId: ... })` | `code_explain({ element: "SymbolName" })` |',
+          "| `semantic_diff({ elementA, elementB })` | `semantic_diff({ elementId1, elementId2 })` |",
+          '| `code_clusters({ granularity: "module" })` | `code_clusters({ type: "file" })` |',
+          '| `arch_suggest({ codeName: "X" })` | `arch_suggest({ name: "X" })` |',
+          '| `episode_add({ type: "decision" })` | `episode_add({ type: "DECISION" })` (uppercase) |',
+          '| DECISION without `metadata.rationale` | always include `metadata: { rationale: "..." }` |',
+          '| `decision_query({ topic: "X" })` | `decision_query({ query: "X" })` |',
+          '| `agent_claim({ target: "f.ts" })` | `agent_claim({ targetId: "f.ts" })` |',
+          '| `agent_release({ agentId, taskId })` | `agent_release({ claimId: "claim-xxx" })` |',
+        );
+
+        lines.push(
+          "",
+          "## Copilot Skills — Usage Patterns",
+          "",
+          "### Explore unfamiliar codebase",
+          "```",
+          "1. init_project_setup({ projectId, workspaceRoot })",
+          '2. graph_query("MATCH (n) RETURN labels(n)[0], count(n) ORDER BY count(n) DESC LIMIT 10")',
+          '3. code_explain({ element: "MainEntryPoint" })',
+          "```",
+          "",
+          "### Safe refactor + test impact",
+          "```",
+          '1. impact_analyze({ changedFiles: ["src/x.ts"] })',
+          '2. test_select({ changedFiles: ["src/x.ts"] })',
+          '3. arch_validate({ files: ["src/x.ts"] })',
+          "4. test_run({ testFiles: [...from test_select...] })",
+          '5. episode_add({ type: "DECISION", content: "...", metadata: { rationale: "..." } })',
+          "```",
+          "",
+          "### Multi-agent safe edit",
+          "```",
+          '1. agent_claim({ agentId, targetId: "src/file.ts", intent: "..." })  → save claimId',
+          "2. ... make changes ...",
+          '3. agent_release({ claimId, outcome: "done" })',
+          "```",
+          "",
+          "### Docs cold start",
+          "```",
+          '1. search_docs({ query: "topic" })           — if count=0:',
+          '2. index_docs({ paths: ["/abs/README.md"] })',
+          '3. search_docs({ query: "topic" })           — now returns results',
+          "```",
         );
 
         lines.push(
           "",
           "## Source of Truth",
           "",
-          "For configuration and setup details, see `README.md` and `QUICK_START.md`.",
+          "`README.md`, `QUICK_START.md`, `ARCHITECTURE.md`.",
         );
 
         const content = lines.join("\n") + "\n";

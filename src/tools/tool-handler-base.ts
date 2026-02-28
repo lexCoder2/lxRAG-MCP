@@ -7,7 +7,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as env from "../env.js";
-import { generateSecureId } from "../utils/validation.js";
+import { generateSecureId, computeProjectFingerprint } from "../utils/validation.js";
 import type { GraphIndexManager } from "../graph/index.js";
 import type MemgraphClient from "../graph/client.js";
 import ArchitectureEngine from "../engines/architecture-engine.js";
@@ -26,11 +26,17 @@ import HybridRetriever from "../graph/hybrid-retriever.js";
 import FileWatcher from "../graph/watcher.js";
 import { DocsEngine } from "../engines/docs-engine.js";
 import type { EngineSet } from "./types.js";
+import {
+  validateToolArgs as _validateToolArgs,
+  type ContractValidation,
+} from "./contract-validator.js";
+import { logger } from "../utils/logger.js";
+import type { Config } from "../config.js";
 
 export interface ToolContext {
   index: GraphIndexManager;
   memgraph: MemgraphClient;
-  config: any;
+  config: Config;
   orchestrator?: GraphOrchestrator;
 }
 
@@ -38,6 +44,8 @@ export interface ProjectContext {
   workspaceRoot: string;
   sourceDir: string;
   projectId: string;
+  /** 4-char alphanumeric hash of workspaceRoot — stable workspace identity fingerprint */
+  projectFingerprint?: string;
 }
 
 /**
@@ -118,10 +126,7 @@ export abstract class ToolHandlerBase {
       return this.defaultActiveProjectContext;
     }
 
-    return (
-      this.sessionProjectContexts.get(sessionId) ||
-      this.defaultActiveProjectContext
-    );
+    return this.sessionProjectContexts.get(sessionId) || this.defaultActiveProjectContext;
   }
 
   public setActiveProjectContext(context: ProjectContext): void {
@@ -137,25 +142,19 @@ export abstract class ToolHandlerBase {
   }
 
   protected reloadEnginesForContext(context: ProjectContext): void {
-    console.error(
-      `[ToolHandlers] Reloading engines for project context: ${context.projectId}`,
-    );
+    logger.error(`[ToolHandlers] Reloading engines for project context: ${context.projectId}`);
 
     try {
       this.progressEngine?.reload(this.context.index, context.projectId);
       this.testEngine?.reload(this.context.index, context.projectId);
       if (this.archEngine) {
-        this.archEngine.reload(
-          this.context.index,
-          context.projectId,
-          context.workspaceRoot,
-        );
+        this.archEngine.reload(this.context.index, context.projectId, context.workspaceRoot);
       }
 
       // Phase 4.3: Reset embedding flag per-project to prevent race conditions
       this.clearProjectEmbeddingsReady(context.projectId);
     } catch (error) {
-      console.error("[ToolHandlers] Failed to reload engines:", error);
+      logger.error("[ToolHandlers] Failed to reload engines:", error);
     }
   }
 
@@ -168,17 +167,15 @@ export abstract class ToolHandlerBase {
       workspaceRoot,
       sourceDir,
       projectId,
+      projectFingerprint: computeProjectFingerprint(workspaceRoot),
     };
   }
 
-  public resolveProjectContext(overrides: any = {}): ProjectContext {
+  public resolveProjectContext(overrides: Partial<ProjectContext> = {}): ProjectContext {
     const base = this.getActiveProjectContext() || this.defaultProjectContext();
     const workspaceProvided =
-      typeof overrides.workspaceRoot === "string" &&
-      overrides.workspaceRoot.trim().length > 0;
-    const workspaceInput = workspaceProvided
-      ? overrides.workspaceRoot
-      : base.workspaceRoot;
+      typeof overrides.workspaceRoot === "string" && overrides.workspaceRoot.trim().length > 0;
+    const workspaceInput = workspaceProvided ? (overrides.workspaceRoot as string) : base.workspaceRoot;
     const workspaceRoot = path.resolve(workspaceInput);
     const sourceInput = overrides.sourceDir || path.join(workspaceRoot, "src");
     const sourceDir = path.isAbsolute(sourceInput)
@@ -186,15 +183,14 @@ export abstract class ToolHandlerBase {
       : path.resolve(workspaceRoot, sourceInput);
     const projectId =
       overrides.projectId ||
-      (workspaceProvided
-        ? path.basename(workspaceRoot)
-        : env.LXRAG_PROJECT_ID) ||
+      (workspaceProvided ? path.basename(workspaceRoot) : env.LXRAG_PROJECT_ID) ||
       path.basename(workspaceRoot);
 
     return {
       workspaceRoot,
       sourceDir,
       projectId,
+      projectFingerprint: computeProjectFingerprint(workspaceRoot),
     };
   }
 
@@ -213,14 +209,8 @@ export abstract class ToolHandlerBase {
     }
 
     let mappedSourceDir = context.sourceDir;
-    if (
-      path.isAbsolute(context.sourceDir) &&
-      context.sourceDir.startsWith(context.workspaceRoot)
-    ) {
-      const relativeSource = path.relative(
-        context.workspaceRoot,
-        context.sourceDir,
-      );
+    if (path.isAbsolute(context.sourceDir) && context.sourceDir.startsWith(context.workspaceRoot)) {
+      const relativeSource = path.relative(context.workspaceRoot, context.sourceDir);
       mappedSourceDir = path.resolve(fallbackRoot, relativeSource);
     }
 
@@ -314,23 +304,16 @@ export abstract class ToolHandlerBase {
       if (watcher) {
         await watcher.stop();
         this.sessionWatchers.delete(watcherKey);
-        console.error(
-          `[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`,
-        );
+        logger.error(`[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`);
       }
 
       // Remove project context for this session
       if (this.sessionProjectContexts.has(sessionId)) {
         this.sessionProjectContexts.delete(sessionId);
-        console.error(
-          `[ToolHandlers] Session cleanup: removed project context for ${sessionId}`,
-        );
+        logger.error(`[ToolHandlers] Session cleanup: removed project context for ${sessionId}`);
       }
     } catch (error) {
-      console.error(
-        `[ToolHandlers] Error cleaning up session ${sessionId}:`,
-        error,
-      );
+      logger.error(`[ToolHandlers] Error cleaning up session ${sessionId}:`, error);
     }
   }
 
@@ -350,15 +333,13 @@ export abstract class ToolHandlerBase {
           await watcher.stop();
         }
       } catch (error) {
-        console.error(`[ToolHandlers] Error stopping watcher ${key}:`, error);
+        logger.error(`[ToolHandlers] Error stopping watcher ${key}:`, error);
       }
     }
 
     this.sessionWatchers.clear();
     this.sessionProjectContexts.clear();
-    console.error(
-      `[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`,
-    );
+    logger.error(`[ToolHandlers] Cleaned up all ${sessionIds.length} session contexts`);
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
@@ -366,88 +347,87 @@ export abstract class ToolHandlerBase {
   // ──────────────────────────────────────────────────────────────────────────────
 
   protected initializeEngines(): void {
-    console.error("[initializeEngines] Starting engine initialization...");
-    console.error(
+    logger.error("[initializeEngines] Starting engine initialization...");
+    logger.error(
       `[initializeEngines] projectId=${this.defaultActiveProjectContext.projectId} workspaceRoot=${this.defaultActiveProjectContext.workspaceRoot}`,
     );
-    console.error(
+    logger.error(
       `[initializeEngines] memgraphConnected=${this.context.memgraph.isConnected?.() ?? "unknown"}`,
     );
 
     if (this.context.config.architecture) {
       this.archEngine = new ArchitectureEngine(
-        this.context.config.architecture.layers,
+        this.context.config.architecture.layers as unknown as import("../engines/architecture-engine.js").LayerDefinition[],
         this.context.config.architecture.rules,
         this.context.index,
         this.defaultActiveProjectContext.workspaceRoot,
+        {
+          sourceGlobs: this.context.config.testing?.sourceGlobs,
+          defaultExtension: this.context.config.testing?.defaultExtension,
+        },
       );
-      console.error(
+      logger.error(
         `[initializeEngines] archEngine=ready layers=${this.context.config.architecture.layers?.length ?? 0}`,
       );
     } else {
-      console.error(
-        "[initializeEngines] archEngine=skipped (no architecture config)",
-      );
+      logger.error("[initializeEngines] archEngine=skipped (no architecture config)");
     }
 
     this.testEngine = new TestEngine(this.context.index);
-    console.error("[initializeEngines] testEngine=ready");
+    logger.error("[initializeEngines] testEngine=ready");
 
-    this.progressEngine = new ProgressEngine(
-      this.context.index,
-      this.context.memgraph,
-    );
-    console.error("[initializeEngines] progressEngine=ready");
+    this.progressEngine = new ProgressEngine(this.context.index, this.context.memgraph);
+    logger.error("[initializeEngines] progressEngine=ready");
 
     this.episodeEngine = new EpisodeEngine(this.context.memgraph);
-    console.error("[initializeEngines] episodeEngine=ready");
+    logger.error("[initializeEngines] episodeEngine=ready");
 
     this.coordinationEngine = new CoordinationEngine(this.context.memgraph);
-    console.error("[initializeEngines] coordinationEngine=ready");
+    logger.error("[initializeEngines] coordinationEngine=ready");
 
     this.communityDetector = new CommunityDetector(this.context.memgraph);
-    console.error("[initializeEngines] communityDetector=ready");
+    logger.error("[initializeEngines] communityDetector=ready");
 
     // Initialize GraphOrchestrator if not provided
     this.orchestrator =
       this.context.orchestrator ||
       new GraphOrchestrator(this.context.memgraph, false, this.context.index);
-    console.error(
+    logger.error(
       `[initializeEngines] orchestrator=${this.context.orchestrator ? "provided" : "created"}`,
     );
 
     this.initializeVectorEngine();
-    console.error("[initializeEngines] All engines initialized.");
+    logger.error("[initializeEngines] All engines initialized.");
   }
 
   protected initializeVectorEngine(): void {
     const host = env.QDRANT_HOST;
     const port = env.QDRANT_PORT;
-    console.error(`[initializeVectorEngine] qdrant=${host}:${port}`);
-    console.error(
+    logger.error(`[initializeVectorEngine] qdrant=${host}:${port}`);
+    logger.error(
       `[initializeVectorEngine] summarizerUrl=${env.LXRAG_SUMMARIZER_URL ?? "(not set)"}`,
     );
     this.qdrant = new QdrantClient(host, port);
     this.embeddingEngine = new EmbeddingEngine(this.context.index, this.qdrant);
-    console.error("[initializeVectorEngine] embeddingEngine=created");
+    logger.error("[initializeVectorEngine] embeddingEngine=created");
     this.hybridRetriever = new HybridRetriever(
       this.context.index,
       this.embeddingEngine,
       this.context.memgraph,
     );
-    console.error("[initializeVectorEngine] hybridRetriever=created");
+    logger.error("[initializeVectorEngine] hybridRetriever=created");
     this.docsEngine = new DocsEngine(this.context.memgraph, {
       qdrant: this.qdrant,
     });
-    console.error("[initializeVectorEngine] docsEngine=created");
+    logger.error("[initializeVectorEngine] docsEngine=created");
 
     void this.qdrant
       .connect()
       .then(() => {
-        console.error("[initializeVectorEngine] qdrant=CONNECTED");
+        logger.error("[initializeVectorEngine] qdrant=CONNECTED");
       })
       .catch((error: unknown) => {
-        console.warn("[initializeVectorEngine] qdrant=FAILED:", String(error));
+        logger.warn("[initializeVectorEngine] qdrant=FAILED:", String(error));
       });
 
     // Ensure the Memgraph text_search BM25 index exists at startup.
@@ -457,17 +437,14 @@ export abstract class ToolHandlerBase {
     setImmediate(() => {
       if (!this.hybridRetriever) return;
       if (!this.context.memgraph.isConnected?.()) return;
-      if (typeof (this.hybridRetriever as any).ensureBM25Index !== "function")
-        return;
+      if (typeof (this.hybridRetriever as unknown as { ensureBM25Index?: () => void }).ensureBM25Index !== "function") return;
       void this.hybridRetriever
         .ensureBM25Index()
         .then((result) => {
           if (result.created) {
-            console.error("[bm25] Created text_search symbol_index at startup");
+            logger.error("[bm25] Created text_search symbol_index at startup");
           } else if (result.error) {
-            console.warn(
-              `[bm25] BM25 index unavailable at startup: ${result.error}`,
-            );
+            logger.warn(`[bm25] BM25 index unavailable at startup: ${result.error}`);
           }
         })
         .catch(() => {
@@ -476,7 +453,7 @@ export abstract class ToolHandlerBase {
     });
 
     if (!env.LXRAG_SUMMARIZER_URL) {
-      console.warn(
+      logger.warn(
         "[summarizer] LXRAG_SUMMARIZER_URL is not set. " +
           "Heuristic local summaries will be used, reducing vector search quality and " +
           "compact-profile accuracy. " +
@@ -493,22 +470,20 @@ export abstract class ToolHandlerBase {
   protected async initializeIndexFromMemgraph(): Promise<void> {
     try {
       if (!this.context.memgraph.isConnected()) {
-        console.error(
+        logger.error(
           "[Phase2c] Memgraph not connected, skipping index initialization from database",
         );
         return;
       }
 
       const projectId = this.defaultActiveProjectContext.projectId;
-      console.error(
-        `[Phase2c] Loading index from Memgraph for project ${projectId}...`,
-      );
+      logger.error(`[Phase2c] Loading index from Memgraph for project ${projectId}...`);
 
       const graphData = await this.context.memgraph.loadProjectGraph(projectId);
       const { nodes, relationships } = graphData;
 
       if (nodes.length === 0 && relationships.length === 0) {
-        console.error(
+        logger.error(
           `[Phase2c] No data found in Memgraph for project ${projectId}, index remains empty`,
         );
         return;
@@ -521,23 +496,14 @@ export abstract class ToolHandlerBase {
 
       // Add all relationships to the index
       for (const rel of relationships) {
-        this.context.index.addRelationship(
-          rel.id,
-          rel.from,
-          rel.to,
-          rel.type,
-          rel.properties,
-        );
+        this.context.index.addRelationship(rel.id, rel.from, rel.to, rel.type, rel.properties);
       }
 
-      console.error(
+      logger.error(
         `[Phase2c] Index loaded from Memgraph: ${nodes.length} nodes, ${relationships.length} relationships for project ${projectId}`,
       );
     } catch (error) {
-      console.error(
-        "[Phase2c] Failed to initialize index from Memgraph:",
-        error,
-      );
+      logger.error("[Phase2c] Failed to initialize index from Memgraph:", error);
       // Continue regardless - index is optional for startup
     }
   }
@@ -546,12 +512,7 @@ export abstract class ToolHandlerBase {
   // Response Formatting
   // ──────────────────────────────────────────────────────────────────────────────
 
-  public errorEnvelope(
-    code: string,
-    reason: string,
-    recoverable = true,
-    hint?: string,
-  ): string {
+  public errorEnvelope(code: string, reason: string, recoverable = true, hint?: string): string {
     const response = errorResponse(
       code,
       reason,
@@ -576,9 +537,7 @@ export abstract class ToolHandlerBase {
   protected compactValue(value: unknown): unknown {
     if (typeof value === "string") {
       const normalized = this.canonicalizePaths(value);
-      return normalized.length > 320
-        ? `${normalized.slice(0, 317)}...`
-        : normalized;
+      return normalized.length > 320 ? `${normalized.slice(0, 317)}...` : normalized;
     }
 
     if (Array.isArray(value)) {
@@ -586,13 +545,8 @@ export abstract class ToolHandlerBase {
     }
 
     if (value && typeof value === "object") {
-      const entries = Object.entries(value as Record<string, unknown>).slice(
-        0,
-        20,
-      );
-      return Object.fromEntries(
-        entries.map(([key, val]) => [key, this.compactValue(val)]),
-      );
+      const entries = Object.entries(value as Record<string, unknown>).slice(0, 20);
+      return Object.fromEntries(entries.map(([key, val]) => [key, this.compactValue(val)]));
     }
 
     return value;
@@ -605,16 +559,11 @@ export abstract class ToolHandlerBase {
     toolName?: string,
   ): string {
     const shaped = profile === "debug" ? data : this.compactValue(data);
-    const safeProfile =
-      profile === "balanced" || profile === "debug" ? profile : "compact";
+    const safeProfile = profile === "balanced" || profile === "debug" ? profile : "compact";
     return JSON.stringify(
-      formatResponse(
-        summary || "Operation completed successfully.",
-        shaped,
-        safeProfile,
-        toolName,
-      ),
-      null,
+      formatResponse(summary || "Operation completed successfully.", shaped, safeProfile, toolName),
+      // Safety net: convert any residual BigInt values to Number
+      (_key, value) => (typeof value === "bigint" ? Number(value) : value),
       2,
     );
   }
@@ -649,8 +598,8 @@ export abstract class ToolHandlerBase {
 
   protected normalizeToolArgs(
     toolName: string,
-    rawArgs: any,
-  ): { normalized: any; warnings: string[] } {
+    rawArgs: Record<string, unknown>,
+  ): { normalized: Record<string, unknown>; warnings: string[] } {
     const warnings: string[] = [];
     const normalized = { ...(rawArgs || {}) };
 
@@ -661,10 +610,7 @@ export abstract class ToolHandlerBase {
           ? normalized.changedFiles
           : [];
 
-      if (
-        Array.isArray(normalized.changedFiles) &&
-        !Array.isArray(normalized.files)
-      ) {
+      if (Array.isArray(normalized.changedFiles) && !Array.isArray(normalized.files)) {
         warnings.push("mapped changedFiles -> files");
       }
 
@@ -711,30 +657,35 @@ export abstract class ToolHandlerBase {
     return { normalized, warnings };
   }
 
-  normalizeForDispatch(
-    toolName: string,
-    rawArgs: any,
-  ): { normalized: any; warnings: string[] } {
+  normalizeForDispatch(toolName: string, rawArgs: Record<string, unknown>): { normalized: Record<string, unknown>; warnings: string[] } {
     return this.normalizeToolArgs(toolName, rawArgs);
   }
 
-  async callTool(toolName: string, rawArgs: any): Promise<string> {
-    console.error(
+  /**
+   * Validate `args` against the Zod schema registered for `toolName`.
+   *
+   * Delegates to the standalone {@link _validateToolArgs} function so that
+   * the validation logic stays testable in isolation.
+   */
+  validateToolArgs(toolName: string, args: unknown): ContractValidation {
+    return _validateToolArgs(toolName, args);
+  }
+
+  async callTool(toolName: string, rawArgs: Record<string, unknown>): Promise<string> {
+    logger.error(
       `[callTool] ENTER tool=${toolName} args=${JSON.stringify(rawArgs ?? {}).slice(0, 256)}`,
     );
     const { normalized, warnings } = this.normalizeToolArgs(toolName, rawArgs);
-    const target = (this as any)[toolName];
+    const target = (this as Record<string, unknown>)[toolName];
 
     if (typeof target !== "function") {
-      console.error(
+      logger.error(
         `[callTool] TOOL_NOT_FOUND tool=${toolName} — method does not exist on ToolHandlers`,
       );
       const registered = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
-        .filter(
-          (k) => typeof (this as any)[k] === "function" && !k.startsWith("_"),
-        )
+        .filter((k) => typeof (this as Record<string, unknown>)[k] === "function" && !k.startsWith("_"))
         .join(", ");
-      console.error(`[callTool] Registered methods: ${registered}`);
+      logger.error(`[callTool] Registered methods: ${registered}`);
       return this.errorEnvelope(
         "TOOL_NOT_FOUND",
         `Tool not found in handler registry: ${toolName}`,
@@ -746,9 +697,7 @@ export abstract class ToolHandlerBase {
     try {
       result = await target.call(this, normalized);
     } catch (err) {
-      console.error(
-        `[callTool] UNCAUGHT_EXCEPTION tool=${toolName} error=${String(err)}`,
-      );
+      logger.error(`[callTool] UNCAUGHT_EXCEPTION tool=${toolName} error=${String(err)}`);
       throw err;
     }
 
@@ -756,13 +705,9 @@ export abstract class ToolHandlerBase {
       const parsed = JSON.parse(result);
       const ok = parsed?.ok ?? true;
       const code = parsed?.error?.code ?? (ok ? "ok" : "error");
-      console.error(
-        `[callTool] EXIT tool=${toolName} status=${ok} code=${code}`,
-      );
+      logger.error(`[callTool] EXIT tool=${toolName} status=${ok} code=${code}`);
     } catch {
-      console.error(
-        `[callTool] EXIT tool=${toolName} result-length=${result.length}`,
-      );
+      logger.error(`[callTool] EXIT tool=${toolName} result-length=${result.length}`);
     }
 
     if (!warnings.length) {
@@ -813,11 +758,7 @@ export abstract class ToolHandlerBase {
       return Number.isFinite(parsed) ? parsed : null;
     }
 
-    if (
-      value &&
-      typeof value === "object" &&
-      "low" in (value as Record<string, unknown>)
-    ) {
+    if (value && typeof value === "object" && "low" in (value as Record<string, unknown>)) {
       const low = Number((value as Record<string, unknown>).low);
       const highRaw = (value as Record<string, unknown>).high;
       const high = typeof highRaw === "number" ? highRaw : Number(highRaw || 0);
@@ -843,7 +784,7 @@ export abstract class ToolHandlerBase {
     const type = String(args.type || "").toUpperCase();
     const entities = Array.isArray(args.entities) ? args.entities : [];
     const metadata = args.metadata || {};
-    console.error(
+    logger.error(
       `[validateEpisodeInput] type=${type} outcome=${String(args.outcome ?? "")} entities=${entities.length} metadataKeys=${Object.keys(metadata).join(",") || "none"}`,
     );
 
@@ -852,10 +793,7 @@ export abstract class ToolHandlerBase {
       if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
         return "DECISION episodes require outcome: success | failure | partial.";
       }
-      if (
-        typeof metadata.rationale !== "string" &&
-        typeof metadata.reason !== "string"
-      ) {
+      if (typeof metadata.rationale !== "string" && typeof metadata.reason !== "string") {
         return "DECISION episodes require metadata.rationale (or metadata.reason).";
       }
     }
@@ -871,19 +809,13 @@ export abstract class ToolHandlerBase {
       if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
         return "TEST_RESULT episodes require outcome: success | failure | partial.";
       }
-      if (
-        typeof metadata.testName !== "string" &&
-        typeof metadata.testFile !== "string"
-      ) {
+      if (typeof metadata.testName !== "string" && typeof metadata.testFile !== "string") {
         return "TEST_RESULT episodes require metadata.testName or metadata.testFile.";
       }
     }
 
     if (type === "ERROR") {
-      if (
-        typeof metadata.errorCode !== "string" &&
-        typeof metadata.stack !== "string"
-      ) {
+      if (typeof metadata.errorCode !== "string" && typeof metadata.stack !== "string") {
         return "ERROR episodes require metadata.errorCode or metadata.stack.";
       }
     }
@@ -891,10 +823,7 @@ export abstract class ToolHandlerBase {
     return null;
   }
 
-  public async inferEpisodeEntityHints(
-    query: string,
-    limit: number,
-  ): Promise<string[]> {
+  public async inferEpisodeEntityHints(query: string, limit: number): Promise<string[]> {
     if (!this.embeddingEngine || !query.trim()) {
       return [];
     }
@@ -985,18 +914,14 @@ export abstract class ToolHandlerBase {
   // Phase 4.3: Project-scoped embedding readiness check to prevent race conditions
   // Phase 4.5: Improved error handling for Qdrant operations
   public async ensureEmbeddings(projectId?: string): Promise<void> {
-    const activeProjectId =
-      projectId || this.getActiveProjectContext().projectId;
+    const activeProjectId = projectId || this.getActiveProjectContext().projectId;
 
-    console.error(
+    logger.error(
       `[ensureEmbeddings] projectId=${activeProjectId} embeddingEngineReady=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)} qdrantConnected=${this.qdrant?.isConnected?.() ?? "unknown"}`,
     );
 
-    if (
-      this.isProjectEmbeddingsReady(activeProjectId) ||
-      !this.embeddingEngine
-    ) {
-      console.error(
+    if (this.isProjectEmbeddingsReady(activeProjectId) || !this.embeddingEngine) {
+      logger.error(
         `[ensureEmbeddings] SKIP — embeddingEngine=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)}`,
       );
       return;
@@ -1011,16 +936,13 @@ export abstract class ToolHandlerBase {
       try {
         await this.embeddingEngine.storeInQdrant();
       } catch (qdrantError) {
-        const errorMsg =
-          qdrantError instanceof Error
-            ? qdrantError.message
-            : String(qdrantError);
-        console.error(
+        const errorMsg = qdrantError instanceof Error ? qdrantError.message : String(qdrantError);
+        logger.error(
           `[Phase4.5] Qdrant storage failed for project ${activeProjectId}: ${errorMsg}`,
         );
         // Don't throw - continue with embeddings ready flag set locally
         // Qdrant failures are non-critical for indexing functionality
-        console.warn(
+        logger.warn(
           `[Phase4.5] Continuing without Qdrant - semantic search may be unavailable for project ${activeProjectId}`,
         );
       }
@@ -1028,7 +950,7 @@ export abstract class ToolHandlerBase {
       this.setProjectEmbeddingsReady(activeProjectId, true);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error(
+      logger.error(
         `[Phase4.5] Embedding generation failed for project ${activeProjectId}: ${errorMsg}`,
       );
       throw error;
@@ -1051,11 +973,7 @@ export abstract class ToolHandlerBase {
   // Build Error Tracking (Phase 4.5)
   // ──────────────────────────────────────────────────────────────────────────────
 
-  public recordBuildError(
-    projectId: string,
-    error: unknown,
-    context?: string,
-  ): void {
+  public recordBuildError(projectId: string, error: unknown, context?: string): void {
     const errorMsg = error instanceof Error ? error.message : String(error);
     const errors = this.backgroundBuildErrors.get(projectId) || [];
 
@@ -1113,12 +1031,8 @@ export abstract class ToolHandlerBase {
     const scopedTail = parts.length > 1 ? parts[parts.length - 1] : requested;
     // If last segment is a number, treat the preceding segment as the name
     const scopedName =
-      parts.length > 2 && /^\d+$/.test(scopedTail)
-        ? parts[parts.length - 2]
-        : scopedTail;
-    const symbolTail = requested.includes("::")
-      ? requested.split("::").slice(-1)[0]
-      : scopedName;
+      parts.length > 2 && /^\d+$/.test(scopedTail) ? parts[parts.length - 2] : scopedTail;
+    const symbolTail = requested.includes("::") ? requested.split("::").slice(-1)[0] : scopedName;
 
     const files = this.context.index.getNodesByType("FILE");
     const functions = this.context.index.getNodesByType("FUNCTION");
@@ -1127,10 +1041,7 @@ export abstract class ToolHandlerBase {
     return (
       files.find((node) => {
         const nodePath = String(
-          node.properties.path ||
-            node.properties.filePath ||
-            node.properties.relativePath ||
-            "",
+          node.properties.path || node.properties.filePath || node.properties.relativePath || "",
         ).replace(/\\/g, "/");
         return (
           nodePath === normalizedPath ||
@@ -1271,20 +1182,12 @@ export abstract class ToolHandlerBase {
       changedFiles: context.changedFiles,
       txId,
       txTimestamp,
-      exclude: [
-        "node_modules",
-        "dist",
-        ".next",
-        ".lxrag",
-        "__tests__",
-        "coverage",
-        ".git",
-      ],
+      exclude: ["node_modules", "dist", ".next", ".lxrag", "coverage", ".git"],
     });
 
     // Phase 2a & 4.3: Reset embeddings for watcher-driven incremental builds (per-project to prevent race conditions)
     this.setProjectEmbeddingsReady(context.projectId, false);
-    console.error(
+    logger.error(
       `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`,
     );
 

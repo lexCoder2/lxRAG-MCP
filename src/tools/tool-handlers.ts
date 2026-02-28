@@ -15,6 +15,7 @@ import type { ResponseProfile } from "../response/budget.js";
 import { estimateTokens, makeBudget } from "../response/budget.js";
 import { ToolHandlerBase, type ToolContext } from "./tool-handler-base.js";
 import { toolRegistryMap } from "./registry.js";
+import type { ToolArgs, HandlerBridge } from "./types.js";
 
 // Re-export base types for external consumers
 export type { ToolContext, ProjectContext } from "./tool-handler-base.js";
@@ -34,10 +35,10 @@ export class ToolHandlers extends ToolHandlerBase {
     super(context);
     // Bind migrated tools from centralized registry
     for (const [toolName, definition] of toolRegistryMap.entries()) {
-      if (typeof (this as any)[toolName] === "function") {
+      if (typeof (this as Record<string, unknown>)[toolName] === "function") {
         continue;
       }
-      (this as any)[toolName] = (args: any) => definition.impl(args, this);
+      (this as Record<string, unknown>)[toolName] = (args: any) => definition.impl(args, this as unknown as HandlerBridge);
     }
   }
 
@@ -46,7 +47,9 @@ export class ToolHandlers extends ToolHandlerBase {
 
   // Episode/coordination tools migrated to handler modules and bound via toolRegistry.
 
-  public async core_context_pack_impl(args: any): Promise<string> {
+  public async core_context_pack_impl(args: ToolArgs): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
     const {
       task,
       taskId,
@@ -55,14 +58,10 @@ export class ToolHandlers extends ToolHandlerBase {
       includeDecisions = true,
       includeLearnings = true,
       includeEpisodes = true,
-    } = args || {};
+    } = a || {};
 
     if (!task || typeof task !== "string") {
-      return this.errorEnvelope(
-        "CONTEXT_PACK_INVALID_INPUT",
-        "Field 'task' is required.",
-        true,
-      );
+      return this.errorEnvelope("CONTEXT_PACK_INVALID_INPUT", "Field 'task' is required.", true);
     }
 
     try {
@@ -70,10 +69,7 @@ export class ToolHandlers extends ToolHandlerBase {
       const { projectId, workspaceRoot } = this.getActiveProjectContext();
 
       const seedIds = this.findSeedNodeIds(task, 5);
-      const expandedSeedIds = await this.expandInterfaceSeeds(
-        seedIds,
-        projectId,
-      );
+      const expandedSeedIds = await this.expandInterfaceSeeds(seedIds, projectId);
       const pprResults = await runPPR(
         {
           projectId,
@@ -84,35 +80,24 @@ export class ToolHandlers extends ToolHandlerBase {
       );
 
       const codeCandidates = pprResults.filter((item) =>
-        ["FUNCTION", "CLASS", "FILE"].includes(
-          String(item.type || "").toUpperCase(),
-        ),
+        ["FUNCTION", "CLASS", "FILE"].includes(String(item.type || "").toUpperCase()),
       );
-      const coreSymbols = await this.materializeCoreSymbols(
-        codeCandidates,
-        workspaceRoot,
-      );
+      const coreSymbolsRaw = await this.materializeCoreSymbols(codeCandidates, workspaceRoot);
+      type CoreSymbol = { nodeId: string; symbolName: string; file: string; incomingCallers: Array<{ id: string }>; outgoingCalls: Array<{ id: string }> };
+      const coreSymbols = coreSymbolsRaw as unknown as CoreSymbol[];
 
       const selectedIds = coreSymbols.map((item) => item.nodeId);
-      const activeBlockers = await this.findActiveBlockers(
-        selectedIds,
-        runtimeAgentId,
-        projectId,
-      );
+      const activeBlockers = await this.findActiveBlockers(selectedIds, runtimeAgentId, projectId);
       const decisions = includeDecisions
         ? await this.findDecisionEpisodes(selectedIds, projectId)
         : [];
-      const learnings = includeLearnings
-        ? await this.findLearnings(selectedIds, projectId)
-        : [];
+      const learnings = includeLearnings ? await this.findLearnings(selectedIds, projectId) : [];
       const episodes = includeEpisodes
         ? await this.findRecentEpisodes(taskId, runtimeAgentId, projectId)
         : [];
 
       const entryPoint =
-        coreSymbols[0]?.symbolName ||
-        coreSymbols[0]?.file ||
-        "No entry point found";
+        coreSymbols[0]?.symbolName || coreSymbols[0]?.file || "No entry point found";
       const summary = `Task briefing for '${task}': start at ${entryPoint}. Focus on ${coreSymbols.length} high-relevance symbol(s) and resolve ${activeBlockers.length} active blocker(s).`;
 
       const pack: Record<string, unknown> = {
@@ -123,12 +108,12 @@ export class ToolHandlers extends ToolHandlerBase {
         projectId,
         coreSymbols,
         dependencies: coreSymbols.flatMap((item) => [
-          ...item.incomingCallers.map((caller: any) => ({
+          ...item.incomingCallers.map((caller: Record<string, unknown>) => ({
             from: caller.id,
             to: item.nodeId,
             type: "CALLS",
           })),
-          ...item.outgoingCalls.map((callee: any) => ({
+          ...item.outgoingCalls.map((callee: Record<string, unknown>) => ({
             from: item.nodeId,
             to: callee.id,
             type: "CALLS",
@@ -147,9 +132,7 @@ export class ToolHandlers extends ToolHandlerBase {
           : null,
         pprScores:
           profile === "debug"
-            ? Object.fromEntries(
-                pprResults.map((item) => [item.nodeId, item.score]),
-              )
+            ? Object.fromEntries(pprResults.map((item) => [item.nodeId, item.score]))
             : undefined,
       };
 
@@ -165,15 +148,10 @@ export class ToolHandlers extends ToolHandlerBase {
     }
   }
 
-  public async core_semantic_slice_impl(args: any): Promise<string> {
-    const {
-      file,
-      symbol,
-      query,
-      context = "body",
-      pprScore,
-      profile = "compact",
-    } = args || {};
+  public async core_semantic_slice_impl(args: ToolArgs): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const a: any = args;
+    const { file, symbol, query, context = "body", pprScore, profile = "compact" } = a || {};
 
     if (!symbol && !query && !file) {
       return this.errorEnvelope(
@@ -208,11 +186,7 @@ export class ToolHandlers extends ToolHandlerBase {
           ? context
           : "body";
 
-      const [rangeStart, rangeEnd] = this.computeSliceRange(
-        startLine,
-        endLine,
-        sliceContext,
-      );
+      const [rangeStart, rangeEnd] = this.computeSliceRange(startLine, endLine, sliceContext);
       const code = this.readExactLines(absolutePath, rangeStart, rangeEnd);
 
       const incomingCallers =
@@ -223,9 +197,7 @@ export class ToolHandlers extends ToolHandlerBase {
               .slice(0, 10)
               .map((rel) => ({
                 id: rel.from,
-                name:
-                  this.context.index.getNode(rel.from)?.properties?.name ||
-                  rel.from,
+                name: this.context.index.getNode(rel.from)?.properties?.name || rel.from,
               }))
           : [];
 
@@ -237,9 +209,7 @@ export class ToolHandlers extends ToolHandlerBase {
               .slice(0, 10)
               .map((rel) => ({
                 id: rel.to,
-                name:
-                  this.context.index.getNode(rel.to)?.properties?.name ||
-                  rel.to,
+                name: this.context.index.getNode(rel.to)?.properties?.name || rel.to,
               }))
           : [];
 
@@ -247,9 +217,7 @@ export class ToolHandlers extends ToolHandlerBase {
       const decisions = includeKnowledge
         ? await this.findDecisionEpisodes([node.id], projectId)
         : [];
-      const learnings = includeKnowledge
-        ? await this.findLearnings([node.id], projectId)
-        : [];
+      const learnings = includeKnowledge ? await this.findLearnings([node.id], projectId) : [];
 
       const response = {
         file: filePath,
@@ -291,10 +259,7 @@ export class ToolHandlers extends ToolHandlerBase {
       .map((node) => {
         const haystack =
           `${node.id} ${node.properties.name || ""} ${node.properties.path || ""}`.toLowerCase();
-        const score = tokens.reduce(
-          (acc, token) => acc + (haystack.includes(token) ? 1 : 0),
-          0,
-        );
+        const score = tokens.reduce((acc, token) => acc + (haystack.includes(token) ? 1 : 0), 0);
         return { nodeId: node.id, score };
       })
       .sort((a, b) => b.score - a.score);
@@ -307,10 +272,7 @@ export class ToolHandlers extends ToolHandlerBase {
     return candidates.slice(0, limit).map((node) => node.id);
   }
 
-  private async expandInterfaceSeeds(
-    seedIds: string[],
-    projectId: string,
-  ): Promise<string[]> {
+  private async expandInterfaceSeeds(seedIds: string[], projectId: string): Promise<string[]> {
     if (!seedIds.length) {
       return [];
     }
@@ -340,10 +302,10 @@ export class ToolHandlers extends ToolHandlerBase {
   private async materializeCoreSymbols(
     pprResults: Array<{ nodeId: string; score: number }>,
     workspaceRoot: string,
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     const maxSymbols = 8;
     const selected = pprResults.slice(0, maxSymbols);
-    const slices: any[] = [];
+    const slices: Record<string, unknown>[] = [];
 
     for (const item of selected) {
       const resolved = this.resolveNodeForSlice(item.nodeId);
@@ -398,9 +360,7 @@ export class ToolHandlers extends ToolHandlerBase {
       return null;
     }
 
-    let filePath = String(
-      node.properties.path || node.properties.filePath || "",
-    );
+    let filePath = String(node.properties.path || node.properties.filePath || "");
     if (!filePath) {
       const parents = this.context.index
         .getRelationshipsTo(node.id)
@@ -408,18 +368,14 @@ export class ToolHandlers extends ToolHandlerBase {
       const fileNode = parents
         .map((rel) => this.context.index.getNode(rel.from))
         .find((candidate) => candidate?.type === "FILE");
-      filePath = String(
-        fileNode?.properties.path || fileNode?.properties.filePath || "",
-      );
+      filePath = String(fileNode?.properties.path || fileNode?.properties.filePath || "");
     }
 
     if (!filePath) {
       filePath = node.id;
     }
 
-    const startLine = Number(
-      node.properties.startLine || node.properties.line || 1,
-    );
+    const startLine = Number(node.properties.startLine || node.properties.line || 1);
     const endLine = Number(node.properties.endLine || startLine + 40);
 
     return {
@@ -444,9 +400,7 @@ export class ToolHandlers extends ToolHandlerBase {
       const snippet = lines
         .slice(Math.max(0, startLine - 1), Math.max(startLine, endLine))
         .join("\n");
-      return snippet.length > maxChars
-        ? `${snippet.slice(0, maxChars - 3)}...`
-        : snippet;
+      return snippet.length > maxChars ? `${snippet.slice(0, maxChars - 3)}...` : snippet;
     } catch {
       return "";
     }
@@ -456,7 +410,7 @@ export class ToolHandlers extends ToolHandlerBase {
     selectedIds: string[],
     requestingAgentId: string,
     projectId: string,
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     if (!selectedIds.length) {
       return [];
     }
@@ -483,10 +437,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }));
   }
 
-  private async findDecisionEpisodes(
-    selectedIds: string[],
-    projectId: string,
-  ): Promise<any[]> {
+  private async findDecisionEpisodes(selectedIds: string[], projectId: string): Promise<Record<string, unknown>[]> {
     if (!selectedIds.length) {
       return [];
     }
@@ -507,10 +458,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }));
   }
 
-  private async findLearnings(
-    selectedIds: string[],
-    projectId: string,
-  ): Promise<any[]> {
+  private async findLearnings(selectedIds: string[], projectId: string): Promise<Record<string, unknown>[]> {
     if (!selectedIds.length) {
       return [];
     }
@@ -535,7 +483,7 @@ export class ToolHandlers extends ToolHandlerBase {
     taskId: string | undefined,
     agentId: string,
     projectId: string,
-  ): Promise<any[]> {
+  ): Promise<Record<string, unknown>[]> {
     const conditions: string[] = ["e.projectId = $projectId"];
     const params: Record<string, unknown> = { projectId };
 
@@ -564,10 +512,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }));
   }
 
-  private trimContextPackToBudget(
-    pack: Record<string, any>,
-    budget: number,
-  ): void {
+  private trimContextPackToBudget(pack: Record<string, any>, budget: number): void {
     if (!Number.isFinite(budget)) {
       return;
     }
@@ -612,11 +557,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }
   }
 
-  private resolveSemanticSliceAnchor(input: {
-    file?: string;
-    symbol?: string;
-    query?: string;
-  }): {
+  private resolveSemanticSliceAnchor(input: { file?: string; symbol?: string; query?: string }): {
     node: GraphNode;
     filePath: string;
     startLine: number;
@@ -633,26 +574,23 @@ export class ToolHandlers extends ToolHandlerBase {
     }
 
     if (normalizedSymbol && normalizedFile) {
-      const fileNode = this.context.index
-        .getNodesByType("FILE")
-        .find((candidate) => {
-          const candidatePath = String(
-            candidate.properties.path || candidate.properties.filePath || "",
-          );
-          return (
-            candidatePath === normalizedFile ||
-            candidatePath.endsWith(normalizedFile) ||
-            normalizedFile.endsWith(candidatePath)
-          );
-        });
+      const fileNode = this.context.index.getNodesByType("FILE").find((candidate) => {
+        const candidatePath = String(
+          candidate.properties.path || candidate.properties.filePath || "",
+        );
+        return (
+          candidatePath === normalizedFile ||
+          candidatePath.endsWith(normalizedFile) ||
+          normalizedFile.endsWith(candidatePath)
+        );
+      });
 
       if (fileNode) {
         const childIds = this.context.index
           .getRelationshipsFrom(fileNode.id)
           .filter((rel) => rel.type === "CONTAINS")
           .map((rel) => rel.to);
-        const targetName =
-          normalizedSymbol.split(".").pop() || normalizedSymbol;
+        const targetName = normalizedSymbol.split(".").pop() || normalizedSymbol;
         const child = childIds
           .map((id) => this.context.index.getNode(id))
           .find((node) => node?.properties?.name === targetName);
@@ -686,18 +624,16 @@ export class ToolHandlers extends ToolHandlerBase {
     }
 
     if (normalizedFile) {
-      const fileNode = this.context.index
-        .getNodesByType("FILE")
-        .find((candidate) => {
-          const candidatePath = String(
-            candidate.properties.path || candidate.properties.filePath || "",
-          );
-          return (
-            candidatePath === normalizedFile ||
-            candidatePath.endsWith(normalizedFile) ||
-            normalizedFile.endsWith(candidatePath)
-          );
-        });
+      const fileNode = this.context.index.getNodesByType("FILE").find((candidate) => {
+        const candidatePath = String(
+          candidate.properties.path || candidate.properties.filePath || "",
+        );
+        return (
+          candidatePath === normalizedFile ||
+          candidatePath.endsWith(normalizedFile) ||
+          normalizedFile.endsWith(candidatePath)
+        );
+      });
       if (fileNode) {
         return this.resolveNodeForSlice(fileNode.id);
       }
@@ -717,18 +653,12 @@ export class ToolHandlers extends ToolHandlerBase {
     return [startLine, Math.max(startLine, endLine)];
   }
 
-  private readExactLines(
-    absolutePath: string,
-    startLine: number,
-    endLine: number,
-  ): string {
+  private readExactLines(absolutePath: string, startLine: number, endLine: number): string {
     if (!fs.existsSync(absolutePath)) {
       return "";
     }
     const lines = fs.readFileSync(absolutePath, "utf-8").split("\n");
-    return lines
-      .slice(Math.max(0, startLine - 1), Math.max(startLine, endLine))
-      .join("\n");
+    return lines.slice(Math.max(0, startLine - 1), Math.max(startLine, endLine)).join("\n");
   }
 
   // Setup tools are implemented in core-tools.ts and bound via toolRegistry.
