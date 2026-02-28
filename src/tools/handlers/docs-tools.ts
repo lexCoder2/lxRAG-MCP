@@ -8,7 +8,7 @@
  */
 
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
 
 export const docsToolDefinitions: ToolDefinition[] = [
   {
@@ -21,10 +21,7 @@ export const docsToolDefinitions: ToolDefinition[] = [
         .string()
         .optional()
         .describe("Workspace root path (defaults to active session context)"),
-      projectId: z
-        .string()
-        .optional()
-        .describe("Project ID (defaults to active session context)"),
+      projectId: z.string().optional().describe("Project ID (defaults to active session context)"),
       incremental: z
         .boolean()
         .default(true)
@@ -34,7 +31,10 @@ export const docsToolDefinitions: ToolDefinition[] = [
         .default(false)
         .describe("Also embed section content into Qdrant vector store"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         workspaceRoot: argsRoot,
         projectId: argsProject,
@@ -63,21 +63,13 @@ export const docsToolDefinitions: ToolDefinition[] = [
           | undefined;
 
         if (!docsEngine) {
-          return ctx.errorEnvelope(
-            "ENGINE_UNAVAILABLE",
-            "DocsEngine not initialised",
-            false,
-          );
+          return ctx.errorEnvelope("ENGINE_UNAVAILABLE", "DocsEngine not initialised", false);
         }
 
-        const result = await docsEngine.indexWorkspace(
-          workspaceRoot,
-          projectId,
-          {
-            incremental,
-            withEmbeddings,
-          },
-        );
+        const result = await docsEngine.indexWorkspace(workspaceRoot, projectId, {
+          incremental,
+          withEmbeddings,
+        });
 
         return ctx.formatSuccess(
           {
@@ -124,12 +116,12 @@ export const docsToolDefinitions: ToolDefinition[] = [
         .max(50)
         .default(10)
         .describe("Maximum number of results to return"),
-      projectId: z
-        .string()
-        .optional()
-        .describe("Project ID (defaults to active session context)"),
+      projectId: z.string().optional().describe("Project ID (defaults to active session context)"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { query, symbol, limit = 10, projectId: argsProject } = args ?? {};
       try {
         const { projectId } = ctx.resolveProjectContext({
@@ -152,11 +144,7 @@ export const docsToolDefinitions: ToolDefinition[] = [
           | undefined;
 
         if (!docsEngine) {
-          return ctx.errorEnvelope(
-            "ENGINE_UNAVAILABLE",
-            "DocsEngine not initialised",
-            false,
-          );
+          return ctx.errorEnvelope("ENGINE_UNAVAILABLE", "DocsEngine not initialised", false);
         }
 
         let results;
@@ -180,13 +168,13 @@ export const docsToolDefinitions: ToolDefinition[] = [
           {
             ok: true,
             count: results.length,
-            results: results.map((r: any) => ({
+            results: results.map((r: Record<string, unknown>) => ({
               heading: r.heading,
               doc: r.docRelativePath,
               kind: r.kind,
               startLine: r.startLine,
               score: r.score,
-              excerpt: r.content.slice(0, 200),
+              excerpt: String(r.content || "").slice(0, 200),
             })),
             projectId,
           },

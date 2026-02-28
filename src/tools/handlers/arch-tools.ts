@@ -8,7 +8,7 @@
  */
 
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
 
 export const archToolDefinitions: ToolDefinition[] = [
   {
@@ -19,7 +19,10 @@ export const archToolDefinitions: ToolDefinition[] = [
       files: z.array(z.string()).optional().describe("Files to validate"),
       strict: z.boolean().default(false).describe("Strict validation mode"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { files, strict = false, profile = "compact" } = args;
 
       const archEngine = ctx.engines.arch as
@@ -59,23 +62,14 @@ export const archToolDefinitions: ToolDefinition[] = [
     inputShape: {
       name: z.string().describe("Code name/identifier"),
       type: z
-        .enum([
-          "component",
-          "hook",
-          "service",
-          "context",
-          "utility",
-          "engine",
-          "class",
-          "module",
-        ])
+        .enum(["component", "hook", "service", "context", "utility", "engine", "class", "module"])
         .describe("Code type"),
-      dependencies: z
-        .array(z.string())
-        .optional()
-        .describe("Required dependencies"),
+      dependencies: z.array(z.string()).optional().describe("Required dependencies"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { name, type, dependencies = [], profile = "compact" } = args;
 
       const archEngine = ctx.engines.arch as

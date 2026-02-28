@@ -10,9 +10,56 @@
  */
 
 import * as path from "path";
+import type { GraphNode, GraphRelationship } from "../../graph/index.js";
 import { execWithTimeout } from "../../utils/exec-utils.js";
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+
+/**
+ * Determine the command and arguments used to execute tests.
+ *
+ * Priority:
+ * 1. `config.testing.testRunner` — explicit override in .lxrag/config.json
+ * 2. Auto-detect from file extension of the first test file:
+ *    .py → pytest, .rb → bundle exec rspec, .go → go test, else → vitest
+ */
+function resolveTestRunner(
+  testFiles: string[],
+  cwd: string,
+  config?: { testRunner?: { command: string; args?: string[] } },
+): { cmd: string; env?: Record<string, string> } {
+  // 1. Explicit config override
+  if (config?.testRunner) {
+    const { command, args = [] } = config.testRunner;
+    return { cmd: [command, ...args, ...testFiles].join(" ") };
+  }
+
+  // 2. Auto-detect from file extensions
+  const hasPy = testFiles.some((f) => f.endsWith(".py"));
+  const hasRb = testFiles.some((f) => f.endsWith(".rb"));
+  const hasGo = testFiles.some((f) => f.endsWith(".go"));
+
+  if (hasPy) {
+    return { cmd: ["pytest", ...testFiles].join(" ") };
+  }
+  if (hasRb) {
+    return { cmd: ["bundle", "exec", "rspec", ...testFiles].join(" ") };
+  }
+  if (hasGo) {
+    return { cmd: ["go", "test", ...testFiles].join(" ") };
+  }
+
+  // 3. Default: vitest for JS/TS
+  const vitestBin = path.resolve(cwd, "node_modules", ".bin", "vitest");
+  const env: Record<string, string> = {
+    PATH: `${path.resolve(cwd, "node_modules", ".bin")}:${path.dirname(process.execPath)}:${process.env.PATH ?? ""}`,
+    NODE: process.execPath,
+  };
+  return {
+    cmd: `"${process.execPath}" "${vitestBin}" run --reporter=verbose ${testFiles.join(" ")}`,
+    env,
+  };
+}
 
 /**
  * Resolve which source files directly import the given changed files by
@@ -21,10 +68,7 @@ import type { HandlerBridge, ToolDefinition } from "../types.js";
  * Falls back to the in-memory index if Memgraph is not connected.
  * Returns at most 50 paths, sorted alphabetically.
  */
-async function resolveDirectImpact(
-  ctx: HandlerBridge,
-  changedFiles: string[],
-): Promise<string[]> {
+async function resolveDirectImpact(ctx: HandlerBridge, changedFiles: string[]): Promise<string[]> {
   const memgraph = ctx.context?.memgraph;
 
   // Try Memgraph graph traversal first (most accurate, uses persisted graph)
@@ -54,9 +98,7 @@ async function resolveDirectImpact(
         { projectId, changedPaths: changedFiles },
       );
 
-      const paths: string[] = result.data
-        .map((row: any) => String(row.path ?? ""))
-        .filter(Boolean);
+      const paths: string[] = result.data.map((row: Record<string, unknown>) => String(row.path ?? "")).filter(Boolean);
 
       if (paths.length > 0) {
         return paths;
@@ -74,12 +116,12 @@ async function resolveDirectImpact(
 
   const importers = new Set<string>();
   try {
-    const fileNodes: any[] = index.getNodesByType("FILE") ?? [];
+    const fileNodes: GraphNode[] = index.getNodesByType("FILE") ?? [];
 
     for (const changed of changedFiles) {
       // Find FILE node whose relativePath or path matches the changed file
       const targetNode = fileNodes.find(
-        (n: any) =>
+        (n: GraphNode) =>
           n.properties?.relativePath === changed ||
           n.properties?.path === changed ||
           n.properties?.relativePath?.endsWith(changed) ||
@@ -88,19 +130,17 @@ async function resolveDirectImpact(
       if (!targetNode) continue;
 
       // incoming REFERENCES edges → IMPORT nodes
-      const refsToTarget: any[] = index.getRelationshipsTo(targetNode.id) ?? [];
+      const refsToTarget: GraphRelationship[] = index.getRelationshipsTo(targetNode.id) ?? [];
       for (const ref of refsToTarget) {
         if (ref.type !== "REFERENCES") continue;
         // incoming IMPORTS edges → source FILE nodes
-        const importsToImp: any[] = index.getRelationshipsTo(ref.from) ?? [];
+        const importsToImp: GraphRelationship[] = index.getRelationshipsTo(ref.from) ?? [];
         for (const imp of importsToImp) {
           if (imp.type !== "IMPORTS") continue;
           const sourceNode = index.getNode(imp.from);
           if (!sourceNode) continue;
           const p =
-            sourceNode.properties?.relativePath ||
-            sourceNode.properties?.path ||
-            sourceNode.id;
+            sourceNode.properties?.relativePath || sourceNode.properties?.path || sourceNode.id;
           if (p && p !== changed) importers.add(p);
         }
       }
@@ -124,12 +164,11 @@ export const testToolDefinitions: ToolDefinition[] = [
         .default("transitive")
         .describe("Selection mode"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const {
-        changedFiles,
-        includeIntegration = true,
-        profile = "compact",
-      } = args;
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
+      const { changedFiles, includeIntegration = true, profile = "compact" } = args;
 
       const testEngine = ctx.engines.test as
         | {
@@ -142,10 +181,7 @@ export const testToolDefinitions: ToolDefinition[] = [
         | undefined;
 
       try {
-        const result = testEngine!.selectAffectedTests(
-          changedFiles,
-          includeIntegration,
-        );
+        const result = testEngine!.selectAffectedTests(changedFiles, includeIntegration);
 
         return ctx.formatSuccess(result, profile);
       } catch (error) {
@@ -158,12 +194,12 @@ export const testToolDefinitions: ToolDefinition[] = [
     category: "test",
     description: "Categorize tests by type",
     inputShape: {
-      testFiles: z
-        .array(z.string())
-        .optional()
-        .describe("Test files to categorize"),
+      testFiles: z.array(z.string()).optional().describe("Test files to categorize"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { testFiles = [], profile = "compact" } = args;
 
       const testEngine = ctx.engines.test as
@@ -181,28 +217,37 @@ export const testToolDefinitions: ToolDefinition[] = [
         console.error(`[Test] Categorizing ${testFiles.length} test files...`);
         const stats = testEngine!.getStatistics();
 
+        // Use config-supplied patterns when available; fall back to
+        // language-agnostic wildcard patterns (no hardcoded .ts extension).
+        const cfgCategories: Array<{ id: string; patterns: string[] }> =
+          ctx.context.config?.testing?.categories ?? [];
+        const cfgById = Object.fromEntries(cfgCategories.map((c) => [c.id, c]));
+
+        const buildPattern = (id: string, fallback: string): string =>
+          cfgById[id]?.patterns?.[0] ?? fallback;
+
         return ctx.formatSuccess(
           {
             statistics: stats,
             categorization: {
               unit: {
                 count: stats.unitTests,
-                pattern: "**/__tests__/**/*.test.ts",
+                pattern: buildPattern("unit", "**/__tests__/**/*.test.*"),
                 timeout: 5000,
               },
               integration: {
                 count: stats.integrationTests,
-                pattern: "**/__tests__/**/*.integration.test.ts",
+                pattern: buildPattern("integration", "**/__tests__/**/*.integration.test.*"),
                 timeout: 15000,
               },
               performance: {
                 count: stats.performanceTests,
-                pattern: "**/*.performance.test.ts",
+                pattern: buildPattern("performance", "**/*.performance.test.*"),
                 timeout: 30000,
               },
               e2e: {
                 count: stats.e2eTests,
-                pattern: "**/e2e/**/*.test.ts",
+                pattern: buildPattern("e2e", "**/e2e/**/*.test.*"),
                 timeout: 60000,
               },
             },
@@ -220,17 +265,17 @@ export const testToolDefinitions: ToolDefinition[] = [
     description: "Analyze impact of changes",
     inputShape: {
       files: z.array(z.string()).optional().describe("Changed files"),
-      changedFiles: z
-        .array(z.string())
-        .optional()
-        .describe("Changed files (alternate contract)"),
+      changedFiles: z.array(z.string()).optional().describe("Changed files (alternate contract)"),
       depth: z.number().default(3).describe("Analysis depth"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const profile = args?.profile || "compact";
       const depth = typeof args?.depth === "number" ? args.depth : 2;
       const changedFiles: string[] = Array.isArray(args?.files)
@@ -278,11 +323,7 @@ export const testToolDefinitions: ToolDefinition[] = [
         | undefined;
 
       try {
-        const result = testEngine!.selectAffectedTests(
-          changedFiles,
-          true,
-          depth,
-        );
+        const result = testEngine!.selectAffectedTests(changedFiles, true, depth);
         const directImpact = await resolveDirectImpact(ctx, changedFiles);
 
         return ctx.formatSuccess(
@@ -296,9 +337,7 @@ export const testToolDefinitions: ToolDefinition[] = [
                 testsAffected: result.selectedTests.length,
                 percentage: result.coverage.percentage,
                 recommendation:
-                  result.coverage.percentage > 50
-                    ? "Run full suite"
-                    : "Run affected tests",
+                  result.coverage.percentage > 50 ? "Run full suite" : "Run affected tests",
               },
             },
           },
@@ -317,8 +356,11 @@ export const testToolDefinitions: ToolDefinition[] = [
       testFiles: z.array(z.string()).describe("Test files to run"),
       parallel: z.boolean().default(true).describe("Run tests in parallel"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
-      const { testFiles = [], parallel = true, profile = "compact" } = args;
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
+      const { testFiles = [], parallel: _parallel = true, profile = "compact" } = args;
 
       try {
         if (!testFiles || testFiles.length === 0) {
@@ -335,20 +377,23 @@ export const testToolDefinitions: ToolDefinition[] = [
         }
 
         const cwd = process.cwd();
-        const vitestBin = path.resolve(cwd, "node_modules", ".bin", "vitest");
-        const cmd = [
-          `"${process.execPath}" "${vitestBin}" run`,
-          parallel ? "--reporter=verbose" : "--reporter=verbose --no-coverage",
-          ...testFiles,
-        ].join(" ");
+
+        // Resolve runner: config > auto-detect by extension > vitest fallback
+        const { cmd, env: runnerEnv } = resolveTestRunner(
+          testFiles,
+          cwd,
+          ctx.context.config?.testing,
+        );
 
         console.error(`[ToolHandlers] Executing: ${cmd}`);
 
         try {
+          const augmentedEnv = { ...process.env, ...(runnerEnv ?? {}) };
           const output = execWithTimeout(cmd, {
             cwd: process.cwd(),
             encoding: "utf-8",
             stdio: ["pipe", "pipe", "pipe"],
+            env: augmentedEnv,
           });
 
           return ctx.formatSuccess(
@@ -360,13 +405,14 @@ export const testToolDefinitions: ToolDefinition[] = [
             },
             profile,
           );
-        } catch (execError: any) {
+        } catch (execError: unknown) {
+          const execErr = execError as { message?: string; stdout?: Buffer | string };
           return ctx.formatSuccess(
             {
               status: "failed",
               message: "Some tests failed",
-              error: execError.message.substring(0, 500),
-              output: execError.stdout?.toString().substring(0, 500) || "",
+              error: (execErr.message ?? String(execError)).substring(0, 500),
+              output: execErr.stdout?.toString().substring(0, 500) || "",
               testsRun: testFiles.length,
             },
             profile,

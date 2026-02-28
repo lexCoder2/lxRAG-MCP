@@ -8,7 +8,8 @@ import * as z from "zod";
 import * as env from "../../env.js";
 import type { EpisodeType } from "../../engines/episode-engine.js";
 import type { ClaimType } from "../../engines/coordination-engine.js";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Registry definitions for memory and coordination tool endpoints.
@@ -20,34 +21,17 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
     description: "Persist a structured episode in long-term agent memory",
     inputShape: {
       type: z
-        .enum([
-          "OBSERVATION",
-          "DECISION",
-          "EDIT",
-          "TEST_RESULT",
-          "ERROR",
-          "REFLECTION",
-          "LEARNING",
-        ])
+        .enum(["OBSERVATION", "DECISION", "EDIT", "TEST_RESULT", "ERROR", "REFLECTION", "LEARNING"])
         .describe("Episode type"),
       content: z.string().describe("Episode content"),
-      entities: z
-        .array(z.string())
-        .optional()
-        .describe("Related graph entity IDs"),
+      entities: z.array(z.string()).optional().describe("Related graph entity IDs"),
       taskId: z.string().optional().describe("Related task ID"),
       outcome: z
         .enum(["success", "failure", "partial"])
         .optional()
         .describe("Outcome classification"),
-      metadata: z
-        .record(z.string(), z.any())
-        .optional()
-        .describe("Extra metadata"),
-      sensitive: z
-        .boolean()
-        .optional()
-        .describe("Exclude from default recalls"),
+      metadata: z.record(z.string(), z.any()).optional().describe("Extra metadata"),
+      sensitive: z.boolean().optional().describe("Exclude from default recalls"),
       agentId: z.string().optional().describe("Agent identifier"),
       sessionId: z.string().optional().describe("Session identifier"),
       profile: z
@@ -55,7 +39,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         type,
         content,
@@ -69,13 +56,11 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         sessionId,
       } = args || {};
 
-      console.error(
+      logger.error(
         `[episode_add] ENTER rawType=${JSON.stringify(type)} content-length=${String(content ?? "").length} agentId=${agentId ?? "(none)"}`,
       );
       if (!type || !content) {
-        console.error(
-          `[episode_add] REJECT missing type=${!type} missing content=${!content}`,
-        );
+        logger.error(`[episode_add] REJECT missing type=${!type} missing content=${!content}`);
         return ctx.errorEnvelope(
           "EPISODE_ADD_INVALID_INPUT",
           "Fields 'type' and 'content' are required.",
@@ -85,12 +70,11 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
       }
 
       const normalizedType = String(type).toUpperCase();
-      console.error(`[episode_add] normalizedType=${normalizedType}`);
+      logger.error(`[episode_add] normalizedType=${normalizedType}`);
       const normalizedEntities = Array.isArray(entities)
         ? entities.map((item) => String(item))
         : [];
-      const normalizedMetadata =
-        metadata && typeof metadata === "object" ? metadata : undefined;
+      const normalizedMetadata = metadata && typeof metadata === "object" ? metadata : undefined;
       const validationError = ctx.validateEpisodeInput({
         type: normalizedType,
         outcome,
@@ -98,11 +82,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         metadata: normalizedMetadata,
       });
       if (validationError) {
-        return ctx.errorEnvelope(
-          "EPISODE_ADD_INVALID_METADATA",
-          validationError,
-          true,
-        );
+        return ctx.errorEnvelope("EPISODE_ADD_INVALID_METADATA", validationError, true);
       }
 
       const episodeEngine = ctx.engines.episode as
@@ -176,7 +156,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         query,
         agentId,
@@ -217,13 +200,8 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         const explicitEntities = Array.isArray(entities)
           ? entities.map((item) => String(item))
           : [];
-        const embeddingEntityHints = await ctx.inferEpisodeEntityHints(
-          query,
-          limit,
-        );
-        const mergedEntities = [
-          ...new Set([...explicitEntities, ...embeddingEntityHints]),
-        ];
+        const embeddingEntityHints = await ctx.inferEpisodeEntityHints(query, limit);
+        const mergedEntities = [...new Set([...explicitEntities, ...embeddingEntityHints])];
         const episodes = await episodeEngine!.recall({
           query,
           projectId,
@@ -259,10 +237,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
     description: "Query decision episodes for a target topic",
     inputShape: {
       query: z.string().describe("Decision query text"),
-      affectedFiles: z
-        .array(z.string())
-        .optional()
-        .describe("Related files/entities"),
+      affectedFiles: z.array(z.string()).optional().describe("Related files/entities"),
       taskId: z.string().optional().describe("Task filter"),
       agentId: z.string().optional().describe("Agent filter"),
       limit: z.number().default(5).describe("Result limit"),
@@ -271,7 +246,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         query,
         affectedFiles = [],
@@ -333,8 +311,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
   {
     name: "reflect",
     category: "memory",
-    description:
-      "Synthesize reflections and learning nodes from recent episodes",
+    description: "Synthesize reflections and learning nodes from recent episodes",
     inputShape: {
       taskId: z.string().optional().describe("Task filter"),
       agentId: z.string().optional().describe("Agent filter"),
@@ -344,7 +321,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { taskId, agentId, limit = 20, profile = "compact" } = args || {};
 
       const episodeEngine = ctx.engines.episode as
@@ -380,8 +360,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
   {
     name: "agent_claim",
     category: "coordination",
-    description:
-      "Create a coordination claim for a task or code target with conflict detection",
+    description: "Create a coordination claim for a task or code target with conflict detection",
     inputShape: {
       targetId: z.string().describe("Target task/code node id"),
       claimType: z
@@ -397,7 +376,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         targetId,
         claimType = "task",
@@ -426,9 +408,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
               agentId: string;
               sessionId: string;
               projectId: string;
-            }) => Promise<
-              { status: string; claimId?: string } & Record<string, unknown>
-            >;
+            }) => Promise<{ status: string; claimId?: string } & Record<string, unknown>>;
           }
         | undefined;
 
@@ -474,7 +454,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { claimId, outcome, profile = "compact" } = args || {};
 
       if (!claimId) {
@@ -495,10 +478,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
         | undefined;
 
       try {
-        const feedback = await coordinationEngine!.release(
-          String(claimId),
-          outcome,
-        );
+        const feedback = await coordinationEngine!.release(String(claimId), outcome);
 
         return ctx.formatSuccess(
           {
@@ -509,9 +489,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
             outcome: outcome || null,
           },
           profile,
-          feedback.found
-            ? `Claim ${claimId} released.`
-            : `Claim ${claimId} not found.`,
+          feedback.found ? `Claim ${claimId} released.` : `Claim ${claimId} not found.`,
         );
       } catch (error) {
         return ctx.errorEnvelope("AGENT_RELEASE_FAILED", String(error), true);
@@ -523,16 +501,16 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
     category: "coordination",
     description: "Get active claims and recent episodes for an agent",
     inputShape: {
-      agentId: z
-        .string()
-        .optional()
-        .describe("Agent identifier (omit to list all agents)"),
+      agentId: z.string().optional().describe("Agent identifier (omit to list all agents)"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { agentId, profile = "compact" } = args || {};
 
       const coordinationEngine = ctx.engines.coordination as
@@ -582,15 +560,17 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
   {
     name: "coordination_overview",
     category: "coordination",
-    description:
-      "Fleet-wide claim view including active claims, stale claims, and conflicts",
+    description: "Fleet-wide claim view including active claims, stale claims, and conflicts",
     inputShape: {
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const { profile = "compact" } = args || {};
 
       const coordinationEngine = ctx.engines.coordination as
@@ -615,11 +595,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
           `Coordination overview: ${overview.activeClaims.length} active claim(s), ${overview.staleClaims.length} stale claim(s).`,
         );
       } catch (error) {
-        return ctx.errorEnvelope(
-          "COORDINATION_OVERVIEW_FAILED",
-          String(error),
-          true,
-        );
+        return ctx.errorEnvelope("COORDINATION_OVERVIEW_FAILED", String(error), true);
       }
     },
   },

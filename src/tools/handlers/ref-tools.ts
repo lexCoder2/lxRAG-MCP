@@ -11,13 +11,9 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import {
-  DocsParser,
-  findMarkdownFiles,
-  type ParsedSection,
-} from "../../parsers/docs-parser.js";
+import { DocsParser, findMarkdownFiles, type ParsedSection } from "../../parsers/docs-parser.js";
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition } from "../types.js";
+import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
 
 export const refToolDefinitions: ToolDefinition[] = [
   {
@@ -26,9 +22,7 @@ export const refToolDefinitions: ToolDefinition[] = [
     description:
       "Query a reference repository on the same machine for architecture insights, design patterns, conventions, or code examples. Useful for borrowing context from a well-structured sibling repo when working on the current workspace.",
     inputShape: {
-      repoPath: z
-        .string()
-        .describe("Absolute path to the reference repository on this machine"),
+      repoPath: z.string().describe("Absolute path to the reference repository on this machine"),
       query: z
         .string()
         .default("")
@@ -36,15 +30,7 @@ export const refToolDefinitions: ToolDefinition[] = [
           "What to look for — architecture patterns, conventions, a specific concept, or a code example",
         ),
       mode: z
-        .enum([
-          "auto",
-          "docs",
-          "architecture",
-          "code",
-          "patterns",
-          "all",
-          "structure",
-        ])
+        .enum(["auto", "docs", "architecture", "code", "patterns", "all", "structure"])
         .default("auto")
         .describe(
           "auto = infer from query; docs/architecture = markdown only; code/patterns = source files only; structure = dir tree only; all = everything",
@@ -55,19 +41,16 @@ export const refToolDefinitions: ToolDefinition[] = [
         .describe(
           "Specific symbol name (function/class/interface) to locate in the reference repo",
         ),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(20)
-        .default(10)
-        .describe("Max results to return"),
+      limit: z.number().int().min(1).max(20).default(10).describe("Max results to return"),
       profile: z
         .enum(["compact", "balanced", "debug"])
         .default("compact")
         .describe("Response profile"),
     },
-    async impl(args: any, ctx: HandlerBridge): Promise<string> {
+    async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
+      // Args validated by Zod inputShape; local alias preserves existing acc patterns
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const args: any = rawArgs;
       const {
         repoPath,
         query = "",
@@ -98,10 +81,9 @@ export const refToolDefinitions: ToolDefinition[] = [
 
       try {
         const repoName = path.basename(resolvedRepo);
-        const findings: any[] = [];
+        const findings: Record<string, unknown>[] = [];
 
-        const effectiveMode =
-          mode === "auto" ? inferRefMode(query, symbol) : mode;
+        const effectiveMode = mode === "auto" ? inferRefMode(query, symbol) : mode;
 
         if (
           effectiveMode === "docs" ||
@@ -138,11 +120,7 @@ export const refToolDefinitions: ToolDefinition[] = [
           }
         }
 
-        if (
-          effectiveMode === "code" ||
-          effectiveMode === "patterns" ||
-          effectiveMode === "all"
-        ) {
+        if (effectiveMode === "code" || effectiveMode === "patterns" || effectiveMode === "all") {
           const sourceExts = [
             ".ts",
             ".tsx",
@@ -168,12 +146,7 @@ export const refToolDefinitions: ToolDefinition[] = [
               const relPath = path.relative(resolvedRepo, filePath);
               const score = scoreRefCode(content, queryTerms, symbol, relPath);
               if (score > 0) {
-                const excerpt = extractRefExcerpt(
-                  content,
-                  queryTerms,
-                  symbol,
-                  6,
-                );
+                const excerpt = extractRefExcerpt(content, queryTerms, symbol, 6);
                 findings.push({
                   type: "code",
                   file: relPath,
@@ -196,7 +169,7 @@ export const refToolDefinitions: ToolDefinition[] = [
           .sort((a, b) => {
             if (a.type === "structure") return 1;
             if (b.type === "structure") return -1;
-            return (b.score ?? 0) - (a.score ?? 0);
+            return ((b.score as number) ?? 0) - ((a.score as number) ?? 0);
           })
           .slice(0, limit);
 
@@ -244,25 +217,15 @@ function inferRefMode(
     )
   )
     return "architecture";
-  if (/(how to|example|guide|decision|adr|changelog)/.test(lower))
-    return "docs";
-  if (
-    /(function|class|method|import|export|interface|type|impl|usage)/.test(
-      lower,
-    )
-  )
-    return "code";
+  if (/(how to|example|guide|decision|adr|changelog)/.test(lower)) return "docs";
+  if (/(function|class|method|import|export|interface|type|impl|usage)/.test(lower)) return "code";
   return "all";
 }
 
 /**
  * Score a documentation section based on query terms
  */
-function scoreRefSection(
-  section: ParsedSection,
-  queryTerms: string[],
-  symbol?: string,
-): number {
+function scoreRefSection(section: ParsedSection, queryTerms: string[], symbol?: string): number {
   let score = 0;
   const text = `${section.heading} ${section.content}`.toLowerCase();
   for (const term of queryTerms) {
@@ -274,8 +237,7 @@ function scoreRefSection(
   }
   if (symbol) {
     const symLower = symbol.toLowerCase();
-    if (section.backtickRefs.some((r) => r.toLowerCase().includes(symLower)))
-      score += 10;
+    if (section.backtickRefs.some((r) => r.toLowerCase().includes(symLower))) score += 10;
     else if (text.includes(symLower)) score += 5;
   }
   return score;
@@ -302,9 +264,7 @@ function scoreRefCode(
   if (symbol) {
     const symLower = symbol.toLowerCase();
     const symCount = (
-      lower.match(
-        new RegExp(symLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g"),
-      ) ?? []
+      lower.match(new RegExp(symLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []
     ).length;
     score += symCount * 5;
   }
@@ -387,7 +347,7 @@ function scanRefSourceFiles(rootPath: string, extensions: string[]): string[] {
 /**
  * Build a directory tree structure for display
  */
-function buildRefDirTree(rootPath: string, maxDepth: number): any {
+function buildRefDirTree(rootPath: string, maxDepth: number): Record<string, unknown> | null {
   const ignoreDirs = new Set([
     "node_modules",
     "dist",
@@ -401,18 +361,14 @@ function buildRefDirTree(rootPath: string, maxDepth: number): any {
     ".turbo",
   ]);
 
-  const walk = (dir: string, depth: number): any => {
+  const walk = (dir: string, depth: number): Record<string, unknown> | null => {
     if (depth > maxDepth) return null;
     const name = path.basename(dir);
-    const children: any[] = [];
+    const children: Record<string, unknown>[] = [];
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true }).slice(0, 40);
       for (const entry of entries) {
-        if (
-          entry.isDirectory() &&
-          !ignoreDirs.has(entry.name) &&
-          !entry.name.startsWith(".")
-        ) {
+        if (entry.isDirectory() && !ignoreDirs.has(entry.name) && !entry.name.startsWith(".")) {
           const child = walk(path.join(dir, entry.name), depth + 1);
           if (child) children.push(child);
         } else if (entry.isFile()) {
