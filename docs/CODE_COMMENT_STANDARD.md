@@ -40,6 +40,7 @@ export const value = ...;
 ## 3) Internal Helper Comments (optional, but recommended)
 
 Comment internal helpers when one of these is true:
+
 - Non-obvious behavior (normalization, fallback logic, truncation).
 - Performance-sensitive behavior.
 - Subtle edge-case handling.

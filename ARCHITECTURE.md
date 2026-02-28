@@ -8,13 +8,12 @@ lxRAG MCP is a production MCP server that turns any repository into a queryable 
 
 Two server entry points exist — both production-ready:
 
-| File                | Transport                  | Use case                                 |
-| ------------------- | -------------------------- | ---------------------------------------- |
-| `src/server.ts`     | MCP HTTP (Streamable HTTP) | Production — multi-client, multi-session |
-| `src/mcp-server.ts` | stdio                      | Editor integrations (single client)      |
-| `src/index.ts`      | stdio (legacy)             | Backward compat only                     |
+| File            | Transport                  | Use case                                 |
+| --------------- | -------------------------- | ---------------------------------------- |
+| `src/server.ts` | MCP HTTP (Streamable HTTP) | Production — multi-client, multi-session |
+| `src/index.ts`  | stdio (legacy)             | Backward compat only                     |
 
-**Recommended**: `src/server.ts` via `npm run start:http` for agent fleets; stdio entry (`src/mcp-server.ts`) for local editor use.
+**Recommended**: `src/server.ts` via `npm run start:http` for agent fleets; stdio for local editor use via `npm run start`.
 
 ## Key Architectural Properties
 
@@ -32,7 +31,7 @@ Two server entry points exist — both production-ready:
                    │ MCP HTTP (Streamable HTTP)
 ┌──────────────────▼───────────────────────────────────────────┐
 │  src/server.ts  — McpServer (MCP SDK)                        │
-│  33 registered tools → ToolHandlers                          │
+│  39 registered tools → ToolHandlers                          │
 └────────┬──────────────────────────────────────────┬──────────┘
          │                                          │
 ┌────────▼──────────┐                  ┌────────────▼──────────┐
@@ -75,15 +74,15 @@ Parsing is handled in `src/graph/orchestrator.ts` which dispatches to the approp
 ### Parser registry
 
 | Language   | Extensions            | Parser (default)             | Parser (tree-sitter, `LXRAG_USE_TREE_SITTER=true`) |
-| ---------- | --------------------- | ---------------------------- | --------------------------------------------------- |
-| TypeScript | `.ts`                 | regex (typescript-parser.ts) | `TreeSitterTypeScriptParser`                        |
-| TSX        | `.tsx`                | regex fallback               | `TreeSitterTSXParser`                               |
-| JavaScript | `.js`, `.mjs`, `.cjs` | FILE node only               | `TreeSitterJavaScriptParser`                        |
-| JSX        | `.jsx`                | FILE node only               | `TreeSitterJSXParser`                               |
-| Python     | `.py`                 | regex                        | `TreeSitterPythonParser`                            |
-| Go         | `.go`                 | regex                        | `TreeSitterGoParser`                                |
-| Rust       | `.rs`                 | regex                        | `TreeSitterRustParser`                              |
-| Java       | `.java`               | regex                        | `TreeSitterJavaParser`                              |
+| ---------- | --------------------- | ---------------------------- | -------------------------------------------------- |
+| TypeScript | `.ts`                 | regex (typescript-parser.ts) | `TreeSitterTypeScriptParser`                       |
+| TSX        | `.tsx`                | regex fallback               | `TreeSitterTSXParser`                              |
+| JavaScript | `.js`, `.mjs`, `.cjs` | FILE node only               | `TreeSitterJavaScriptParser`                       |
+| JSX        | `.jsx`                | FILE node only               | `TreeSitterJSXParser`                              |
+| Python     | `.py`                 | regex                        | `TreeSitterPythonParser`                           |
+| Go         | `.go`                 | regex                        | `TreeSitterGoParser`                               |
+| Rust       | `.rs`                 | regex                        | `TreeSitterRustParser`                             |
+| Java       | `.java`               | regex                        | `TreeSitterJavaParser`                             |
 
 Tree-sitter grammars are `optionalDependencies`. Missing grammars fall back silently per language.
 
@@ -122,7 +121,7 @@ Result objects include a `mode` field (`"mage_leiden"`, `"directory_heuristic"`,
 | `HybridRetriever`    | `src/graph/hybrid-retriever.ts`      | RRF fusion of vector + BM25 + graph expansion                             |
 | `PPR`                | `src/graph/ppr.ts`                   | Personalized PageRank for relevance ranking                               |
 
-## Tool Surface (33 tools)
+## Tool Surface (39 tools)
 
 **Graph/querying** (4): `graph_set_workspace`, `graph_rebuild`, `graph_health`, `graph_query`
 
@@ -205,12 +204,11 @@ All tools accept `profile` parameter:
 
 ```
 src/
-  server.ts                    MCP HTTP surface (33 tools)
-  mcp-server.ts                stdio MCP surface
+  server.ts                    MCP HTTP surface (39 tools)
   index.ts                     legacy stdio entry
   config.ts                    environment config
   tools/
-    tool-handlers.ts           all 33 tool implementations
+    tool-handlers.ts           all 39 tool implementations
   graph/
     orchestrator.ts            file discovery + parse dispatch + Memgraph writes
     client.ts                  Memgraph Bolt client
@@ -230,7 +228,7 @@ src/
     episode-engine.ts
     coordination-engine.ts
     community-detector.ts
-    migration-engine.ts
+    migration-engine.ts        Schema migration helpers (internal, not exposed as tools)
   vector/
     embedding-engine.ts
     qdrant-client.ts

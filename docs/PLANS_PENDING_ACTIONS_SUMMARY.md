@@ -8,12 +8,16 @@ This document merges the main planning artifacts into one actionable execution s
 
 ## Source Plans Consolidated
 
-- `docs/ACTION_PLAN_LXRAG_TOOL_FIXES.md`
-- `docs/REVISED_ACTION_PLAN_WITH_CLI_ANALYSIS.md`
-- `docs/COMPREHENSIVE_REVIEW_AND_REVISED_PLAN.md`
-- `docs/AGENT_CONTEXT_ENGINE_PLAN.md`
-- `RESOLUTION_PLAN.md`
-- `ANALYSIS_WORKFLOW.md`
+> **Note**: The planning docs listed below were superseded by the structured phase plans
+> in `plan/PHASE-*.md`. They are recorded here for historical reference only;
+> the files no longer exist in the repository.
+
+- `docs/ACTION_PLAN_LXRAG_TOOL_FIXES.md` _(archived — file deleted)_
+- `docs/REVISED_ACTION_PLAN_WITH_CLI_ANALYSIS.md` _(archived — file deleted)_
+- `docs/COMPREHENSIVE_REVIEW_AND_REVISED_PLAN.md` _(archived — file deleted)_
+- `docs/AGENT_CONTEXT_ENGINE_PLAN.md` _(archived — file deleted)_
+- `RESOLUTION_PLAN.md` — still exists in repo root
+- `ANALYSIS_WORKFLOW.md` _(archived — file deleted)_
 
 ---
 
@@ -35,27 +39,33 @@ To avoid stale-status ambiguity, this summary uses a **forward execution model**
 ### 1) Enforce graph/index readiness gates
 
 Actions:
+
 - Ensure startup/diagnostic flow hard-fails clearly when graph/index is stale or unavailable.
 - Standardize health/readiness checks before dependent tool execution paths.
 
 Acceptance criteria:
+
 - Clear, deterministic readiness state available before analysis tools run.
 - Error envelope includes direct remediation hints.
 
 Dependencies:
+
 - Graph orchestrator and health modules.
 
 ### 2) Eliminate workspace/session ambiguity in operational docs
 
 Actions:
+
 - Normalize host vs container path guidance into one canonical section.
 - Ensure quickstart/integration docs use the same examples and sequence.
 
 Acceptance criteria:
+
 - One unambiguous onboarding path for native and Docker workflows.
 - Reduced first-run failures due to path/session mismatch.
 
 Dependencies:
+
 - `README.md`, `QUICK_START.md`, `docs/MCP_INTEGRATION_GUIDE.md`.
 
 ---
@@ -65,26 +75,32 @@ Dependencies:
 ### 3) Contract strictness and argument normalization sweep
 
 Actions:
+
 - Run contract validations for all tools and normalize edge-case argument handling.
 - Align tool envelopes for consistent downstream parsing.
 
 Acceptance criteria:
+
 - No category-level contract drift in integration checks.
 - Stable response shape across all profile levels.
 
 Dependencies:
+
 - `src/tools/registry.ts`, handler modules, response schemas.
 
 ### 4) Add failure-mode integration tests for lifecycle transitions
 
 Actions:
+
 - Add test coverage for graph rebuild in-progress state, session reconnect, and stale index scenarios.
 - Include both stdio and HTTP mode assumptions where feasible.
 
 Acceptance criteria:
+
 - Reproducible tests that prevent regressions in known failure families.
 
 Dependencies:
+
 - Existing integration scripts and test harness.
 
 ---
@@ -94,26 +110,32 @@ Dependencies:
 ### 5) Documentation governance cleanup
 
 Actions:
+
 - Designate canonical docs for tools/features/audits/plans.
 - Archive or clearly mark superseded plan/audit snapshots.
 
 Acceptance criteria:
+
 - New contributors can identify “current truth” in under 5 minutes.
 - Reduced duplication and contradictory status statements.
 
 Dependencies:
+
 - docs index and maintainers’ update cadence.
 
 ### 6) Observability and KPI cadence
 
 Actions:
+
 - Define a recurring KPI set: rebuild latency, health failures, contract failures, benchmark drift.
 - Publish periodic summary in docs.
 
 Acceptance criteria:
+
 - Comparable metric snapshots across releases.
 
 Dependencies:
+
 - benchmark scripts and graph health instrumentation.
 
 ---
@@ -134,10 +156,12 @@ This order minimizes user-facing instability first, then hardens integration rel
 ## 2-Week Implementation Slice (Recommended)
 
 ### Week 1
+
 - Complete P0.1 and P0.2.
 - Validate with integration smoke checks and revised onboarding docs.
 
 ### Week 2
+
 - Complete P1.3 and first pass of P1.4.
 - Publish short status update against acceptance criteria.
 
@@ -149,11 +173,11 @@ Carry P2 items as rolling maintenance after reliability baseline is stable.
 
 Use this minimal status grid in PRs/issues:
 
-| Item | Priority | Owner | Status | Evidence |
-|---|---|---|---|---|
-| Readiness gates | P0 | TBD | Not Started / In Progress / Done | Test + logs |
-| Onboarding normalization | P0 | TBD | Not Started / In Progress / Done | Updated docs |
-| Contract sweep | P1 | TBD | Not Started / In Progress / Done | Validation output |
-| Lifecycle tests | P1 | TBD | Not Started / In Progress / Done | Test reports |
-| Docs governance | P2 | TBD | Not Started / In Progress / Done | Doc index updates |
-| KPI cadence | P2 | TBD | Not Started / In Progress / Done | Periodic summary |
+| Item                     | Priority | Owner | Status                           | Evidence          |
+| ------------------------ | -------- | ----- | -------------------------------- | ----------------- |
+| Readiness gates          | P0       | TBD   | Not Started / In Progress / Done | Test + logs       |
+| Onboarding normalization | P0       | TBD   | Not Started / In Progress / Done | Updated docs      |
+| Contract sweep           | P1       | TBD   | Not Started / In Progress / Done | Validation output |
+| Lifecycle tests          | P1       | TBD   | Not Started / In Progress / Done | Test reports      |
+| Docs governance          | P2       | TBD   | Not Started / In Progress / Done | Doc index updates |
+| KPI cadence              | P2       | TBD   | Not Started / In Progress / Done | Periodic summary  |

@@ -17,35 +17,38 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 
 ### Category counts
 
-| Category | Count |
-|---|---:|
-| graph | 4 |
-| utility | 3 |
-| code | 7 |
-| test | 5 |
-| coordination | 5 |
-| setup | 2 |
-| arch | 2 |
-| docs | 2 |
-| ref | 1 |
-| task | 4 |
-| memory | 4 |
-| **Total** | **39** |
+| Category     |  Count |
+| ------------ | -----: |
+| graph        |      4 |
+| utility      |      3 |
+| code         |      7 |
+| test         |      5 |
+| coordination |      5 |
+| setup        |      2 |
+| arch         |      2 |
+| docs         |      2 |
+| ref          |      1 |
+| task         |      4 |
+| memory       |      4 |
+| **Total**    | **39** |
 
 ### Complete tool list
 
 #### Graph
+
 - `graph_query`
 - `graph_rebuild`
 - `graph_set_workspace`
 - `graph_health`
 
 #### Utility
+
 - `diff_since`
 - `tools_list`
 - `contract_validate`
 
 #### Code intelligence
+
 - `code_explain`
 - `find_pattern`
 - `semantic_search`
@@ -55,6 +58,7 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 - `semantic_slice`
 
 #### Test intelligence
+
 - `test_select`
 - `test_categorize`
 - `impact_analyze`
@@ -62,6 +66,7 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 - `suggest_tests`
 
 #### Coordination
+
 - `context_pack`
 - `agent_claim`
 - `agent_release`
@@ -69,27 +74,33 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 - `coordination_overview`
 
 #### Setup
+
 - `init_project_setup`
 - `setup_copilot_instructions`
 
 #### Architecture
+
 - `arch_validate`
 - `arch_suggest`
 
 #### Documentation
+
 - `index_docs`
 - `search_docs`
 
 #### Reference
+
 - `ref_query`
 
 #### Task / progress
+
 - `progress_query`
 - `task_update`
 - `feature_status`
 - `blocking_issues`
 
 #### Memory
+
 - `episode_add`
 - `episode_recall`
 - `decision_query`
@@ -100,26 +111,31 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 ## Tool Selection Cheatsheet
 
 ### Use graph tools when you need structural truth
+
 - Start with `graph_set_workspace` + `graph_rebuild`.
 - Use `graph_health` to verify readiness.
 - Use `graph_query` for natural/cypher discovery.
 
 ### Use code tools for understanding and retrieval
+
 - `code_explain` for dependency-aware symbol explanation.
 - `semantic_*` tools for similarity and ranked slices.
 - `find_pattern` for violations, circularity, and pattern checks.
 
 ### Use test tools to reduce execution cost
+
 - `impact_analyze` before running tests.
 - `test_select` to scope execution.
 - `test_run` only on selected suites.
 
 ### Use memory and coordination for multi-agent continuity
+
 - `episode_add` / `episode_recall` for persistent memory.
 - `agent_claim` / `agent_release` to avoid collision.
 - `context_pack` when entering a task or handoff.
 
 ### Use setup tools at session start
+
 - `init_project_setup` when onboarding a repo quickly.
 - `setup_copilot_instructions` when scaffolding assistant behavior docs.
 
@@ -148,10 +164,12 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 ## Inputs and Output Contracts
 
 ### Contract validation
+
 - Use `contract_validate` when integrating new clients.
 - It normalizes arguments and returns warnings before execution.
 
 ### Response shaping
+
 - Standard response profile controls live in `src/response` (`budget`, `schemas`, `shaper`).
 - Expected envelope shape: success/error + profile + summary + data.
 
@@ -192,6 +210,7 @@ To keep this tool layer future-proof, the implementation aligns with:
 ## Canonical Sources
 
 Primary internal references:
+
 - `README.md`
 - `QUICK_REFERENCE.md`
 - `QUICK_START.md`
@@ -201,6 +220,7 @@ Primary internal references:
 - `src/tools/registry.ts`
 
 External references consulted:
+
 - https://modelcontextprotocol.io/specification/2025-06-18
 - https://memgraph.com/docs
 - https://qdrant.tech/documentation/

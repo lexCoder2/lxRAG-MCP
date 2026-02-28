@@ -1,195 +1,192 @@
 <div align="center">
-  <img src="docs/brain-logo.svg" alt="lxRAG MCP Logo" width="200" />
-  <br/>
-  <big><big><strong>LxRAG MCP</strong></big></big>
-  <p><em>short for <strong>lexic RAG</strong></em></p>
-  <p>A memory and code intelligence layer for LLM agents.</p>
+  <img src="docs/brain-logo.svg" alt="lxRAG MCP — Code Graph Intelligence for AI Coding Agents" width="180" />
+  <h1>lxRAG MCP</h1>
+  <p><strong>Code Graph Intelligence · Agent Memory · Multi-Agent Coordination</strong></p>
+  <p>An MCP server that gives AI coding assistants persistent memory, structural code understanding,<br/>and safe multi-agent coordination — across sessions, files, and agents.</p>
 </div>
 
 <div align="center">
 
-![MCP](https://img.shields.io/badge/MCP-JSON--RPC%202.0-7A52F4)
-![Transport](https://img.shields.io/badge/Transport-stdio%20%7C%20http-0EA5E9)
-![Runtime](https://img.shields.io/badge/Node.js-24%2B-339933)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6)
-![Graph](https://img.shields.io/badge/Graph-Memgraph-00B894)
-![License](https://img.shields.io/badge/License-MIT-F59E0B)
+[![MCP](https://img.shields.io/badge/MCP-JSON--RPC%202.0-7A52F4?logo=data:image/svg+xml;base64,)](https://modelcontextprotocol.io)
+[![npm](https://img.shields.io/badge/npm-%40stratsolver%2Fgraph--server-CB3837?logo=npm)](https://www.npmjs.com/package/@stratsolver/graph-server)
+[![Node.js](https://img.shields.io/badge/Node.js-24%2B-339933?logo=nodedotjs)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org)
+[![Memgraph](https://img.shields.io/badge/Graph-Memgraph-00B894)](https://memgraph.com)
+[![Qdrant](https://img.shields.io/badge/Vector-Qdrant-DC244C)](https://qdrant.tech)
+[![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B)](LICENSE)
+[![Tests](https://img.shields.io/badge/Tests-402%20passing-22C55E)](src)
+[![Transport](https://img.shields.io/badge/Transport-stdio%20%7C%20HTTP-0EA5E9)](QUICK_START.md)
+[![Status](https://img.shields.io/badge/Status-Beta-orange)](QUICK_START.md)
 
 </div>
 
 ---
 
-LxRAG Server is your MCP-native memory and code intelligence layer for smarter, faster AI-assisted development.
+> **Works with:** VS Code Copilot · Claude Code · Claude Desktop · Cursor · any MCP-compatible AI assistant
 
-Turn your repository into a queryable graph so your agents can answer architecture, impact, and planning questions without re-reading the entire codebase on every turn — and so you can stop wasting context budget on files that haven't changed.
+---
 
-**[→ QUICK_START.md](QUICK_START.md)** — deploy, connect your vscode editor with ease, wire Copilot or Claude, make your first query (~5 min).  
-**[→ QUICK_REFERENCE.md](QUICK_REFERENCE.md)** — all 38 tools with parameters, look the process.
+## What is lxRAG MCP?
 
-If you find this project helpful (I hope you do) consider [buying me a coffee ☕](https://buymeacoffee.com/hi8g)
+**lxRAG MCP** (_lexic RAG_) is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that adds a **persistent code intelligence layer** to AI coding assistants. It turns any repository into a queryable knowledge graph so agents can answer architectural questions, track decisions across sessions, coordinate safely in multi-agent workflows, and run only the tests that actually changed — without re-reading the entire codebase on every turn.
 
-## At a glance
+It is purpose-built for the **agentic coding loop**: the cycle of understand → plan → implement → verify → remember that AI agents (Claude, Copilot, Cursor) repeat continuously.
 
-| Capability                  | What you get                                                          |
-| --------------------------- | --------------------------------------------------------------------- |
-| **Code graph intelligence** | Cross-file dependency answers instead of raw file dumps               |
-| **Agent memory**            | Persistent decisions and episodes that survive session restarts       |
-| **Hybrid retrieval**        | Better relevance for natural-language code questions                  |
-| **Temporal model**          | Historical queries (`asOf`) and change diffs (`diff_since`)           |
-| **Test intelligence**       | Impact-scoped test selection so you only run what matters             |
-| **Docs & ADR indexing**     | Search your READMEs and decision records the same way you search code |
-| **MCP-native runtime**      | Works with VS Code Copilot, Claude, and any MCP-compatible client     |
+**The core problem it solves:** most AI coding assistants are stateless and architecturally blind. They re-read unchanged files on every session, miss cross-file relationships, forget past decisions, and collide when multiple agents work in parallel. lxRAG is the memory and structure layer that fixes all four.
 
-## Why you need this
+---
 
-Most code intelligence tools cover one layer — RAG embeddings, graph structure, or agent memory — but not all three. That means:
+## Table of Contents
 
-- ❌ Context lost between sessions — re-reading unchanged files on every restart
-- ❌ Probabilistic retrieval misses architectural relationships
-- ❌ No temporal reasoning — can't query past states or track change impact
-- ❌ Multi-agent collisions with no built-in coordination
+- [Why lxRAG?](#why-lxrag)
+- [Key capabilities](#key-capabilities)
+- [How it works](#how-it-works)
+- [Quick start](#quick-start)
+- [38 MCP tools — at a glance](#38-mcp-tools--at-a-glance)
+- [Use cases](#use-cases)
+- [Comparison with alternatives](#comparison-with-alternatives)
+- [Performance](#performance)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Support the project](#support-the-project)
+- [License](#license)
 
-### The LxRAG Advantage
+---
 
-LxRAG uniquely combines all three layers purpose-built for code:
+## Why lxRAG?
 
-**1. Graph Structure — not RAG embeddings**
+Most code intelligence tools solve **one** of these problems. lxRAG solves all of them together:
 
-- Files, symbols, and relationships in a queryable graph (Memgraph)
-- **Deterministic structural reasoning** (vs probabilistic embeddings)
-- Cross-file dependency answers instead of relevance-ranked chunks
-- Understands architecture; embeddings miss it
+| Problem                             | Without lxRAG                                     | With lxRAG                                                 |
+| ----------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
+| **Context loss between sessions**   | Agent re-reads everything on restart              | Persistent episode + decision memory survives restarts     |
+| **Architecturally blind retrieval** | Embeddings miss cross-file relationships          | Graph traversal finds structural dependencies              |
+| **Probabilistic search misses**     | Semantic search returns nearest chunks, not facts | Hybrid graph + vector + BM25 fused with RRF                |
+| **Multi-agent collisions**          | Two agents edit the same file simultaneously      | Claims/release protocol with conflict detection            |
+| **Wasted CI time**                  | Full test suite on every change                   | Impact-scoped test selection — only affected tests run     |
+| **Stale architecture knowledge**    | Agent guesses at layer boundaries                 | Graph-validated architecture rules + placement suggestions |
+| **Queries eat context budget**      | Raw file dumps, hundreds of tokens per answer     | Cross-file answers in compact, budget-aware responses      |
 
-**2. Session Persistence & Agent Memory — survives restarts**
+---
 
-- Persistent episode memory: observations, decisions, edits, test results
-- Temporal reasoning: query code state at any point in history (`asOf`, `diff_since`)
-- Claims/release workflow prevents multi-agent collisions
-- **No external database setup required** (baked into Memgraph)
+## Key capabilities
 
-**3. Hybrid Retrieval — graph + vector + BM25**
+### 1. Code graph intelligence
 
-- Graph traversal (finds architectural connections)
-- Vector similarity (finds semantic concepts)
-- BM25 lexical search (finds keywords)
-- Reciprocal Rank Fusion merges all three signals
-- **Result**: 10x-6000x more accurate than embeddings alone
+Turn your repository into a **queryable property graph** of files, functions, classes, imports, and their relationships. Ask questions in plain English or Cypher.
 
-**4. MCP Tools — 38 deterministic, automatable actions**
-
-- `graph_query` — Natural language + Cypher code discovery
-- `code_explain` — Full dependency context (not just definition)
-- `impact_analyze` — Blast radius of changes (not manual checking)
-- `test_select` — Exact affected tests (not full suite)
-- `arch_validate` — Rule-based violation detection (not keyword search)
-- - 33 more specialized tools built for code intelligence
-
-### What lxRAG covers that others don't
-
-| Capability | lxRAG | Others |
-|---|---|---|
-| Session persistence | ✅ Native | ❌ / ⚠️ External setup |
-| Agent memory + temporal reasoning | ✅ Episodes + `asOf` | ❌ Not available |
-| Cross-file graph reasoning | ✅ Graph edges | ⚠️ Shallow or manual |
-| Multi-agent safety | ✅ Claims/releases | ❌ No coordination |
-| Impact-scoped test selection | ✅ Built-in | ❌ Full suite or manual |
-| Architecture validation | ✅ Rule-based | ❌ Generic or none |
-| Open source / cost | ✅ MIT · $0 | ❌/⚠️ Closed or paid |
-
-### Performance Gains
-
-**vs Grep/Manual (9x-6000x faster, <1% false positives)**
-**vs Vector RAG (5x token savings, 10x more relevant)**
-
-## What you get
-
-### 1) Code intelligence on demand
-
-Ask questions about your codebase in plain English or Cypher — your agent gets cross-file dependency answers, not raw file dumps.
-
-- Natural-language and Cypher graph querying via `graph_query`
+- Natural-language + Cypher graph queries (`graph_query`)
 - Symbol-level explanation with full dependency context (`code_explain`)
 - Pattern detection and architecture rule validation (`find_pattern`, `arch_validate`)
-- Semantic code slicing for targeted line ranges (`semantic_slice`)
+- Architecture placement suggestions for new code (`arch_suggest`)
+- Semantic code slicing — targeted line ranges from a natural query (`semantic_slice`)
+- Find duplicate or similar code across the codebase (`find_similar_code`, `code_clusters`)
 
-### 2) Memory that survives sessions
+### 2. Persistent agent memory
 
-Your agent remembers what it decided, what it changed, and what broke — even after a VS Code restart.
+Your agent **remembers** what it decided, what it changed, what broke, and what it observed — even after a VS Code restart or a Claude Desktop session ends.
 
-- Persistent episode memory: observations, decisions, edits, test results, errors
-- Claim/release workflow to prevent multi-agent collisions
-- Coordination views so you always know what's in flight
+- Episode memory: observations, decisions, edits, test results, errors, learnings (`episode_add`, `episode_recall`)
+- Decision log with semantic query (`decision_query`)
+- Reflection synthesis from recent episodes (`reflect`)
+- Temporal graph model: query any past code state with `asOf`, compare drift with `diff_since`
 
-### 3) Smarter test runs
+### 3. Multi-agent coordination
 
-Stop running your full test suite on every change. LxRAG tells your agent exactly which tests are affected.
+Run **multiple AI agents in parallel** on the same repository without conflicts.
 
-- Impact analysis scoped to changed files (`impact_analyze`)
-- Selective test execution — only tests that can actually fail (`test_select`, `test_run`)
-- Test categorisation for parallelisation and prioritisation (`test_categorize`, `suggest_tests`)
+- Claim/release protocol for file, function, or task ownership (`agent_claim`, `agent_release`)
+- Fleet-wide coordination view — see what every agent is doing (`coordination_overview`, `agent_status`)
+- Context packs that assemble high-signal task briefings under strict token budgets (`context_pack`)
+- Blocker detection across agents and tasks (`blocking_issues`)
 
-### 4) Documentation you can query like code
+### 4. Test and change intelligence
 
-Your READMEs, architecture decision records, and changelogs become first-class searchable graph nodes.
+Stop running your **full test suite** on every change. Know exactly what's affected.
+
+- Change impact analysis — blast radius of modified files (`impact_analyze`)
+- Selective test execution — only the tests that can fail (`test_select`, `test_run`)
+- Test categorization for parallelization and prioritization (`test_categorize`, `suggest_tests`)
+
+### 5. Documentation as a first-class knowledge source
+
+Your **READMEs, ADRs, and changelogs** become searchable graph nodes, linked to the code they describe.
 
 - Index all markdown docs in one call (`index_docs`)
-- BM25 full-text search across headings and content (`search_docs?query=...`)
-- Symbol-linked lookup — find every doc that references a class or function (`search_docs?symbol=MyClass`)
-- Incremental re-index: only changed files are re-parsed on subsequent runs
+- Full-text BM25 search across headings and content (`search_docs?query=...`)
+- Symbol-linked lookup — every doc that references a class or function (`search_docs?symbol=MyClass`)
+- Incremental re-index: only changed files are re-parsed
 
-### 5) Delivery acceleration
+### 6. Architecture governance
 
-- Graph-backed progress and task tracking (`progress_query`, `task_update`, `feature_status`)
-- Context packs that assemble high-signal context under strict token budgets (`context_pack`)
-- Blocker detection across tasks and agents (`blocking_issues`)
+Enforce **architectural boundaries** automatically and get placement guidance for new code.
+
+- Layer/boundary rule validation (`arch_validate`)
+- Graph-topology-aware placement suggestions (`arch_suggest`)
+- Circular dependency and unused-code detection (`find_pattern`)
+
+### 7. One-shot project setup
+
+Go from a fresh clone to a fully wired AI assistant in **one tool call**.
+
+- `init_project_setup` — sets workspace, rebuilds graph, generates Copilot instructions
+- `setup_copilot_instructions` — generates `.github/copilot-instructions.md` from your repo's topology
+- Works with VS Code Copilot, Claude Code, Claude Desktop, and any MCP-compatible client
+
+---
 
 ## How it works
 
-LxRAG runs as an MCP server over stdio or HTTP and coordinates three data planes behind a single tool interface:
+lxRAG runs as an **MCP server** over stdio or HTTP and coordinates three data planes behind a single tool interface:
 
-- **Graph plane (Memgraph)** — structural and temporal truth: FILE, FUNCTION, CLASS, IMPORT nodes + relationships + full transaction history
-- **Vector plane (Qdrant)** — semantic retrieval for natural-language questions; optional but recommended for large codebases
-- **Response plane** — answer-first shaping with profile budgets so you choose between token-light (`compact`) and detail-rich (`debug`) responses
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     MCP Tool Surface (39 tools)              │
+│  stdio transport (local)  │  HTTP transport (remote/fleet)   │
+└──────────────┬────────────┴────────────────┬────────────────┘
+               │                             │
+   ┌───────────▼────────────┐   ┌────────────▼────────────┐
+   │   Graph Plane          │   │   Vector Plane           │
+   │   Memgraph (Bolt)      │   │   Qdrant                 │
+   │   ─────────────────    │   │   ─────────────────────  │
+   │   FILE · FUNC · CLASS  │   │   Semantic embeddings    │
+   │   IMPORT · CALL edges  │   │   Nearest-neighbor search│
+   │   Temporal tx history  │   │   Natural-language code  │
+   └────────────────────────┘   └─────────────────────────┘
+               │
+   ┌───────────▼────────────────────────────────────────────┐
+   │   Hybrid Retrieval (RRF fusion)                         │
+   │   Graph expansion + Vector similarity + BM25 lexical   │
+   └────────────────────────────────────────────────────────┘
+```
 
-When you call `graph_query` in natural mode, retrieval runs as hybrid fusion:
+When you call `graph_query` in natural language mode, retrieval runs as **hybrid fusion**:
 
-1. Vector similarity search
-2. BM25 / lexical search (Memgraph `text_search` when available, local fallback otherwise)
-3. Graph expansion from seed nodes
-4. Reciprocal Rank Fusion (RRF) merges all signals into a single ranked list
+1. Vector similarity search (semantic concepts)
+2. BM25 lexical search (keyword matches)
+3. Graph expansion from seed nodes (structural relationships)
+4. **Reciprocal Rank Fusion (RRF)** merges all three signals into a single ranked result
+
+The result: structurally accurate, semantically relevant answers — not just the closest embedding match.
 
 ### System diagram
 
 ![System Architecture](docs/diagrams/system-architecture.svg)
 
-## Tooling surface
-
-The server exposes **38 MCP tools** across:
-
-- Graph/querying (4): `graph_set_workspace`, `graph_rebuild`, `graph_health`, `graph_query`
-- Code intelligence (5): `code_explain`, `find_pattern`, `semantic_slice`, `context_pack`, `diff_since`
-- Architecture (2): `arch_validate`, `arch_suggest`
-- Semantic/similarity (4): `semantic_search`, `find_similar_code`, `code_clusters`, `semantic_diff`
-- Test intelligence (5): `test_select`, `test_categorize`, `impact_analyze`, `test_run`, `suggest_tests`
-- Progress/operations (4): `progress_query`, `task_update`, `feature_status`, `blocking_issues`
-- Memory/coordination (8): `episode_add`, `episode_recall`, `decision_query`, `reflect`, `agent_claim`, `agent_release`, `agent_status`, `coordination_overview`
-- Runtime controls (1): `contract_validate`
-- Documentation (2): `index_docs`, `search_docs`
-- Reference (1): `ref_query` — query a sibling repo for architecture insights, patterns, and code examples
-- Setup (2): `init_project_setup`, `setup_copilot_instructions` — one-shot onboarding and AI assistant scaffolding
+---
 
 ## Quick start
 
-> **Recommended setup:** run Memgraph and Qdrant in Docker (`docker compose up -d memgraph qdrant`), then run the MCP server on your host via stdio. Your editor spawns the process directly — native filesystem paths, no HTTP port, no session headers.
+> **Recommended setup:** Memgraph + Qdrant in Docker, MCP server on your host via stdio. Your editor spawns and owns the process — no HTTP ports, no session headers.
 
 ### Prerequisites
 
-- Node.js 24+
-- Docker + Docker Compose
+| Requirement             | Version  |
+| ----------------------- | -------- |
+| Node.js                 | 24+      |
+| Docker + Docker Compose | 24+ (v2) |
 
-> See [QUICK_START.md](QUICK_START.md) for full VS Code + Copilot/Claude wiring instructions.
-
-### 1) Clone and build
+### 1. Clone and build
 
 ```bash
 git clone https://github.com/lexCoder2/lxRAG-MCP.git
@@ -197,23 +194,16 @@ cd lxRAG-MCP
 npm install && npm run build
 ```
 
-### 2) Start the databases
-
-Launch only Memgraph and Qdrant — the MCP server runs locally via stdio, not in Docker:
+### 2. Start the databases
 
 ```bash
 docker compose up -d memgraph qdrant
+docker compose ps   # wait for "healthy" (~30 s)
 ```
 
-Verify they are healthy:
+### 3. Wire your editor
 
-```bash
-docker compose ps memgraph qdrant   # both should show "healthy" / "running"
-```
-
-### 3) Configure stdio in your editor
-
-**VS Code** — add to your `.vscode/mcp.json` (or user `settings.json`):
+**VS Code — add to `.vscode/mcp.json`:**
 
 ```json
 {
@@ -234,7 +224,7 @@ docker compose ps memgraph qdrant   # both should show "healthy" / "running"
 }
 ```
 
-**Claude Desktop** — add to `claude_desktop_config.json`:
+**Claude Desktop — add to `claude_desktop_config.json`:**
 
 ```json
 {
@@ -254,9 +244,7 @@ docker compose ps memgraph qdrant   # both should show "healthy" / "running"
 }
 ```
 
-### 4) Initialize your project
-
-Once the server is connected in your editor, run this single tool call to set context, index the graph, and generate copilot instructions in one step:
+### 4. Initialize your project (one call)
 
 ```json
 {
@@ -269,168 +257,219 @@ Once the server is connected in your editor, run this single tool call to set co
 }
 ```
 
-That's it — the graph rebuild runs in the background and your project is ready to query.
+This single call sets the workspace context, rebuilds the code graph, and generates `.github/copilot-instructions.md` for your project. Your agent is ready to query.
 
-### Session flow diagram
+**Total setup time: ~5 minutes.** See [QUICK_START.md](QUICK_START.md) for the full guide including Docker, Claude Desktop, and HTTP transport.
 
-![MCP HTTP Session Flow](docs/diagrams/mcp-session-flow.svg)
+---
 
-### Visual examples
+## 38 MCP tools — at a glance
 
-| Workflow                       | Minimal tool sequence                                  | Outcome                                        |
-| ------------------------------ | ------------------------------------------------------ | ---------------------------------------------- |
-| **Boot a project context**     | `initialize` → `graph_set_workspace` → `graph_rebuild` | Graph becomes query-ready for that MCP session |
-| **Understand a subsystem**     | `graph_query` → `code_explain` → `semantic_slice`      | Dependency map + concrete code slice           |
-| **Plan safe changes**          | `impact_analyze` → `test_select` → `test_run`          | Change radius + focused test execution         |
-| **Coordinate multiple agents** | `agent_claim` → `context_pack` → `task_update`         | Ownership, task context, and durable progress  |
+| Category                  | Tools                                                                              | What they do                                   |
+| ------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
+| **Graph / querying**      | `graph_set_workspace` `graph_rebuild` `graph_health` `graph_query`                 | Index and query the code graph                 |
+| **Code intelligence**     | `code_explain` `find_pattern` `semantic_slice` `context_pack` `diff_since`         | Understand structure and change                |
+| **Architecture**          | `arch_validate` `arch_suggest`                                                     | Enforce boundaries, guide placement            |
+| **Semantic / similarity** | `semantic_search` `find_similar_code` `code_clusters` `semantic_diff`              | Find related code by meaning                   |
+| **Test intelligence**     | `test_select` `test_categorize` `impact_analyze` `test_run` `suggest_tests`        | Run only what matters                          |
+| **Progress / ops**        | `progress_query` `task_update` `feature_status` `blocking_issues`                  | Track delivery and blockers                    |
+| **Agent memory**          | `episode_add` `episode_recall` `decision_query` `reflect`                          | Persist and retrieve agent knowledge           |
+| **Coordination**          | `agent_claim` `agent_release` `agent_status` `coordination_overview`               | Safe multi-agent parallelism                   |
+| **Documentation**         | `index_docs` `search_docs`                                                         | Search your READMEs and ADRs like code         |
+| **Reference**             | `ref_query`                                                                        | Query a sibling repo for patterns and examples |
+| **Setup**                 | `init_project_setup` `setup_copilot_instructions` `contract_validate` `tools_list` | One-shot onboarding                            |
 
-#### Example A — Set workspace context
+---
 
-```json
-{
-  "name": "graph_set_workspace",
-  "arguments": {
-    "workspaceRoot": "/workspace",
-    "sourceDir": "src",
-    "projectId": "my-repo"
-  }
-}
-```
+## Use cases
 
-#### Example B — Natural graph query
+### Individual developer — Claude Code or VS Code Copilot
 
-```json
-{
-  "name": "graph_query",
-  "arguments": {
-    "query": "find key graph files",
-    "language": "natural",
-    "mode": "local",
-    "limit": 5
-  }
-}
-```
+- Ask "what calls `AuthService.login` across the whole repo?" and get a graph answer, not a file dump
+- Resume a refactoring task after a VS Code restart — your agent remembers every decision
+- Run `impact_analyze` before committing — know exactly which tests to run
+- Use `arch_validate` to catch layer violations before they become bugs
 
-#### Example C — Context pack for an active task
+### Engineering team — multi-agent workflows
 
-```json
-{
-  "name": "context_pack",
-  "arguments": {
-    "task": "stabilize hybrid retrieval outputs",
-    "taskId": "PHASE8-RET-01",
-    "agentId": "agent-copilot",
-    "profile": "compact"
-  }
-}
-```
+- Run a planning agent and an implementation agent in parallel without file conflicts
+- Use `coordination_overview` to see what every agent is working on
+- `context_pack` hands off a high-signal task briefing between agents in one call
+- Persistent decision memory means the second agent doesn't repeat work the first already did
+
+### CI / automation pipeline
+
+- `graph_health` as a startup readiness gate
+- `test_select` + `test_run` for impact-scoped CI that's 5–10x faster than full suite
+- `arch_validate` as an automated architecture compliance check on every PR
+
+### Repository onboarding
+
+- `init_project_setup` on a new codebase — graph + copilot instructions in ~30 seconds
+- `code_explain` to understand unfamiliar subsystems with full dependency context
+- `setup_copilot_instructions` generates AI assistant instructions tailored to your repo's topology
+
+---
+
+## Comparison with alternatives
+
+| Feature                         | lxRAG MCP                | Plain RAG / embeddings | GitHub Copilot (built-in) | Custom LangChain agent |
+| ------------------------------- | ------------------------ | ---------------------- | ------------------------- | ---------------------- |
+| Cross-file structural reasoning | ✅ Graph edges           | ❌ Chunks only         | ⚠️ Limited                | ⚠️ Manual setup        |
+| Persistent agent memory         | ✅ Episodes + decisions  | ❌ Stateless           | ❌ Stateless              | ⚠️ Custom DB needed    |
+| Multi-agent coordination        | ✅ Claims/releases       | ❌ None                | ❌ None                   | ❌ Custom setup        |
+| Temporal code model             | ✅ `asOf` + `diff_since` | ❌                     | ❌                        | ❌                     |
+| Impact-scoped test selection    | ✅ Built-in              | ❌                     | ❌                        | ❌                     |
+| Architecture validation         | ✅ Rule-based            | ❌                     | ❌                        | ❌                     |
+| MCP-native (any AI client)      | ✅ 39 tools              | ❌                     | ❌                        | ❌                     |
+| Open source / self-hosted       | ✅ MIT                   | ⚠️ Varies              | ❌ Closed                 | ✅                     |
+| Setup complexity                | Medium (Docker)          | Low                    | None                      | High                   |
+
+---
+
+## Performance
+
+Benchmarks run against a synthetic 20-scenario agent task suite (`benchmarks/`):
+
+| Metric                                                      | Result                                          |
+| ----------------------------------------------------------- | ----------------------------------------------- |
+| Scenarios where lxRAG was faster than baseline              | **15 / 20**                                     |
+| MCP-only successful scenarios (baseline could not complete) | **4 / 20**                                      |
+| vs Grep / manual file reads                                 | **9x–6000x faster**, <1% false positives        |
+| vs pure vector RAG                                          | **5x token savings**, 10x more relevant results |
+
+> Benchmarks are workload-dependent. Run `npm run benchmark:check-regression` against your own repository for accurate numbers.
+
+---
+
+## What's already shipped
+
+Every feature below is **production-ready today**:
+
+- ✅ **Hybrid retrieval** for `graph_query` — vector + BM25 + graph expansion fused with RRF
+- ✅ **AST-accurate parsers** via tree-sitter for TypeScript, TSX, JS/MJS/CJS, JSX, Python, Go, Rust, Java
+- ✅ **Watcher-driven incremental rebuilds** — graph stays fresh without manual intervention *(requires `LXRAG_ENABLE_WATCHER=true`)*
+- ✅ **Temporal code model** — `asOf` queries any past graph state; `diff_since` shows what changed
+- ✅ **Indexing-time symbol summaries** — compact-profile answers stay useful in tight token budgets
+- ✅ **Leiden community detection + PageRank PPR** with JS fallbacks for non-MAGE environments
+- ✅ **SCIP IDs** on all FILE, FUNCTION, and CLASS nodes for precise cross-tool symbol references
+- ✅ **Episode memory, agent coordination, context packs, and response budget shaping**
+- ✅ **Docs & ADR indexing** — markdown parsed into graph nodes; queried by text or symbol association
+- ✅ **402 tests** across parsers, builders, engines, and tool handlers — all green
+
+---
 
 ## Runtime modes
 
-- **stdio** ✅ recommended for local editor integrations (VS Code, Claude Desktop, Cursor) — simplest setup, no HTTP port or session headers needed
-- **http** — for multi-client agent fleets, remote access, or automation pipelines that need concurrent sessions
+| Mode                     | Best for                                             | Command              |
+| ------------------------ | ---------------------------------------------------- | -------------------- |
+| **stdio** ✅ recommended | VS Code Copilot, Claude Code, Claude Desktop, Cursor | `npm run start`      |
+| **HTTP**                 | Remote agents, multi-client fleets, CI pipelines     | `npm run start:http` |
 
 ### Useful scripts
 
 ```bash
-npm run start          # stdio server (recommended for editor use)
-npm run start:http     # HTTP supervisor (multi-session / remote)
-npm run build          # compile TypeScript
-npm test               # run all 109 tests
+npm run start                       # stdio server (recommended)
+npm run start:http                  # HTTP supervisor (multi-session)
+npm run build                       # compile TypeScript
+npm test                            # run all 402 tests
+npm run benchmark:check-regression  # check latency/token regressions
 ```
+
+---
 
 ## Repository map
 
 | Path                                 | What's inside                                                       |
 | ------------------------------------ | ------------------------------------------------------------------- |
-| `src/server.ts`, `src/mcp-server.ts` | MCP / HTTP transport surfaces                                       |
-| `src/tools/tool-handlers.ts`         | all 35 tool implementations                                         |
-| `src/graph/`                         | graph client, orchestrator, hybrid retriever, watcher, docs builder |
-| `src/engines/`                       | architecture, test, progress, community, episode, docs engines      |
-| `src/parsers/`                       | AST and markdown parsers (tree-sitter + regex fallback)             |
-| `src/response/`                      | response shaping, profile budgets, summarization                    |
-| `docs/AGENT_CONTEXT_ENGINE_PLAN.md`  | implementation plan and phase status                                |
-| `docs/GRAPH_EXPERT_AGENT.md`         | full agent runbook                                                  |
+| `src/server.ts`, `src/mcp-server.ts` | MCP + HTTP transport surfaces                                       |
+| `src/tools/`                         | Tool handlers, registry, all 39 tool implementations                |
+| `src/graph/`                         | Graph client, orchestrator, hybrid retriever, watcher, docs builder |
+| `src/engines/`                       | Architecture, test, progress, coordination, episode, docs engines   |
+| `src/parsers/`                       | AST + markdown parsers (tree-sitter + regex fallback)               |
+| `src/response/`                      | Response shaping, profile budgets, summarization                    |
+| `docs/GRAPH_EXPERT_AGENT.md`         | Full agent runbook — tool priority, path rules, response shaping    |
+| `docs/MCP_INTEGRATION_GUIDE.md`      | Deep-dive integration guide                                         |
+| `QUICK_START.md`                     | Step-by-step deployment + editor wiring (~5 min)                    |
 
-## What's already shipped
-
-Every feature below is production-ready today:
-
-- ✅ Hybrid retrieval for `graph_query` — vector + BM25 + graph expansion fused with RRF
-- ✅ AST-accurate parsers via tree-sitter for TypeScript, TSX, JS/MJS/CJS, JSX, Python, Go, Rust, Java (activate with `LXRAG_USE_TREE_SITTER=true`)
-- ✅ Watcher-driven incremental rebuilds — your graph stays fresh without manual intervention
-- ✅ Temporal query and diff support — query any past graph state with `asOf`, compare changes with `diff_since`
-- ✅ Indexing-time symbol summarization — compact-profile answers stay useful even in tight token budgets
-- ✅ MAGE-native Leiden community detection and PageRank PPR with JS fallbacks for non-MAGE environments
-- ✅ SCIP IDs on all FILE, FUNCTION, and CLASS nodes for precise cross-tool symbol references
-- ✅ Episode memory, agent coordination, context packs, and response budget shaping
-- ✅ Docs & ADR indexing — `index_docs` parses all your markdown into graph nodes; `search_docs` queries them with BM25 or by symbol association
-
-## Release highlights
-
-- **Hybrid natural retrieval** — your `graph_query` calls blend vector, BM25, and graph signals with RRF so you get the most relevant results across the whole codebase, not just the closest embedding match.
-- **Multi-language AST parsers** — tree-sitter gives you accurate symbol extraction for TypeScript, TSX, JavaScript, JSX, Python, Go, Rust, and Java. Enable with `LXRAG_USE_TREE_SITTER=true`; each language falls back gracefully if the grammar isn't installed.
-- **Impact-scoped test runs** — `impact_analyze` + `test_select` tell your agent exactly which tests to run after a change, cutting unnecessary CI time without sacrificing coverage confidence.
-- **Docs & ADR indexing** — your documentation is now searchable the same way your code is. `index_docs` walks the workspace, parses every markdown file into `DOCUMENT` and `SECTION` nodes, and stores them in the graph. `search_docs` retrieves them by text query or by symbol association.
-- **Persistent agent memory** — episodes, decisions, and claims survive across VS Code restarts so your agent can pick up exactly where it left off.
-- **Temporal code model** — `asOf` and `diff_since` let you or your agent reason about the state of any file or symbol at any point in the past.
-- **Always-current graph** — the file watcher triggers incremental rebuilds on save so your graph never goes stale.
-- **Lower-token answers** — indexing-time symbol summaries keep `compact`-profile responses genuinely useful without growing the payload.
-- **Safer BM25 fallback** — Memgraph `text_search` is used when available; the server falls back to a local lexical scorer automatically so retrieval never breaks.
-
-## Tests and quality gates
-
-The test suite covers all parsers, builders, engines, and tool handlers — 109 tests across 5 files, all green.
-
-```bash
-npm test                          # run all 109 unit tests
-npm run benchmark:check-regression  # check latency / token-efficiency regressions
-```
-
-Benchmark scripts under `scripts/` and `benchmarks/` track:
-
-- Query latency and token efficiency
-- Retrieval accuracy trends
-- Compact-profile response budget compliance
-- Agent-mode synthetic task benchmarks
-
-All new features ship with tests. The docs feature alone added 101 tests (50 parser + 23 builder + 17 engine + 11 tool-handler contract tests) before landing.
+---
 
 ## Integration tips
 
-A few habits that make a big difference:
+- **Start every session** with `graph_set_workspace` → `graph_rebuild` (or configure `init_project_setup` to run automatically)
+- **Prefer `graph_query` over file reads** for discovery — far fewer tokens, cross-file context included
+- **Use `profile: compact`** in autonomous loops; switch to `balanced` or `debug` when you need detail
+- **Rebuild incrementally** after meaningful edits; the file watcher handles this automatically during active sessions
+- **Run `impact_analyze` before tests** so your agent only executes what's actually affected
 
-- **Start every session** with `graph_set_workspace` → `graph_rebuild` (or let your configured client do it automatically via `.github/copilot-instructions.md`)
-- **Prefer `graph_query` over file reads** for discovery — you'll use far fewer tokens and get cross-file context for free
-- **Use `profile: compact`** for autonomous loops where every token counts; switch to `balanced` or `debug` when you need more detail
-- **Rebuild incrementally** after meaningful edits (`graph_rebuild` with `mode: incremental`); the file watcher handles this for you during active sessions
-- **Run `impact_analyze` before tests** so your agent only executes what's actually affected by a change
+---
 
-See:
+## Roadmap
 
-- `.github/copilot-instructions.md`
-- `docs/GRAPH_EXPERT_AGENT.md`
-- [QUICK_START.md](QUICK_START.md): step-by-step deployment, VS Code project wiring, and Copilot / Claude extension configuration
+lxRAG is open source and self-hosted today. Planned work ahead — see [ROADMAP.md](ROADMAP.md) for the full prioritized backlog with detail on each item.
+
+- [ ] Language server protocol (LSP) integration for deeper symbol resolution
+- [ ] Go, Rust, Java parser improvements
+- [ ] MCP `resources` surface (expose graph nodes as MCP resources)
+- [ ] Webhook-triggered graph rebuilds for CI environments
+- [ ] Plugin API for custom tool registration
+- [ ] **Real-time transparent graph sync** — continuous file-watching with live graph and vector index updates surfaced as observable events, so agents and users always know when the graph is current without polling `graph_health` or triggering manual rebuilds
+- [ ] **Domain knowledge layer** — attach external knowledge sources (documentation, standards, specs, research articles) directly to code symbols as graph nodes; a `calculateBMI` function links to CDC/WHO references, a payment function links to PCI-DSS rules, a GDPR-scoped model links to regulation articles — giving agents real-world context alongside structural context
+- [ ] Multi-user coordination — shared agent memory, task ownership, and conflict detection across multiple developers on the same repository
+- [ ] lxRAG Cloud — hosted, zero-infrastructure version for individuals and teams
+
+---
 
 ## Contributing
 
-Pull requests are welcome! Whether it's a new parser, a tool improvement, a bug fix, or better docs — open an issue to discuss what you'd like to change, or just send a PR directly.
+Pull requests are welcome. Whether it's a new parser, a tool improvement, a bug fix, or better docs — contributions of all sizes move this project forward.
 
-- **Bugs / features** — open an issue first so we can align on scope
-- **New tools** — follow the handler + registration pattern in `src/tools/tool-handlers.ts` and `src/server.ts`; include tests
+- **Bugs / features** — open an issue first to align on scope
+- **New tools** — follow the handler + registration pattern in `src/tools/`; include tests
+- **New language parsers** — add tree-sitter grammar + tests in `src/parsers/`
 - **Docs** — typos, clarifications, and examples are always appreciated
 
-[→ Open a pull request](https://github.com/lexCoder2/lxRAG-MCP/pulls)
+[→ Open a pull request](https://github.com/lexCoder2/lxRAG-MCP/pulls) · [→ Browse open issues](https://github.com/lexCoder2/lxRAG-MCP/issues)
 
-## Support this project
+---
 
-LxRAG MCP is built and maintained in my personal time — researching graph retrieval techniques, designing the tool surface, writing tests, and keeping everything working across MCP protocol updates. a cup of coffe or any help you can provide will make a difference, If it saves you time or makes your AI-assisted workflows meaningfully better, consider supporting the work:
+## Support the project
+
+lxRAG MCP is built and maintained in personal time — researching graph retrieval techniques, designing the tool surface, writing tests, and keeping everything working across MCP protocol updates. If it saves you time or makes your AI-assisted workflows meaningfully better, consider supporting the work:
 
 - **GitHub Sponsors** → [github.com/sponsors/lexCoder2](https://github.com/sponsors/lexCoder2)
 - **Buy Me a Coffee** → [buymeacoffee.com/hi8g](https://buymeacoffee.com/hi8g)
 
-Every contribution — no matter the size — helps keep the project active and lets me prioritize new features and support over other obligations. Thank you. 🙏
+---
+
+## FAQ
+
+**Q: Does lxRAG require a cloud service or API key?**
+No. lxRAG runs entirely on your machine. Memgraph and Qdrant run in Docker containers you control. No data leaves your environment.
+
+**Q: Does it work with Cursor?**
+Yes. Any MCP-compatible client works. Add the stdio config to Cursor's MCP settings the same way as VS Code.
+
+**Q: How large a codebase can it handle?**
+The graph plane (Memgraph) scales to millions of nodes. For very large monorepos, use `sourceDir` to scope indexing to the relevant subdirectory. Incremental rebuilds keep the graph fresh without re-indexing everything.
+
+**Q: Do I need to run Qdrant?**
+Qdrant is optional but recommended for large codebases. Without it, `semantic_search` and `find_similar_code` are unavailable; all other tools continue to work via graph-only or BM25 retrieval.
+
+**Q: Can multiple developers on a team share one lxRAG instance?**
+Yes, via HTTP transport. One running instance handles multiple independent sessions. Team-level shared memory is on the lxRAG Cloud roadmap.
+
+**Q: Is this production-ready?**
+The core tools are stable and tested (402 tests, all green). Treat it as beta — APIs may change before a 1.0 release. Pin your version and watch the changelog.
+
+---
 
 ## License
 
-MIT
+[MIT](LICENSE) — free to use, modify, and distribute.
+
+---
+
+<div align="center">
+  <sub>Built with care for the agentic coding era · <a href="https://github.com/lexCoder2/lxRAG-MCP">github.com/lexCoder2/lxRAG-MCP</a></sub>
+</div>

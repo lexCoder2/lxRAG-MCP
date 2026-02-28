@@ -15,12 +15,9 @@ docs/
 ├─ templates/copilot-instructions-template.md . Copy to .github/copilot-instructions.md
 ├─ templates/skill-mcp-template.md .. Skill prompt template
 ├─ templates/toolsets-template.jsonc . VS Code toolset template
-├─ CLIENT_EXAMPLES.md ............. Code snippets (TypeScript, Python, bash, React)
-│  [not created yet - see QUICK_REFERENCE.md examples]
 ├─ QUICK_REFERENCE.md ............. All 39 tools reference
 ├─ QUICK_START.md ................. Server deployment
-├─ ARCHITECTURE.md ................ Technical deep dive
-└─ GRAPH_EXPERT_AGENT.md .......... Full agent runbook
+└─ ARCHITECTURE.md ................ Technical deep dive
 ```
 
 ---
@@ -103,8 +100,8 @@ Edit `~/.claude_desktop_config.json`:
 
 - [ ] Copy [templates/copilot-instructions-template.md](templates/copilot-instructions-template.md) to `.github/copilot-instructions.md`
 - [ ] Update project references
-- [ ] Add `.mcp-config.json` with projectId
-- [ ] Commit both files
+- [ ] Set `LXRAG_PROJECT_ID` in your environment or pass `projectId` to `graph_set_workspace`
+- [ ] Commit `.github/copilot-instructions.md`
 
 ---
 
@@ -127,7 +124,7 @@ Edit `~/.claude_desktop_config.json`:
 ### Phase 3: Rollout (Per-Project)
 
 1. Copy copilot instructions to `.github/copilot-instructions.md`
-2. Add `.mcp-config.json`
+2. Set `LXRAG_PROJECT_ID` or pass projectId to `graph_set_workspace`
 3. Commit and push
 4. Update team
 
