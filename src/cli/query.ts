@@ -11,19 +11,20 @@
 
 import MemgraphClient from "../graph/client.js";
 import * as env from "../env.js";
+import { logger } from "../utils/logger.js";
 
 async function main() {
   const args = process.argv.slice(2);
   const query = args.join(" ");
 
   if (!query) {
-    console.error("❌ No query provided");
-    console.error('Usage: npm run graph:query "MATCH (n) RETURN n LIMIT 5"');
+    logger.error("❌ No query provided");
+    logger.error('Usage: npm run graph:query "MATCH (n) RETURN n LIMIT 5"');
     process.exit(1);
   }
 
   try {
-    console.error("🔍 Executing query...\n");
+    logger.error("🔍 Executing query...\n");
 
     const memgraph = new MemgraphClient({
       host: env.MEMGRAPH_HOST,
@@ -35,27 +36,27 @@ async function main() {
     const result = await memgraph.executeCypher(query);
 
     if (result.error) {
-      console.error("❌ Query error:", result.error);
+      logger.error("❌ Query error:", result.error);
       process.exit(1);
     }
 
     // Display results
     if (result.data.length === 0) {
-      console.error("📭 No results found");
+      logger.error("📭 No results found");
     } else {
-      console.error(`📊 Results (${result.data.length} rows):\n`);
+      logger.error(`📊 Results (${result.data.length} rows):\n`);
       console.table(result.data);
     }
 
     await memgraph.disconnect();
     process.exit(0);
   } catch (error) {
-    console.error("❌ Query failed:", error);
+    logger.error("❌ Query failed:", error);
     process.exit(1);
   }
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  logger.error("Fatal error:", error);
   process.exit(1);
 });

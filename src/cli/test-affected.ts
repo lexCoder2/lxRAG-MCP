@@ -12,7 +12,7 @@
 
 import { execSync } from "child_process";
 import GraphIndexManager from "../graph/index.js";
-import { loadConfig as _loadConfig } from "../config.js";
+import { loadConfig } from "../config.js";
 import TestEngine from "../engines/test-engine.js";
 
 async function main() {
@@ -30,9 +30,7 @@ async function main() {
     console.error("Examples:");
     console.error("  npm run test:affected src/utils/units.ts");
     console.error("  npm run test:affected src/engine/calculations/\\*.ts --run");
-    console.error(
-      "  npm run test:affected src/context/BuildingContext.tsx --depth=2 --run"
-    );
+    console.error("  npm run test:affected src/context/BuildingContext.tsx --depth=2 --run");
     process.exit(0);
   }
 
@@ -41,9 +39,7 @@ async function main() {
   const depth = depthArg ? parseInt(depthArg.split("=")[1]) : 1;
 
   // Filter out flag arguments
-  const changedFiles = args.filter(
-    (a) => !a.startsWith("--run") && !a.startsWith("--depth=")
-  );
+  const changedFiles = args.filter((a) => !a.startsWith("--run") && !a.startsWith("--depth="));
 
   console.error("🧪 Test Affected Selector");
   console.error(`📁 Changed files: ${changedFiles.length}`);
@@ -65,7 +61,7 @@ async function main() {
     if (result.selectedTests.length === 0) {
       console.error("ℹ️  No tests directly affected by these changes");
       console.error(
-        "   (Possibly: new file, not imported by tests, or test dependencies not built)"
+        "   (Possibly: new file, not imported by tests, or test dependencies not built)",
       );
       process.exit(0);
     }
@@ -78,26 +74,54 @@ async function main() {
 
     console.error("");
     console.error("📊 Statistics:");
-    console.error(`   Coverage: ${result.coverage.percentage}% (${result.coverage.testsSelected}/${result.coverage.totalTests})`);
+    console.error(
+      `   Coverage: ${result.coverage.percentage}% (${result.coverage.testsSelected}/${result.coverage.totalTests})`,
+    );
     console.error(`   Category: ${result.category}`);
     console.error(
-      `   Est. time: ${result.estimatedTime > 0 ? result.estimatedTime + "ms" : "unknown"}`
+      `   Est. time: ${result.estimatedTime > 0 ? result.estimatedTime + "ms" : "unknown"}`,
     );
     console.error("");
 
     // Optionally run tests
     if (runTests) {
-      console.error("▶️  Running selected tests...\n");
+      console.error("\u25b6\ufe0f  Running selected tests...\n");
       try {
+        const config = await loadConfig();
+        const runner = config.testing?.testRunner;
         const testList = result.selectedTests.join(" ");
-        execSync(`npx vitest run ${testList}`, {
+
+        let runCmd: string;
+        if (runner) {
+          // Explicit runner from .lxrag/config.json
+          const runnerArgs = [...(runner.args ?? []), ...result.selectedTests].join(" ");
+          runCmd = `${runner.command} ${runnerArgs}`;
+        } else {
+          // Auto-detect from test file extensions
+          const hasPy = result.selectedTests.some((f) => f.endsWith(".py"));
+          const hasRb = result.selectedTests.some((f) => f.endsWith(".rb"));
+          const hasGo = result.selectedTests.some((f) => f.endsWith(".go"));
+          if (hasPy) {
+            runCmd = `pytest ${testList}`;
+          } else if (hasRb) {
+            runCmd = `bundle exec rspec ${testList}`;
+          } else if (hasGo) {
+            runCmd = `go test ${testList}`;
+          } else {
+            // Default: vitest (JS/TS)
+            runCmd = `npx vitest run ${testList}`;
+          }
+        }
+
+        console.error(`\u25b6\ufe0f  ${runCmd}`);
+        execSync(runCmd, {
           cwd: process.cwd(),
           stdio: "inherit",
         });
-        console.error("\n✅ Tests completed successfully");
+        console.error("\n\u2705 Tests completed successfully");
         process.exit(0);
-      } catch (error) {
-        console.error("\n❌ Some tests failed");
+      } catch (_error) {
+        console.error("\n\u274c Some tests failed");
         process.exit(1);
       }
     } else {
