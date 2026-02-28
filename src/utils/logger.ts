@@ -1,5 +1,5 @@
 /**
- * Lightweight structured logger for lxRAG-MCP.
+ * Lightweight structured logger for lxDIG-MCP.
  *
  * Design constraints:
  *   - MCP servers use stdio transport — stdout is protocol data.
@@ -7,7 +7,7 @@
  *   - Zero runtime dependencies (no pino/winston).
  *   - Output: newline-delimited JSON so log aggregators can ingest directly.
  *   - Automatically includes `sessionId` from AsyncLocalStorage when available.
- *   - Respects `LXRAG_LOG_LEVEL` env var (default "info").
+ *   - Respects `LXDIG_LOG_LEVEL` env var (default "info").
  *
  * Log levels (numeric priority, lower = more verbose):
  *   debug:0  info:1  warn:2  error:3
@@ -43,7 +43,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 /** Resolves the configured minimum log level at startup. */
 function resolveMinLevel(): LogLevel {
-  const raw = (process.env.LXRAG_LOG_LEVEL ?? "info").toLowerCase();
+  const raw = (process.env.LXDIG_LOG_LEVEL ?? "info").toLowerCase();
   if (raw in LEVEL_PRIORITY) return raw as LogLevel;
   // Unknown value → fall back to "info" silently (avoid recursive logging).
   return "info";
@@ -103,7 +103,7 @@ function emit(level: LogLevel, message: string, context?: LogContext): void {
 
 export const logger = {
   /**
-   * Verbose diagnostic output — enabled only at LXRAG_LOG_LEVEL=debug.
+   * Verbose diagnostic output — enabled only at LXDIG_LOG_LEVEL=debug.
    */
   debug(message: string, context?: LogContext): void {
     emit("debug", message, context);

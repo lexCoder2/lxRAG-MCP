@@ -22,8 +22,8 @@ export interface SafeExecOptions extends Omit<ExecSyncOptionsWithStringEncoding,
  */
 export function execWithTimeout(command: string, options: SafeExecOptions = {}): string {
   const {
-    timeout = env.LXRAG_COMMAND_EXECUTION_TIMEOUT_MS,
-    maxOutputBytes = env.LXRAG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES,
+    timeout = env.LXDIG_COMMAND_EXECUTION_TIMEOUT_MS,
+    maxOutputBytes = env.LXDIG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES,
     encoding = "utf-8",
     ...execOptions
   } = options;

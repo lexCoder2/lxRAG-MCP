@@ -159,9 +159,9 @@ export abstract class ToolHandlerBase {
   }
 
   protected defaultProjectContext(): ProjectContext {
-    const workspaceRoot = env.LXRAG_WORKSPACE_ROOT;
+    const workspaceRoot = env.LXDIG_WORKSPACE_ROOT;
     const sourceDir = env.GRAPH_SOURCE_DIR;
-    const projectId = env.LXRAG_PROJECT_ID;
+    const projectId = env.LXDIG_PROJECT_ID;
 
     return {
       workspaceRoot,
@@ -183,7 +183,7 @@ export abstract class ToolHandlerBase {
       : path.resolve(workspaceRoot, sourceInput);
     const projectId =
       overrides.projectId ||
-      (workspaceProvided ? path.basename(workspaceRoot) : env.LXRAG_PROJECT_ID) ||
+      (workspaceProvided ? path.basename(workspaceRoot) : env.LXDIG_PROJECT_ID) ||
       path.basename(workspaceRoot);
 
     return {
@@ -203,7 +203,7 @@ export abstract class ToolHandlerBase {
       return { context, usedFallback: false };
     }
 
-    const fallbackRoot = env.LXRAG_WORKSPACE_ROOT;
+    const fallbackRoot = env.LXDIG_WORKSPACE_ROOT;
     if (!fallbackRoot || !fs.existsSync(fallbackRoot)) {
       return { context, usedFallback: false };
     }
@@ -227,11 +227,11 @@ export abstract class ToolHandlerBase {
   }
 
   public runtimePathFallbackAllowed(): boolean {
-    return env.LXRAG_ALLOW_RUNTIME_PATH_FALLBACK;
+    return env.LXDIG_ALLOW_RUNTIME_PATH_FALLBACK;
   }
 
   public watcherEnabledForRuntime(): boolean {
-    return env.MCP_TRANSPORT === "http" || env.LXRAG_ENABLE_WATCHER;
+    return env.MCP_TRANSPORT === "http" || env.LXDIG_ENABLE_WATCHER;
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
@@ -269,8 +269,8 @@ export abstract class ToolHandlerBase {
         workspaceRoot: context.workspaceRoot,
         sourceDir: context.sourceDir,
         projectId: context.projectId,
-        debounceMs: env.LXRAG_WATCHER_DEBOUNCE_MS,
-        ignorePatterns: env.LXRAG_IGNORE_PATTERNS,
+        debounceMs: env.LXDIG_WATCHER_DEBOUNCE_MS,
+        ignorePatterns: env.LXDIG_IGNORE_PATTERNS,
       },
       async ({ projectId, workspaceRoot, sourceDir, changedFiles }) => {
         await this.runWatcherIncrementalRebuild({
@@ -405,7 +405,7 @@ export abstract class ToolHandlerBase {
     const port = env.QDRANT_PORT;
     logger.error(`[initializeVectorEngine] qdrant=${host}:${port}`);
     logger.error(
-      `[initializeVectorEngine] summarizerUrl=${env.LXRAG_SUMMARIZER_URL ?? "(not set)"}`,
+      `[initializeVectorEngine] summarizerUrl=${env.LXDIG_SUMMARIZER_URL ?? "(not set)"}`,
     );
     this.qdrant = new QdrantClient(host, port);
     this.embeddingEngine = new EmbeddingEngine(this.context.index, this.qdrant);
@@ -452,9 +452,9 @@ export abstract class ToolHandlerBase {
         });
     });
 
-    if (!env.LXRAG_SUMMARIZER_URL) {
+    if (!env.LXDIG_SUMMARIZER_URL) {
       logger.warn(
-        "[summarizer] LXRAG_SUMMARIZER_URL is not set. " +
+        "[summarizer] LXDIG_SUMMARIZER_URL is not set. " +
           "Heuristic local summaries will be used, reducing vector search quality and " +
           "compact-profile accuracy. " +
           "Point this to an OpenAI-compatible /v1/chat/completions endpoint for production use.",
@@ -1182,7 +1182,7 @@ export abstract class ToolHandlerBase {
       changedFiles: context.changedFiles,
       txId,
       txTimestamp,
-      exclude: ["node_modules", "dist", ".next", ".lxrag", "coverage", ".git"],
+      exclude: ["node_modules", "dist", ".next", ".lxdig", "coverage", ".git"],
     });
 
     // Phase 2a & 4.3: Reset embeddings for watcher-driven incremental builds (per-project to prevent race conditions)

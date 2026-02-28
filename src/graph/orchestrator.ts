@@ -94,7 +94,7 @@ export class GraphOrchestrator {
 
     // ── Tree-sitter TypeScript / TSX ────────────────────────────────────────
     // Enable when CODE_GRAPH_USE_TREE_SITTER=true AND native binding compiled.
-    const wantTsTs = env.LXRAG_USE_TREE_SITTER;
+    const wantTsTs = env.LXDIG_USE_TREE_SITTER;
     const tsAvailability = checkTsTreeSitterAvailability();
     this.useTsTreeSitter = false;
     if (wantTsTs) {
@@ -170,7 +170,7 @@ export class GraphOrchestrator {
     this.cache = new CacheManager();
     this.memgraph = memgraph || new MemgraphClient();
     this.verbose = verbose;
-    this.summarizer = new CodeSummarizer(env.LXRAG_SUMMARIZER_URL);
+    this.summarizer = new CodeSummarizer(env.LXDIG_SUMMARIZER_URL);
   }
 
   /**
@@ -178,20 +178,20 @@ export class GraphOrchestrator {
    */
   async build(options: Partial<BuildOptions> = {}): Promise<BuildResult> {
     const startTime = Date.now();
-    const resolvedWorkspaceRoot = options.workspaceRoot || env.LXRAG_WORKSPACE_ROOT;
+    const resolvedWorkspaceRoot = options.workspaceRoot || env.LXDIG_WORKSPACE_ROOT;
     const opts: BuildOptions = {
       mode: options.mode || "incremental",
       verbose: options.verbose ?? this.verbose,
       workspaceRoot: resolvedWorkspaceRoot,
       projectId: (
         options.projectId ||
-        env.LXRAG_PROJECT_ID ||
+        env.LXDIG_PROJECT_ID ||
         path.basename(resolvedWorkspaceRoot)
       ).toLowerCase(),
       projectFingerprint:
         options.projectFingerprint ?? computeProjectFingerprint(resolvedWorkspaceRoot),
       sourceDir: options.sourceDir || "src",
-      exclude: options.exclude || ["node_modules", "dist", ".next", ".lxrag"],
+      exclude: options.exclude || ["node_modules", "dist", ".next", ".lxdig"],
       txId: options.txId,
       txTimestamp: options.txTimestamp,
     };

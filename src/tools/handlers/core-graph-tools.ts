@@ -6,7 +6,7 @@
 import * as fs from "fs";
 import * as z from "zod";
 import * as env from "../../env.js";
-import { generateSecureId, computeProjectFingerprint } from "../../utils/validation.js";
+import { generateSecureId } from "../../utils/validation.js";
 import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
 import { logger } from "../../utils/logger.js";
 
@@ -331,7 +331,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             "WORKSPACE_PATH_SANDBOXED",
             `Requested workspaceRoot is not accessible from this runtime: ${resolvedContext.workspaceRoot}`,
             true,
-            "Mount the target project into the container (e.g. LXRAG_TARGET_WORKSPACE) and restart docker-compose, or set LXRAG_ALLOW_RUNTIME_PATH_FALLBACK=true to force fallback to mounted workspace.",
+            "Mount the target project into the container (e.g. LXDIG_TARGET_WORKSPACE) and restart docker-compose, or set LXDIG_ALLOW_RUNTIME_PATH_FALLBACK=true to force fallback to mounted workspace.",
           );
         }
 
@@ -442,7 +442,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             txId,
             txTimestamp,
             indexDocs,
-            exclude: ["node_modules", "dist", ".next", ".lxrag", "coverage", ".git"],
+            exclude: ["node_modules", "dist", ".next", ".lxdig", "coverage", ".git"],
           })
           .then(postBuild)
           .catch((err) => {
@@ -461,7 +461,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             throw err;
           });
 
-        const thresholdMs = Math.max(1000, env.LXRAG_SYNC_REBUILD_THRESHOLD_MS);
+        const thresholdMs = Math.max(1000, env.LXDIG_SYNC_REBUILD_THRESHOLD_MS);
 
         const raceResult = await Promise.race([
           buildPromise.then((result) => ({
@@ -582,7 +582,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             "WORKSPACE_PATH_SANDBOXED",
             `Requested workspaceRoot is not accessible from this runtime: ${nextContext.workspaceRoot}`,
             true,
-            "Mount the target project into the container (e.g. LXRAG_TARGET_WORKSPACE) and restart docker-compose, or set LXRAG_ALLOW_RUNTIME_PATH_FALLBACK=true to force fallback to mounted workspace.",
+            "Mount the target project into the container (e.g. LXDIG_TARGET_WORKSPACE) and restart docker-compose, or set LXDIG_ALLOW_RUNTIME_PATH_FALLBACK=true to force fallback to mounted workspace.",
           );
         }
 
@@ -795,8 +795,8 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
               mode: hybridRetriever?.bm25Mode ?? "not_initialized",
             },
             summarizer: {
-              configured: !!env.LXRAG_SUMMARIZER_URL,
-              endpoint: env.LXRAG_SUMMARIZER_URL ? "[configured]" : null,
+              configured: !!env.LXDIG_SUMMARIZER_URL,
+              endpoint: env.LXDIG_SUMMARIZER_URL ? "[configured]" : null,
             },
             rebuild: {
               lastRequestedAt: ctx.lastGraphRebuildAt || null,

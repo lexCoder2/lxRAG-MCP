@@ -19,9 +19,9 @@ export class DocsBuilder {
   private readonly txTimestamp: number;
 
   constructor(projectId?: string, workspaceRoot?: string, txId?: string, txTimestamp?: number) {
-    this.workspaceRoot = workspaceRoot ?? env.LXRAG_WORKSPACE_ROOT ?? process.cwd();
-    this.projectId = projectId ?? env.LXRAG_PROJECT_ID ?? path.basename(this.workspaceRoot);
-    this.txId = txId ?? env.LXRAG_TX_ID ?? `tx-${Date.now()}`;
+    this.workspaceRoot = workspaceRoot ?? env.LXDIG_WORKSPACE_ROOT ?? process.cwd();
+    this.projectId = projectId ?? env.LXDIG_PROJECT_ID ?? path.basename(this.workspaceRoot);
+    this.txId = txId ?? env.LXDIG_TX_ID ?? `tx-${Date.now()}`;
     this.txTimestamp = txTimestamp ?? Date.now();
   }
 

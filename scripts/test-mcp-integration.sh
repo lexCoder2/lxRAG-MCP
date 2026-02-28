@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_COMPOSE_FILE="${DOCKER_COMPOSE_FILE:-$SCRIPT_DIR/docker-compose.yml}"
 
 echo "=========================================="
-echo "lexRAG MCP Integration Test"
+echo "lexDIG MCP Integration Test"
 echo "=========================================="
 echo ""
 
@@ -109,6 +109,6 @@ if [ $FAILED -eq 0 ]; then
     exit 0
 else
     echo -e "${RED}✗ Some tests failed. Check logs:${NC}"
-    echo "  docker logs lexrag-mcp"
+    echo "  docker logs lexdig-mcp"
     exit 1
 fi

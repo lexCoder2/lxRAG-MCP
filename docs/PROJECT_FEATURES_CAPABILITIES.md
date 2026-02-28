@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-lexRAG-MCP is an MCP server focused on **architecture-aware code intelligence** and **agent-ready task coordination**. It combines:
+lexDIG-MCP is an MCP server focused on **architecture-aware code intelligence** and **agent-ready task coordination**. It combines:
 
 - A graph plane for structural understanding.
 - A semantic retrieval plane for relevance ranking.

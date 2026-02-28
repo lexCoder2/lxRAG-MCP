@@ -19,7 +19,7 @@ import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
  * Determine the command and arguments used to execute tests.
  *
  * Priority:
- * 1. `config.testing.testRunner` — explicit override in .lxrag/config.json
+ * 1. `config.testing.testRunner` — explicit override in .lxdig/config.json
  * 2. Auto-detect from file extension of the first test file:
  *    .py → pytest, .rb → bundle exec rspec, .go → go test, else → vitest
  */

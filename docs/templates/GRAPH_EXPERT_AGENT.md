@@ -15,7 +15,7 @@ You are the **Graph Expert Agent** for this project. Your goal is to produce acc
 - Core workflow: initialize session → set project context → rebuild graph → query tools
 - Graph rebuild is async (`status: QUEUED`), so results may lag for a few seconds
 - **Parsers**: TypeScript, TSX, JavaScript (`.js`/`.mjs`/`.cjs`), JSX, Python, Go, Rust, Java
-  - Set `LXRAG_USE_TREE_SITTER=true` for AST-accurate tree-sitter parsers; graceful per-language fallback otherwise
+  - Set `LXDIG_USE_TREE_SITTER=true` for AST-accurate tree-sitter parsers; graceful per-language fallback otherwise
 - **MAGE algorithms**: Leiden community detection and PageRank PPR (both with JS fallback)
 - **SCIP IDs**: `scipId` field on all FILE, FUNCTION, CLASS nodes for cross-tool symbol references
 

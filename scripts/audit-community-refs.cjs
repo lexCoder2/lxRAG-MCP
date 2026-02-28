@@ -3,7 +3,7 @@
  * Audit: community membership types and REFERENCES root cause
  */
 const neo4j = require("neo4j-driver");
-const PROJECT = "lxRAG-MCP";
+const PROJECT = "lxDIG-MCP";
 
 async function run() {
   const driver = neo4j.driver(
@@ -48,7 +48,7 @@ async function run() {
     `,
     );
 
-    // REFERENCES: why they don't exist for lxRAG-MCP
+    // REFERENCES: why they don't exist for lxDIG-MCP
     // Check if IMPORTs have 'source' ending in .js
     await q(
       "IMPORT source extensions breakdown",

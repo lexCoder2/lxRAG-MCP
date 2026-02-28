@@ -1,4 +1,4 @@
-# lxRAG MCP — Quick Reference
+# lxDIG MCP — Quick Reference
 
 ## Session Flow (MCP HTTP)
 
@@ -165,13 +165,13 @@ curl http://localhost:9000/health
 MEMGRAPH_HOST=localhost       # default: localhost
 MEMGRAPH_PORT=7687            # default: 7687
 MCP_PORT=9000                 # default: 9000
-LXRAG_PROJECT_ID=my-repo # optional: default project namespace
-LXRAG_USE_TREE_SITTER=true  # enable AST-accurate parsers (requires optional deps)
+LXDIG_PROJECT_ID=my-repo # optional: default project namespace
+LXDIG_USE_TREE_SITTER=true  # enable AST-accurate parsers (requires optional deps)
 ```
 
 ## Tree-sitter Parsers
 
-When `LXRAG_USE_TREE_SITTER=true`, AST-accurate parsers activate for:
+When `LXDIG_USE_TREE_SITTER=true`, AST-accurate parsers activate for:
 
 | Language   | Extensions            | Fallback       |
 | ---------- | --------------------- | -------------- |

@@ -26,7 +26,7 @@ export class SyncStateManager {
 
   private stateHistory: Array<{ timestamp: number; state: SystemHealth }> = [];
   // Phase 4.6: Use configurable history size limit
-  private maxHistorySize = env.LXRAG_STATE_HISTORY_MAX_SIZE;
+  private maxHistorySize = env.LXDIG_STATE_HISTORY_MAX_SIZE;
 
   constructor(private projectId: string) {
     logger.error(`[SyncStateManager] Initialized for project ${projectId}`);

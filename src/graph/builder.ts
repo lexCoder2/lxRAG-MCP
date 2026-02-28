@@ -103,10 +103,10 @@ export class GraphBuilder {
     txTimestamp?: number,
     projectFingerprint?: string,
   ) {
-    this.workspaceRoot = workspaceRoot || env.LXRAG_WORKSPACE_ROOT || process.cwd();
-    this.projectId = (projectId || env.LXRAG_PROJECT_ID || path.basename(this.workspaceRoot)).toLowerCase();
+    this.workspaceRoot = workspaceRoot || env.LXDIG_WORKSPACE_ROOT || process.cwd();
+    this.projectId = (projectId || env.LXDIG_PROJECT_ID || path.basename(this.workspaceRoot)).toLowerCase();
     this.projectFingerprint = projectFingerprint ?? computeProjectFingerprint(this.workspaceRoot);
-    this.txId = txId || env.LXRAG_TX_ID || `tx-${Date.now()}`;
+    this.txId = txId || env.LXDIG_TX_ID || `tx-${Date.now()}`;
     this.txTimestamp = txTimestamp || Date.now();
   }
 

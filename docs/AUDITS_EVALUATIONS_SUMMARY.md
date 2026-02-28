@@ -15,12 +15,12 @@ This document consolidates findings across the major audit and evaluation artifa
 Primary sources reviewed:
 
 - `TOOL_AUDIT_REPORT.md`
-- `LXRAG_ANALYSIS_REPORT.md`
+- `LXDIG_ANALYSIS_REPORT.md`
 - `PROJECT_ANALYSIS_SUMMARY.md`
-- `docs/lxrag-tool-audit-2026-02-22.md`
-- `docs/lxrag-tool-audit-2026-02-23.md`
-- `docs/lxrag-tool-audit-2026-02-23b.md`
-- `docs/lxrag-self-audit-2026-02-24.md`
+- `docs/lxdig-tool-audit-2026-02-22.md`
+- `docs/lxdig-tool-audit-2026-02-23.md`
+- `docs/lxdig-tool-audit-2026-02-23b.md`
+- `docs/lxdig-self-audit-2026-02-24.md`
 - `docs/test-audit-2026-02-22.md`
 - `ERROR_REPORT.md`
 - `GRAPH_STATE_ANALYSIS.md`

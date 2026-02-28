@@ -106,7 +106,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
 
       try {
         const contextSessionId = ctx.getCurrentSessionId() || "session-unknown";
-        const runtimeAgentId = String(agentId || env.LXRAG_AGENT_ID);
+        const runtimeAgentId = String(agentId || env.LXDIG_AGENT_ID);
         const { projectId } = ctx.getActiveProjectContext();
 
         const episodeId = await episodeEngine!.add(
@@ -414,7 +414,7 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
 
       try {
         const runtimeSessionId = ctx.getCurrentSessionId() || "session-unknown";
-        const runtimeAgentId = String(agentId || env.LXRAG_AGENT_ID);
+        const runtimeAgentId = String(agentId || env.LXDIG_AGENT_ID);
         const { projectId } = ctx.getActiveProjectContext();
 
         const result = await coordinationEngine!.claim({

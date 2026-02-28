@@ -1,4 +1,4 @@
-# lxRAG Analysis - Error Report
+# lxDIG Analysis - Error Report
 
 ## Errors Encountered
 
@@ -6,10 +6,10 @@
 
 **Status**: CRITICAL  
 **Error Message**: `TypeError: Cannot mix BigInt and other types, use explicit conversions`  
-**Tool**: `mcp_lxrag_graph_health`  
+**Tool**: `mcp_lxdig_graph_health`  
 **Severity**: Recoverable
 
-**Description**: The lxRAG backend is throwing type conversion errors when attempting to query graph health metrics. This appears to be a backend implementation issue where BigInt values are being mixed with other numeric types without proper type conversion.
+**Description**: The lxDIG backend is throwing type conversion errors when attempting to query graph health metrics. This appears to be a backend implementation issue where BigInt values are being mixed with other numeric types without proper type conversion.
 
 **Impact**:
 
@@ -22,7 +22,7 @@
 ### 2. Tool Not Available
 
 **Status**: ERROR  
-**Tool**: `mcp_lxrag_search_docs`  
+**Tool**: `mcp_lxdig_search_docs`  
 **Error**: Tool is currently disabled by user  
 **Reason**: Documentation search feature is not enabled in the current environment
 
@@ -46,7 +46,7 @@
 
 **Current Issues**:
 
-- Empty graph results from `mcp_lxrag_context_pack`
+- Empty graph results from `mcp_lxdig_context_pack`
 - No entry points found
 - No symbols detected
 - No decisions/learnings/episodes available yet
@@ -57,15 +57,15 @@
 
 | Operation                      | Status     | Result                                    |
 | ------------------------------ | ---------- | ----------------------------------------- |
-| `mcp_lxrag_init_project_setup` | ✓ OK       | Project initialized, graph rebuild queued |
-| `mcp_lxrag_graph_health`       | ✗ FAILED   | BigInt type conversion error              |
-| `mcp_lxrag_graph_rebuild`      | ✓ QUEUED   | Full rebuild initiated (in progress)      |
-| `mcp_lxrag_index_docs`         | ✓ OK       | 26 markdown files indexed successfully    |
-| `mcp_lxrag_context_pack`       | ✓ OK       | No data returned (graph still building)   |
-| `mcp_lxrag_reflect`            | ✓ OK       | 0 episodes found (graph empty)            |
-| `mcp_lxrag_find_pattern`       | ✓ OK       | Pattern search implemented but no results |
-| `mcp_lxrag_arch_validate`      | ✓ OK       | 0 violations, 0 files checked             |
-| `mcp_lxrag_search_docs`        | ✗ DISABLED | Tool not available in environment         |
+| `mcp_lxdig_init_project_setup` | ✓ OK       | Project initialized, graph rebuild queued |
+| `mcp_lxdig_graph_health`       | ✗ FAILED   | BigInt type conversion error              |
+| `mcp_lxdig_graph_rebuild`      | ✓ QUEUED   | Full rebuild initiated (in progress)      |
+| `mcp_lxdig_index_docs`         | ✓ OK       | 26 markdown files indexed successfully    |
+| `mcp_lxdig_context_pack`       | ✓ OK       | No data returned (graph still building)   |
+| `mcp_lxdig_reflect`            | ✓ OK       | 0 episodes found (graph empty)            |
+| `mcp_lxdig_find_pattern`       | ✓ OK       | Pattern search implemented but no results |
+| `mcp_lxdig_arch_validate`      | ✓ OK       | 0 violations, 0 files checked             |
+| `mcp_lxdig_search_docs`        | ✗ DISABLED | Tool not available in environment         |
 
 ---
 
@@ -126,7 +126,7 @@ Working Categories:
 **Files Affected**: src/index.ts, src/mcp-server.ts, src/engines/\*\*
 
 **Resolution Applied**:
-Created `.lxrag/config.json` with layer definitions and import rules.
+Created `.lxdig/config.json` with layer definitions and import rules.
 
 ### Finding #2: Backend BigInt Error
 
@@ -140,7 +140,7 @@ Created `.lxrag/config.json` with layer definitions and import rules.
 - Added regression test: `handles BigInt metrics in graph_health without type errors`
 
 **Current Gap**:
-`mcp_lxrag_graph_health` tool still reports the same error from the active hosted/runtime process, indicating deployment/runtime mismatch rather than source-code mismatch.
+`mcp_lxdig_graph_health` tool still reports the same error from the active hosted/runtime process, indicating deployment/runtime mismatch rather than source-code mismatch.
 
 ### Finding #3: Graph Still Building
 
@@ -161,7 +161,7 @@ Created `.lxrag/config.json` with layer definitions and import rules.
 
 2. **Post-restart validation**:
 
-- Re-run `mcp_lxrag_graph_health`
+- Re-run `mcp_lxdig_graph_health`
 - Confirm it no longer returns BigInt type errors.
 
 3. **Proceed with plan**:
@@ -174,7 +174,7 @@ Created `.lxrag/config.json` with layer definitions and import rules.
 
 For complete analysis and plan, see:
 
-- **LXRAG_ANALYSIS_REPORT.md** - Detailed findings & task catalog
+- **LXDIG_ANALYSIS_REPORT.md** - Detailed findings & task catalog
 - **RESOLUTION_PLAN.md** - Step-by-step implementation guide
 - **PROJECT_ANALYSIS_SUMMARY.md** - Executive overview
 
@@ -182,12 +182,12 @@ For complete analysis and plan, see:
 
 ## Environment Details
 
-- **Project**: lexrag-mcp
-- **Workspace Root**: `/home/alex_rod/projects/lexRAG-MCP`
+- **Project**: lexdig-mcp
+- **Workspace Root**: `/home/alex_rod/projects/lexDIG-MCP`
 - **Source Dir**: `src`
 - **Graph Mode**: Full rebuild
 - **Analysis Date**: 2026-02-22
-- **Analysis Method**: lxRAG Tools Only (no file reads)
+- **Analysis Method**: lxDIG Tools Only (no file reads)
 - **Tools Used**: 12/38
 - **Documents Indexed**: 26
 - **Analysis Duration**: ~15 minutes
@@ -229,7 +229,7 @@ For complete analysis and plan, see:
 
 ```
 Phase 1: Backend Configuration
-  ├─ Configuration Missing ❌ [CRITICAL] → FIX: create .lxrag/config.json
+  ├─ Configuration Missing ❌ [CRITICAL] → FIX: create .lxdig/config.json
   ├─ BigInt Error ⚠️ [CRITICAL] → FIX: backend type conversions
   ├─ Graph Rebuilding ⏳ [HIGH] → WAIT: 2-5 minutes
   └─ Estimated Time to Resolve: 1 day
@@ -253,7 +253,7 @@ Overall Status: 95% Ready → 5% Blocked by External Runtime Sync
 
 ## Analysis Completion
 
-✓ All available lxRAG tools executed  
+✓ All available lxDIG tools executed  
 ✓ All errors documented  
 ✓ All findings analyzed  
 ✓ Complete resolution plan created  

@@ -93,7 +93,7 @@ async function main() {
 
         let runCmd: string;
         if (runner) {
-          // Explicit runner from .lxrag/config.json
+          // Explicit runner from .lxdig/config.json
           const runnerArgs = [...(runner.args ?? []), ...result.selectedTests].join(" ");
           runCmd = `${runner.command} ${runnerArgs}`;
         } else {

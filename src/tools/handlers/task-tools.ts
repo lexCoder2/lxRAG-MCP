@@ -154,7 +154,7 @@ export const taskToolDefinitions: ToolDefinition[] = [
         const postActions: Record<string, unknown> = {};
         if (String(status || "").toLowerCase() === "completed") {
           const sessionId = ctx.getCurrentSessionId() || "session-unknown";
-          const runtimeAgentId = String(assignee || args?.agentId || env.LXRAG_AGENT_ID);
+          const runtimeAgentId = String(assignee || args?.agentId || env.LXDIG_AGENT_ID);
           const { projectId } = ctx.getActiveProjectContext();
 
           try {

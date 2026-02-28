@@ -3,7 +3,7 @@
  * Deep audit: check IMPORT node details and why REFERENCES may be missing.
  */
 const neo4j = require("neo4j-driver");
-const PROJECT = "lxRAG-MCP";
+const PROJECT = "lxDIG-MCP";
 
 async function run() {
   const driver = neo4j.driver(
@@ -55,7 +55,7 @@ async function run() {
     `,
     );
 
-    // IMPORTS in lxRAG-MCP that have a REFERENCES rel
+    // IMPORTS in lxDIG-MCP that have a REFERENCES rel
     await q(
       "IMPORTs with REFERENCES",
       `
@@ -125,11 +125,11 @@ async function run() {
     );
 
     // Check for in-memory fallback nodes (cachedNodes=448)
-    // What's in lexRAG-visual?
+    // What's in lexDIG-visual?
     await q(
-      "lexRAG-visual node census",
+      "lexDIG-visual node census",
       `
-      MATCH (n) WHERE n.projectId = 'lexRAG-visual'
+      MATCH (n) WHERE n.projectId = 'lexDIG-visual'
       RETURN labels(n)[0] AS label, count(*) AS cnt ORDER BY cnt DESC
     `,
     );

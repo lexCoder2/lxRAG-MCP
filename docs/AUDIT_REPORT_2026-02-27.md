@@ -1,10 +1,10 @@
-# lxRAG MCP Tool Audit Report — 2026-02-27 (Second Run)
+# lxDIG MCP Tool Audit Report — 2026-02-27 (Second Run)
 
 **Scope:** All 36 registered MCP tools
 **Date:** 2026-02-27
 **Branch:** `test/refactor`
-**Graph state:** 69 FILE nodes · 141 FUNCTION · 172 CLASS · 78 DEPENDS_ON · projectId `lexrag-mcp`
-**Prior session fixes applied:** ERR-01 (duplicate nodes), ERR-02 (testSuites passthrough), ERR-03 (DEPENDS_ON edges), ERR-04 (call_expression extraction), DEPENDS_ON combined-query fix, 1,831 stale `lxrag-mcp` node cleanup
+**Graph state:** 69 FILE nodes · 141 FUNCTION · 172 CLASS · 78 DEPENDS_ON · projectId `lexdig-mcp`
+**Prior session fixes applied:** ERR-01 (duplicate nodes), ERR-02 (testSuites passthrough), ERR-03 (DEPENDS_ON edges), ERR-04 (call_expression extraction), DEPENDS_ON combined-query fix, 1,831 stale `lxdig-mcp` node cleanup
 
 ---
 
@@ -21,20 +21,20 @@
 
 ## Errors Found
 
-### ERR-A — Qdrant embeddings keyed to old `lexRAG-MCP` projectId *(CRITICAL)*
+### ERR-A — Qdrant embeddings keyed to old `lexDIG-MCP` projectId *(CRITICAL)*
 
 **Affects:** `semantic_search`, `find_similar_code`, `code_clusters`, `find_pattern` (type=pattern), `context_pack` (coreSymbols)
 
 **Symptom:** All vector-similarity queries return 0 results regardless of query type (function / class / file) or topic.
 
-**Root cause:** The 385 Qdrant points were indexed when `projectId = "lexRAG-MCP"`. After ERR-01 normalization, Memgraph uses `lexrag-mcp` but Qdrant payload still carries `projectId: "lexRAG-MCP"`. The embedding engine filters points by projectId at query time → no matches.
+**Root cause:** The 385 Qdrant points were indexed when `projectId = "lexDIG-MCP"`. After ERR-01 normalization, Memgraph uses `lexdig-mcp` but Qdrant payload still carries `projectId: "lexDIG-MCP"`. The embedding engine filters points by projectId at query time → no matches.
 
 Confirmed by `graph_health`: `coverage: 1.008` (>1.0 means duplicate points from both variants coexist in Qdrant).
 
 **Fix:**
 ```
-Option A: Delete the lexRAG-MCP Qdrant collection and run graph_rebuild (embeddings will be re-generated under lexrag-mcp).
-Option B: Bulk-update Qdrant payload: SET projectId = 'lexrag-mcp' WHERE projectId = 'lexRAG-MCP'.
+Option A: Delete the lexDIG-MCP Qdrant collection and run graph_rebuild (embeddings will be re-generated under lexdig-mcp).
+Option B: Bulk-update Qdrant payload: SET projectId = 'lexdig-mcp' WHERE projectId = 'lexDIG-MCP'.
 ```
 
 ---
@@ -59,9 +59,9 @@ Option B: Bulk-update Qdrant payload: SET projectId = 'lexrag-mcp' WHERE project
 
 **Affects:** `search_docs`
 
-**Symptom:** All queries return 0 results. Response metadata shows `projectId: "lexRAG-MCP"` (uppercase) while the 29 DOCUMENT nodes in Memgraph are stored under `lexrag-mcp` (lowercase).
+**Symptom:** All queries return 0 results. Response metadata shows `projectId: "lexDIG-MCP"` (uppercase) while the 29 DOCUMENT nodes in Memgraph are stored under `lexdig-mcp` (lowercase).
 
-**Root cause:** The docs engine resolves projectId via `path.basename(workspaceRoot)` = `"lexRAG-MCP"` without `.toLowerCase()`. The search Cypher query filters `WHERE n.projectId = "lexRAG-MCP"` and finds nothing.
+**Root cause:** The docs engine resolves projectId via `path.basename(workspaceRoot)` = `"lexDIG-MCP"` without `.toLowerCase()`. The search Cypher query filters `WHERE n.projectId = "lexDIG-MCP"` and finds nothing.
 
 **Fix:** Apply `.toLowerCase()` to projectId inside the docs-engine's search query path.
 - File: `src/engines/docs-engine.ts` — normalize projectId before passing to Cypher queries.
@@ -84,9 +84,9 @@ Option B: Bulk-update Qdrant payload: SET projectId = 'lexrag-mcp' WHERE project
 
 ## Partial Issues
 
-### WARN-1 — `code_explain` returns stale `projectId: "lexRAG-MCP"` in node properties
+### WARN-1 — `code_explain` returns stale `projectId: "lexDIG-MCP"` in node properties
 
-The in-memory `GraphIndexManager` still holds nodes indexed under the old uppercase projectId. Properties show `"projectId": "lexRAG-MCP"` even though Memgraph has `lexrag-mcp`. Dependencies are empty (`dependencies: []`) for all classes because the index was built before DEPENDS_ON edges were fully populated.
+The in-memory `GraphIndexManager` still holds nodes indexed under the old uppercase projectId. Properties show `"projectId": "lexDIG-MCP"` even though Memgraph has `lexdig-mcp`. Dependencies are empty (`dependencies: []`) for all classes because the index was built before DEPENDS_ON edges were fully populated.
 
 **Fix:** Server restart clears the in-memory index; first `graph_rebuild` after restart rebuilds it correctly.
 
@@ -116,11 +116,11 @@ Successfully returns recent episodes and learnings. `coreSymbols: []` and `entry
 
 ---
 
-### WARN-5 — `find_pattern(violation)` reports false positives from `.lxrag/config.json`
+### WARN-5 — `find_pattern(violation)` reports false positives from `.lxdig/config.json`
 
-Finds real violations (e.g. `graph/orchestrator.ts` importing from `parsers`), but these are false positives: the `.lxrag/config.json` defines `graph canImport: ["types","utils","config"]` which is stricter than the default config (which allows `parsers`). `orchestrator.ts` importing parsers is architecturally intentional.
+Finds real violations (e.g. `graph/orchestrator.ts` importing from `parsers`), but these are false positives: the `.lxdig/config.json` defines `graph canImport: ["types","utils","config"]` which is stricter than the default config (which allows `parsers`). `orchestrator.ts` importing parsers is architecturally intentional.
 
-**Fix:** Update `.lxrag/config.json` — add `"parsers"`, `"response"`, and `"vector"` to the `graph` layer's `canImport` list to match actual architecture.
+**Fix:** Update `.lxdig/config.json` — add `"parsers"`, `"response"`, and `"vector"` to the `graph` layer's `canImport` list to match actual architecture.
 
 ---
 
@@ -177,7 +177,7 @@ Finds real violations (e.g. `graph/orchestrator.ts` importing from `parsers`), b
 | Metric | Value | Status |
 |--------|-------|--------|
 | Memgraph nodes total | 2,061 | |
-| FILE nodes (`lexrag-mcp`) | 69 | ✅ |
+| FILE nodes (`lexdig-mcp`) | 69 | ✅ |
 | FUNCTION nodes | 141 | ✅ |
 | CLASS nodes | 172 | ✅ |
 | DEPENDS_ON edges | 78 | ✅ Fixed |
@@ -186,7 +186,7 @@ Finds real violations (e.g. `graph/orchestrator.ts` importing from `parsers`), b
 | Qdrant embeddings | 385 | ❌ Wrong projectId (ERR-A) |
 | DOCUMENT nodes | 29 | ❌ Unsearchable (ERR-C) |
 | Duplicate FILE nodes | 0 | ✅ Fixed |
-| Stale `lxrag-mcp` nodes | 0 | ✅ Cleaned |
+| Stale `lxdig-mcp` nodes | 0 | ✅ Cleaned |
 
 ---
 
@@ -195,7 +195,7 @@ Finds real violations (e.g. `graph/orchestrator.ts` importing from `parsers`), b
 | Priority | ID | Action | Files | Effort |
 |----------|----|--------|-------|--------|
 | **P1** | ERR-B | Restart MCP server (code already patched) | — | ~1 min |
-| **P1** | ERR-A | Delete `lexRAG-MCP` Qdrant collection, then `graph_rebuild` | — | ~5 min |
+| **P1** | ERR-A | Delete `lexDIG-MCP` Qdrant collection, then `graph_rebuild` | — | ~5 min |
 | **P2** | ERR-C | Add `.toLowerCase()` to projectId in docs-engine search | `src/engines/docs-engine.ts` | Small |
 | **P2** | ERR-D | Debug `seedProgressNodes` — run verbose rebuild, fix 5 failing statements | `src/graph/orchestrator.ts` | Medium |
-| **P3** | WARN-5 | Update `.lxrag/config.json` layer rules to match actual architecture | `.lxrag/config.json` | Small |
+| **P3** | WARN-5 | Update `.lxdig/config.json` layer rules to match actual architecture | `.lxdig/config.json` | Small |

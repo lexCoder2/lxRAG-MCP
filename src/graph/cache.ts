@@ -29,7 +29,7 @@ export class CacheManager {
   private cachePath: string;
   private cache: CacheData;
 
-  constructor(cacheDir: string = ".lxrag/cache") {
+  constructor(cacheDir: string = ".lxdig/cache") {
     this.cachePath = path.join(process.cwd(), cacheDir, "file-hashes.json");
     this.cache = this.loadCache();
   }

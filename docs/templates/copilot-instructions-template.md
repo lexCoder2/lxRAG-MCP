@@ -1,4 +1,4 @@
-# Copilot Instructions - lxRAG MCP Server (Template)
+# Copilot Instructions - lxDIG MCP Server (Template)
 
 Copy this file to `.github/copilot-instructions.md` in your project and replace placeholders.
 

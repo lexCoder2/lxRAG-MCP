@@ -70,7 +70,7 @@ export interface Config {
   progress?: ProgressConfig;
 }
 
-// Generic TypeScript server defaults — create .lxrag/config.json at your project root
+// Generic TypeScript server defaults — create .lxdig/config.json at your project root
 // to override with project-specific layers and rules.
 // Tip: run arch_suggest to get placement guidance; update this file if suggestions
 // look wrong (e.g. always "src/types/").
@@ -208,7 +208,7 @@ const DEFAULT_CONFIG: Config = {
 };
 
 export async function loadConfig(): Promise<Config> {
-  const configPath = path.join(process.cwd(), ".lxrag", "config.json");
+  const configPath = path.join(process.cwd(), ".lxdig", "config.json");
 
   try {
     if (fs.existsSync(configPath)) {
@@ -223,7 +223,7 @@ export async function loadConfig(): Promise<Config> {
 }
 
 export function saveConfig(config: Config, configPath?: string): void {
-  const targetPath = configPath || path.join(process.cwd(), ".lxrag", "config.json");
+  const targetPath = configPath || path.join(process.cwd(), ".lxdig", "config.json");
   const dir = path.dirname(targetPath);
 
   if (!fs.existsSync(dir)) {

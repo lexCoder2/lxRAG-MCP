@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * lxRAG MCP — Full Integration Test (v2, all parameters corrected)
+ * lxDIG MCP — Full Integration Test (v2, all parameters corrected)
  * Tests all 39 tools via stdio JSON-RPC against a fresh DB.
  */
 
 import { spawn } from "child_process";
 
-const WORKSPACE = "/home/alex_rod/projects/lexRAG-MCP";
-const PROJECT_ID = "lxrag-mcp";
-const ELEMENT_FUNC = "lxrag-mcp:build.ts:main:18";
+const WORKSPACE = "/home/alex_rod/projects/lexDIG-MCP";
+const PROJECT_ID = "lxdig-mcp";
+const ELEMENT_FUNC = "lxdig-mcp:build.ts:main:18";
 const ELEMENT_FILE = "src/tools/handlers/test-tools.ts";
 
 // ─── RPC plumbing ──────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ async function t(name, args, flags = {}) {
 // ─── Test runner ───────────────────────────────────────────────────────────
 async function run() {
   console.log("════════════════════════════════════════════════════════════");
-  console.log("  lxRAG MCP — Full Integration Test (39 tools, stdio)");
+  console.log("  lxDIG MCP — Full Integration Test (39 tools, stdio)");
   console.log("  Memgraph ✓ empty   Qdrant ✓ empty");
   console.log("════════════════════════════════════════════════════════════\n");
 
@@ -187,7 +187,7 @@ async function run() {
   console.log("\n── PHASE 4: Setup helpers ───────────────────");
   await t("setup_copilot_instructions", {
     targetPath: WORKSPACE,
-    projectName: "lxRAG-MCP",
+    projectName: "lxDIG-MCP",
     overwrite: true,
   });
   await t("contract_validate", {
@@ -258,8 +258,8 @@ async function run() {
     projectId: PROJECT_ID,
   });
   await t("semantic_diff", {
-    elementId1: "lxrag-mcp:build.ts:main:18",
-    elementId2: "lxrag-mcp:query.ts:main:14",
+    elementId1: "lxdig-mcp:build.ts:main:18",
+    elementId2: "lxdig-mcp:query.ts:main:14",
     projectId: PROJECT_ID,
   });
   await t("semantic_slice", {
@@ -407,7 +407,7 @@ async function run() {
   const claimRes = await t("agent_claim", {
     agentId: "test-agent-01",
     targetId: ELEMENT_FILE,
-    intent: "Validating full tool coverage for lxRAG integration test",
+    intent: "Validating full tool coverage for lxDIG integration test",
     taskId: "tool-integration-test",
     sessionId: "test-session-001",
   });
@@ -422,7 +422,7 @@ async function run() {
   );
   await t("coordination_overview", { projectId: PROJECT_ID });
   await t("context_pack", {
-    task: "Implement multi-tenant support for lxRAG: API key auth + per-user project scoping",
+    task: "Implement multi-tenant support for lxDIG: API key auth + per-user project scoping",
     taskId: "multi-tenant-impl",
     agentId: "test-agent-01",
     includeLearnings: true,

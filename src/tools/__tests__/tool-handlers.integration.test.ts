@@ -51,7 +51,7 @@ function createTempWorkspace(): {
   srcDir: string;
   cleanup: () => void;
 } {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lxrag-test-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lxdig-test-"));
   const srcDir = path.join(root, "src");
   fs.mkdirSync(srcDir);
   return {

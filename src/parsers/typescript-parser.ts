@@ -117,7 +117,7 @@ export class TypeScriptParser {
 
   parseFile(filePath: string, options?: ParseFileOptions): ParsedFile {
     const content = fs.readFileSync(filePath, "utf-8");
-    const workspaceRoot = options?.workspaceRoot || env.LXRAG_WORKSPACE_ROOT;
+    const workspaceRoot = options?.workspaceRoot || env.LXDIG_WORKSPACE_ROOT;
     const relativePath = path.relative(workspaceRoot, filePath);
     const hash = this.hashContent(content);
     const lines = content.split("\n");

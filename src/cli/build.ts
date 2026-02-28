@@ -54,7 +54,7 @@ async function main() {
         "node_modules/**",
         "dist/**",
         "build/**",
-        ".lxrag/**",
+        ".lxdig/**",
         "**/*.test.ts",
         "**/*.test.tsx",
         "**/__tests__/**",
@@ -85,7 +85,7 @@ async function main() {
     }
 
     // Save build metadata
-    const codeGraphDir = path.join(projectRoot, ".lxrag");
+    const codeGraphDir = path.join(projectRoot, ".lxdig");
     if (!fs.existsSync(codeGraphDir)) {
       fs.mkdirSync(codeGraphDir, { recursive: true });
     }

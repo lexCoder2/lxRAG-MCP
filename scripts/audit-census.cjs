@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Audit census script: collects node/relationship/structure data
- * for the lxRAG-MCP self-audit.
+ * for the lxDIG-MCP self-audit.
  */
 
 const neo4j = require("neo4j-driver");
@@ -65,25 +65,25 @@ async function run() {
       "SECTION nodes missing relativePath",
       `
       MATCH (s:Section)
-      WHERE s.projectId = 'lxRAG-MCP' AND s.relativePath IS NULL
+      WHERE s.projectId = 'lxDIG-MCP' AND s.relativePath IS NULL
       RETURN count(s) AS missingRelativePath
     `,
     );
 
     // 5. SECTION total
     await q(
-      "SECTION total lxRAG-MCP",
+      "SECTION total lxDIG-MCP",
       `
-      MATCH (s:Section) WHERE s.projectId = 'lxRAG-MCP'
+      MATCH (s:Section) WHERE s.projectId = 'lxDIG-MCP'
       RETURN count(s) AS total
     `,
     );
 
     // 6. FILE nodes (check for duplicate / relative paths)
     await q(
-      "FILE sample lxRAG-MCP",
+      "FILE sample lxDIG-MCP",
       `
-      MATCH (f:File) WHERE f.projectId = 'lxRAG-MCP'
+      MATCH (f:File) WHERE f.projectId = 'lxDIG-MCP'
       RETURN f.path AS path
       ORDER BY path
       LIMIT 20
@@ -94,7 +94,7 @@ async function run() {
     await q(
       "VIOLATION nodes",
       `
-      MATCH (v:Violation) WHERE v.projectId = 'lxRAG-MCP'
+      MATCH (v:Violation) WHERE v.projectId = 'lxDIG-MCP'
       RETURN count(v) AS total,
              count(DISTINCT v.file) AS distinctFiles
     `,
@@ -104,7 +104,7 @@ async function run() {
     await q(
       "COMMUNITY nodes",
       `
-      MATCH (c:Community) WHERE c.projectId = 'lxRAG-MCP'
+      MATCH (c:Community) WHERE c.projectId = 'lxDIG-MCP'
       RETURN c.label AS label, c.memberCount AS memberCount,
              c.size AS size
       ORDER BY c.memberCount DESC
@@ -117,7 +117,7 @@ async function run() {
       "REFERENCES relationships",
       `
       MATCH (a)-[:REFERENCES]->(b)
-      WHERE a.projectId = 'lxRAG-MCP'
+      WHERE a.projectId = 'lxDIG-MCP'
       RETURN count(*) AS total
     `,
     );
@@ -127,7 +127,7 @@ async function run() {
       "CALLS and IMPORTS",
       `
       MATCH (a)-[r:CALLS|IMPORTS]->(b)
-      WHERE a.projectId = 'lxRAG-MCP'
+      WHERE a.projectId = 'lxDIG-MCP'
       RETURN type(r) AS relType, count(*) AS cnt
     `,
     );
@@ -136,7 +136,7 @@ async function run() {
     await q(
       "LAYER values",
       `
-      MATCH (n) WHERE n.projectId = 'lxRAG-MCP' AND n.layer IS NOT NULL
+      MATCH (n) WHERE n.projectId = 'lxDIG-MCP' AND n.layer IS NOT NULL
       RETURN n.layer AS layer, count(*) AS cnt
       ORDER BY cnt DESC
     `,
@@ -146,7 +146,7 @@ async function run() {
     await q(
       "EMBEDDING coverage",
       `
-      MATCH (n) WHERE n.projectId = 'lxRAG-MCP'
+      MATCH (n) WHERE n.projectId = 'lxDIG-MCP'
         AND n:Function OR n:Class OR n:File
       RETURN
         count(CASE WHEN n.embedding IS NOT NULL THEN 1 END) AS withEmbedding,

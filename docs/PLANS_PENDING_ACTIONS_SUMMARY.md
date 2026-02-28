@@ -12,7 +12,7 @@ This document merges the main planning artifacts into one actionable execution s
 > in `plan/PHASE-*.md`. They are recorded here for historical reference only;
 > the files no longer exist in the repository.
 
-- `docs/ACTION_PLAN_LXRAG_TOOL_FIXES.md` _(archived — file deleted)_
+- `docs/ACTION_PLAN_LXDIG_TOOL_FIXES.md` _(archived — file deleted)_
 - `docs/REVISED_ACTION_PLAN_WITH_CLI_ANALYSIS.md` _(archived — file deleted)_
 - `docs/COMPREHENSIVE_REVIEW_AND_REVISED_PLAN.md` _(archived — file deleted)_
 - `docs/AGENT_CONTEXT_ENGINE_PLAN.md` _(archived — file deleted)_

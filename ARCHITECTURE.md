@@ -1,8 +1,8 @@
-# Graph Server Architecture
+# lxDIG — Dynamic Intelligence Graph Architecture
 
 ## Overview
 
-lxRAG MCP is a production MCP server that turns any repository into a queryable graph + retrieval system. It exposes **33 MCP tools** across code intelligence, architecture validation, test selection, agent memory, and multi-agent coordination.
+lxDIG MCP is a production Dynamic Intelligence Graph (DIG) server — the next evolution beyond static RAG and batch GraphRAG — that turns any repository into a queryable, incrementally-updated graph + retrieval system. It exposes **33 MCP tools** across code intelligence, architecture validation, test selection, agent memory, and multi-agent coordination.
 
 ## Server Implementation
 
@@ -73,7 +73,7 @@ Parsing is handled in `src/graph/orchestrator.ts` which dispatches to the approp
 
 ### Parser registry
 
-| Language   | Extensions            | Parser (default)             | Parser (tree-sitter, `LXRAG_USE_TREE_SITTER=true`) |
+| Language   | Extensions            | Parser (default)             | Parser (tree-sitter, `LXDIG_USE_TREE_SITTER=true`) |
 | ---------- | --------------------- | ---------------------------- | -------------------------------------------------- |
 | TypeScript | `.ts`                 | regex (typescript-parser.ts) | `TreeSitterTypeScriptParser`                       |
 | TSX        | `.tsx`                | regex fallback               | `TreeSitterTSXParser`                              |
@@ -159,8 +159,8 @@ GET  http://localhost:9000/info
 MEMGRAPH_HOST=localhost          # default: localhost
 MEMGRAPH_PORT=7687               # default: 7687
 MCP_PORT=9000                    # default: 9000
-LXRAG_PROJECT_ID=my-repo    # optional default project namespace
-LXRAG_USE_TREE_SITTER=true  # enable tree-sitter AST parsers
+LXDIG_PROJECT_ID=my-repo    # optional default project namespace
+LXDIG_USE_TREE_SITTER=true  # enable tree-sitter AST parsers
 ```
 
 ## Build & Run

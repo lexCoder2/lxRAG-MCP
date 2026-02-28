@@ -52,7 +52,7 @@ export class FileWatcher {
       "**/node_modules/**",
       "**/dist/**",
       "**/.git/**",
-      "**/.lxrag/**",
+      "**/.lxdig/**",
       ...(this.opts.ignorePatterns || []),
     ];
 

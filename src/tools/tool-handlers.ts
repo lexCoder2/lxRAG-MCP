@@ -65,7 +65,7 @@ export class ToolHandlers extends ToolHandlerBase {
     }
 
     try {
-      const runtimeAgentId = String(agentId || env.LXRAG_AGENT_ID);
+      const runtimeAgentId = String(agentId || env.LXDIG_AGENT_ID);
       const { projectId, workspaceRoot } = this.getActiveProjectContext();
 
       const seedIds = this.findSeedNodeIds(task, 5);

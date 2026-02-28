@@ -115,7 +115,7 @@ export class ArchitectureEngine {
           file: filePath,
           layer: "unknown",
           message: `File not assigned to any layer: ${filePath}`,
-          suggestion: "Update .lxrag/config.json with appropriate layer path pattern",
+          suggestion: "Update .lxdig/config.json with appropriate layer path pattern",
         });
         continue;
       }

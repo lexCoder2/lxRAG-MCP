@@ -277,7 +277,7 @@ describe("Fixture: sample-readme.md", () => {
 
   it("title is extracted from H1", () => {
     const doc = parseFixture("sample-readme.md");
-    expect(doc.title).toBe("lxRAG MCP");
+    expect(doc.title).toBe("lxDIG MCP");
   });
 
   it("has at least 3 sections", () => {

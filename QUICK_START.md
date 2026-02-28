@@ -1,6 +1,6 @@
-# Setup & Quick Start — LxRAG MCP Server
+# Setup & Quick Start — lxDIG MCP Server
 
-Everything you need to go from zero to a fully wired LxRAG instance: infrastructure up, server running, your project indexed, and your editor connected.
+Everything you need to go from zero to a fully wired lxDIG instance: infrastructure up, server running, your project indexed, and your editor connected.
 
 The server supports two transports — pick the one that matches your client:
 
@@ -25,8 +25,8 @@ Both transports expose all 38 tools and require the same infrastructure (Memgrap
 | VS Code     | 1.99+ (for MCP agent mode in Copilot)                 |
 
 ```bash
-git clone https://github.com/lexCoder2/lxRAG-MCP.git
-cd lxRAG-MCP
+git clone https://github.com/lexCoder2/lxDIG-MCP.git
+cd lxDIG-MCP
 npm install && npm run build
 ```
 
@@ -155,10 +155,10 @@ Create `.vscode/mcp.json` in the root of **your project** and commit it. VS Code
 ```json
 {
   "servers": {
-    "lxrag": {
+    "lxdig": {
       "type": "stdio",
       "command": "node",
-      "args": ["/absolute/path/to/lxRAG-MCP/dist/server.js"],
+      "args": ["/absolute/path/to/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -182,7 +182,7 @@ Open Copilot Chat → switch to **Agent** mode → the 38 tools are available im
 ```json
 {
   "servers": {
-    "lxrag": {
+    "lxdig": {
       "type": "http",
       "url": "http://localhost:9000/mcp"
     }
@@ -194,7 +194,7 @@ Or add it globally via **VS Code Settings** (`Cmd/Ctrl+,`) → search `mcp`:
 
 ```json
 "github.copilot.chat.mcp.servers": {
-  "lxrag": {
+  "lxdig": {
     "type": "http",
     "url": "http://localhost:9000/mcp"
   }
@@ -228,7 +228,7 @@ Edit the config file for your OS:
   "mcpServers": {
     "code-graph": {
       "command": "node",
-      "args": ["/absolute/path/to/lxRAG-MCP/dist/server.js"],
+      "args": ["/absolute/path/to/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -257,7 +257,7 @@ Copy the provided instructions template into **your project** so your agent auto
 
 ```bash
 mkdir -p /path/to/your-project/.github
-cp /path/to/lxRAG-MCP/.github/copilot-instructions.md \
+cp /path/to/lxDIG-MCP/.github/copilot-instructions.md \
    /path/to/your-project/.github/copilot-instructions.md
 ```
 

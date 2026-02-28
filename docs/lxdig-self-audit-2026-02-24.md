@@ -1,9 +1,9 @@
-# lxRAG-MCP Self-Audit Report
+# lxDIG-MCP Self-Audit Report
 
 **Run date:** 2026-02-24  
-**Audited project:** `lxRAG-MCP` (`/home/alex_rod/projects/lexRAG-MCP`)  
-**Auditor:** lxRAG-MCP server running against its own source tree  
-**Prior audit:** `lxrag-tool-audit-2026-02-23b.md` (code-visual workspace)
+**Audited project:** `lxDIG-MCP` (`/home/alex_rod/projects/lexRAG-MCP`)  
+**Auditor:** lxDIG-MCP server running against its own source tree  
+**Prior audit:** `lxdig-tool-audit-2026-02-23b.md` (code-visual workspace)
 
 ---
 
@@ -49,7 +49,7 @@ present in source and pass tests; they require a server restart to take effect.
 
 Source: Cypher queries via `neo4j-driver` against `bolt://localhost:7687`.
 
-### 1.1 Node Census (projectId = `lxRAG-MCP`)
+### 1.1 Node Census (projectId = `lxDIG-MCP`)
 
 | Label     | Count    |
 | --------- | -------- |
@@ -135,13 +135,13 @@ These findings were fixed in source but require a server restart to become activ
 
 **Root cause:**
 
-- `summarizer.configured: false` — `LXRAG_SUMMARIZER_URL` is not set
+- `summarizer.configured: false` — `LXDIG_SUMMARIZER_URL` is not set
 - Without a configured summarizer, the docs-engine produces sections with no title extraction
 - No absolute `path` is stored on DOCUMENT nodes; lookups by absolute path are not possible
 
 **Impact:** Low — `search_docs` and `index_docs` work on `relPath`; titles are informational.
 
-**Recommendation:** Document that `LXRAG_SUMMARIZER_URL` must be configured for section
+**Recommendation:** Document that `LXDIG_SUMMARIZER_URL` must be configured for section
 titles; alternatively add heuristic H1-extraction to the markdown parser for common headings.
 
 ---
@@ -173,10 +173,10 @@ CLASS and FUNCTION nodes in the builder. Addressed indirectly by SX5's fix.
 
 **Observed:**
 
-- 0 REFERENCES edges for lxRAG-MCP (vs 36 for lexRAG-visual)
+- 0 REFERENCES edges for lxDIG-MCP (vs 36 for lexRAG-visual)
 - 89 relative imports, 0 resolved
 - Import sources use `.js` extension: `"../config.js"`, `"../engines/architecture-engine.js"`
-- FILE nodes use `.ts` extension: `lxRAG-MCP:file:src/config.ts`
+- FILE nodes use `.ts` extension: `lxDIG-MCP:file:src/config.ts`
 
 **Root cause:**  
 `resolveImportPath()` in `src/graph/builder.ts` did not strip `.js` before probing disk:
@@ -305,7 +305,7 @@ once features are registered under the project.
 ```
 
 **Root cause:**  
-Only 1 EPISODE node exists for lxRAG-MCP. Insufficient episode history to synthesize
+Only 1 EPISODE node exists for lxDIG-MCP. Insufficient episode history to synthesize
 patterns. The memory/episode system requires accumulated usage to produce learnings.
 
 **Impact:** Low — expected for a new project / fresh session.
@@ -372,5 +372,5 @@ All 3 fixes verified:
 | 🔴 High   | **SX4** (test_run Wrong Node)    | Set server launch to use correct Node PATH      |
 | 🟡 Medium | **SX2** (path on CLASS/FN nodes) | Add `filePath` to CLASS/FUNCTION builder nodes  |
 | 🟡 Medium | **SX5** (misc community)         | Fixed — run `graph_rebuild` after restart       |
-| 🟢 Low    | **SX1** (SECTION.title null)     | Set `LXRAG_SUMMARIZER_URL` for production       |
+| 🟢 Low    | **SX1** (SECTION.title null)     | Set `LXDIG_SUMMARIZER_URL` for production       |
 | 🟢 Low    | **SX6** (empty feature registry) | No action needed (new project)                  |

@@ -4,7 +4,7 @@
  */
 
 const neo4j = require("neo4j-driver");
-const PROJECT = "lxRAG-MCP";
+const PROJECT = "lxDIG-MCP";
 
 async function run() {
   const driver = neo4j.driver(
@@ -41,7 +41,7 @@ async function run() {
   try {
     // 1. Node census by label
     await q(
-      "NODE CENSUS (lxRAG-MCP)",
+      "NODE CENSUS (lxDIG-MCP)",
       `
       MATCH (n) WHERE n.projectId = '${PROJECT}'
       RETURN labels(n)[0] AS label, count(*) AS cnt
@@ -51,7 +51,7 @@ async function run() {
 
     // 2. Relationship census
     await q(
-      "REL CENSUS (lxRAG-MCP)",
+      "REL CENSUS (lxDIG-MCP)",
       `
       MATCH (a)-[r]->(b) WHERE a.projectId = '${PROJECT}'
       RETURN type(r) AS relType, count(*) AS cnt

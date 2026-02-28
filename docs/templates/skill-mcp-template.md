@@ -1,10 +1,10 @@
 ---
 name: lx
-description: Use lxRAG-MCP code graph tools to explore the codebase, assess change impact, validate architecture, and recall past decisions.
+description: Use lxDIG-MCP code graph tools to explore the codebase, assess change impact, validate architecture, and recall past decisions.
 argument-hint: "task description or file path"
 ---
 
-# lxRAG-MCP Code Graph Analysis
+# lxDIG-MCP Code Graph Analysis
 
 ## Session Init (required once per session)
 

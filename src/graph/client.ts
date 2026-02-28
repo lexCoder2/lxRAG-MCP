@@ -129,9 +129,9 @@ export class MemgraphClient {
     );
 
     return neo4j.driver(boltUrl, authToken, {
-      maxConnectionPoolSize: env.LXRAG_MEMGRAPH_MAX_POOL_SIZE,
-      connectionAcquisitionTimeout: env.LXRAG_MEMGRAPH_CONNECTION_TIMEOUT_MS,
-      connectionLivenessCheckTimeout: env.LXRAG_MEMGRAPH_LIVENESS_TIMEOUT_MS,
+      maxConnectionPoolSize: env.LXDIG_MEMGRAPH_MAX_POOL_SIZE,
+      connectionAcquisitionTimeout: env.LXDIG_MEMGRAPH_CONNECTION_TIMEOUT_MS,
+      connectionLivenessCheckTimeout: env.LXDIG_MEMGRAPH_LIVENESS_TIMEOUT_MS,
     });
   }
 

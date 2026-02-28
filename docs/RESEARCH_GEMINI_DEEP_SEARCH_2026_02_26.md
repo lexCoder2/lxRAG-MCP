@@ -1,4 +1,4 @@
-Based on the deep architectural review and current 2026 community discussions on Hacker News and Reddit, your lxRAG-MCP project is sitting on a goldmine of advanced tech (Memgraph, Qdrant, SCIP, Tree-sitter, RRF). However, to outpace competitors like CodeMCP or CodeGraphContext and drive massive adoption, you need to align the project with the immediate pain points developers are facing right now.
+Based on the deep architectural review and current 2026 community discussions on Hacker News and Reddit, your lxDIG-MCP project is sitting on a goldmine of advanced tech (Memgraph, Qdrant, SCIP, Tree-sitter, RRF). However, to outpace competitors like CodeMCP or CodeGraphContext and drive massive adoption, you need to align the project with the immediate pain points developers are facing right now.
 
 Here is the optimal roadmap for your next steps, prioritized by impact:
 
@@ -14,9 +14,9 @@ The biggest complaint among developers using agentic loops (like LangGraph or Cl
 
 The AI IDE landscape is rapidly shifting. Google Antigravity (with its new Agent Manager that runs parallel workspaces) and Claude Code are dominating advanced developer workflows.
 
-    The Action: Your architecture already has multi-agent coordination (agent_claim, progress_query). You need to explicitly document and test how these tools allow Google Antigravity's parallel sub-agents to share the lxRAG memory without stepping on each other's toes.
+    The Action: Your architecture already has multi-agent coordination (agent_claim, progress_query). You need to explicitly document and test how these tools allow Google Antigravity's parallel sub-agents to share the lxDIG memory without stepping on each other's toes.
 
-    The Benefit: If you position lxRAG as the "Ultimate Shared Memory for Antigravity Swarms," you instantly tap into a highly active, early-adopter community desperately looking for robust MCP servers.
+    The Benefit: If you position lxDIG as the "Ultimate Shared Memory for Antigravity Swarms," you instantly tap into a highly active, early-adopter community desperately looking for robust MCP servers.
 
 3. Upgrade to "Tri-Hybrid" Retrieval
 
@@ -38,9 +38,9 @@ Your stack is incredibly powerful, but requiring users to spin up Memgraph and Q
 
 In 2026, developers no longer trust subjective "vibes" or simple HumanEval tests; they look at SWE-bench scores to see if an AI agent can actually solve real GitHub issues.
 
-    The Action: Run a benchmark using a standard model (like Claude 3.5 Sonnet or Gemini 3 Pro) paired with lxRAG-MCP. Measure how many SWE-bench tasks it can successfully patch compared to the model running without your MCP server.
+    The Action: Run a benchmark using a standard model (like Claude 3.5 Sonnet or Gemini 3 Pro) paired with lxDIG-MCP. Measure how many SWE-bench tasks it can successfully patch compared to the model running without your MCP server.
 
-    The Benefit: Publishing a metric like "lxRAG increases Claude's SWE-bench resolution rate by X%" is the ultimate marketing tool. It transitions your project from a "cool tool" to an "essential engineering asset".
+    The Benefit: Publishing a metric like "lxDIG increases Claude's SWE-bench resolution rate by X%" is the ultimate marketing tool. It transitions your project from a "cool tool" to an "essential engineering asset".
 
 Recommendation on where to start today:
 I would start by grouping your existing tools into Compound Operations (Step 1) and writing a quick integration guide specifically for Claude Code and Google Antigravity (Step 2). Those require the least amount of new code but provide the highest immediate value to the developers who will star and fork your repository.

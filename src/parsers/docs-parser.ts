@@ -333,7 +333,7 @@ export class DocsParser {
 /**
  * Returns absolute paths to all markdown files within workspaceRoot
  * that belong to conventional documentation locations.
- * Excludes node_modules, dist, .git, .lxrag.
+ * Excludes node_modules, dist, .git, .lxdig.
  */
 export function findMarkdownFiles(workspaceRoot: string): string[] {
   const results: string[] = [];
@@ -341,7 +341,7 @@ export function findMarkdownFiles(workspaceRoot: string): string[] {
     "node_modules",
     "dist",
     ".git",
-    ".lxrag",
+    ".lxdig",
     ".next",
     "build",
     "coverage",

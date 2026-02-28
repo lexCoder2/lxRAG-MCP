@@ -1,8 +1,8 @@
 <div align="center">
-  <img src="docs/brain-logo.svg" alt="lxRAG MCP — Code Graph Intelligence for AI Coding Agents" width="180" />
-  <h1>lxRAG MCP</h1>
-  <p><strong>Code Graph Intelligence · Agent Memory · Multi-Agent Coordination</strong></p>
-  <p>An MCP server that gives AI coding assistants persistent memory, structural code understanding,<br/>and safe multi-agent coordination — across sessions, files, and agents.</p>
+  <img src="docs/brain-logo.svg" alt="lxDIG MCP — Code Graph Intelligence for AI Coding Agents" width="180" />
+  <h1>lxDIG MCP</h1>
+  <p><strong>Dynamic Intelligence Graph · Agent Memory · Multi-Agent Coordination</strong></p>
+  <p>A Dynamic Intelligence Graph (DIG) MCP server that gives AI coding assistants persistent memory,<br/>structural code understanding, and safe multi-agent coordination — beyond static RAG and GraphRAG.</p>
 </div>
 
 <div align="center">
@@ -26,19 +26,19 @@
 
 ---
 
-## What is lxRAG MCP?
+## What is lxDIG MCP?
 
-**lxRAG MCP** (_lexic RAG_) is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that adds a **persistent code intelligence layer** to AI coding assistants. It turns any repository into a queryable knowledge graph so agents can answer architectural questions, track decisions across sessions, coordinate safely in multi-agent workflows, and run only the tests that actually changed — without re-reading the entire codebase on every turn.
+**lxDIG MCP** (_lexic Dynamic Intelligence Graph_) is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that adds a **persistent code intelligence layer** to AI coding assistants. Unlike static RAG or batch-oriented GraphRAG, lxDIG is a live, incrementally-updated intelligence graph that turns any repository into a queryable knowledge graph — so agents can answer architectural questions, track decisions across sessions, coordinate safely in multi-agent workflows, and run only the tests that actually changed — without re-reading the entire codebase on every turn.
 
 It is purpose-built for the **agentic coding loop**: the cycle of understand → plan → implement → verify → remember that AI agents (Claude, Copilot, Cursor) repeat continuously.
 
-**The core problem it solves:** most AI coding assistants are stateless and architecturally blind. They re-read unchanged files on every session, miss cross-file relationships, forget past decisions, and collide when multiple agents work in parallel. lxRAG is the memory and structure layer that fixes all four.
+**The core problem it solves:** most AI coding assistants are stateless and architecturally blind. They re-read unchanged files on every session, miss cross-file relationships, forget past decisions, and collide when multiple agents work in parallel. lxDIG is the memory and structure layer that fixes all four.
 
 ---
 
 ## Table of Contents
 
-- [Why lxRAG?](#why-lxrag)
+- [Why lxDIG?](#why-lxdig)
 - [Key capabilities](#key-capabilities)
 - [How it works](#how-it-works)
 - [Quick start](#quick-start)
@@ -53,11 +53,11 @@ It is purpose-built for the **agentic coding loop**: the cycle of understand →
 
 ---
 
-## Why lxRAG?
+## Why lxDIG?
 
-Most code intelligence tools solve **one** of these problems. lxRAG solves all of them together:
+Most code intelligence tools solve **one** of these problems. lxDIG solves all of them together:
 
-| Problem                             | Without lxRAG                                     | With lxRAG                                                 |
+| Problem                             | Without lxDIG                                     | With lxDIG                                                 |
 | ----------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | **Context loss between sessions**   | Agent re-reads everything on restart              | Persistent episode + decision memory survives restarts     |
 | **Architecturally blind retrieval** | Embeddings miss cross-file relationships          | Graph traversal finds structural dependencies              |
@@ -137,7 +137,7 @@ Go from a fresh clone to a fully wired AI assistant in **one tool call**.
 
 ## How it works
 
-lxRAG runs as an **MCP server** over stdio or HTTP and coordinates three data planes behind a single tool interface:
+lxDIG runs as an **MCP server** over stdio or HTTP and coordinates three data planes behind a single tool interface:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -189,8 +189,8 @@ The result: structurally accurate, semantically relevant answers — not just th
 ### 1. Clone and build
 
 ```bash
-git clone https://github.com/lexCoder2/lxRAG-MCP.git
-cd lxRAG-MCP
+git clone https://github.com/lexCoder2/lxDIG-MCP.git
+cd lxDIG-MCP
 npm install && npm run build
 ```
 
@@ -208,10 +208,10 @@ docker compose ps   # wait for "healthy" (~30 s)
 ```json
 {
   "servers": {
-    "lxrag": {
+    "lxdig": {
       "type": "stdio",
       "command": "node",
-      "args": ["/absolute/path/to/lxRAG-MCP/dist/server.js"],
+      "args": ["/absolute/path/to/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -229,9 +229,9 @@ docker compose ps   # wait for "healthy" (~30 s)
 ```json
 {
   "mcpServers": {
-    "lxrag": {
+    "lxdig": {
       "command": "node",
-      "args": ["/absolute/path/to/lxRAG-MCP/dist/server.js"],
+      "args": ["/absolute/path/to/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -313,7 +313,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 
 ## Comparison with alternatives
 
-| Feature                         | lxRAG MCP                | Plain RAG / embeddings | GitHub Copilot (built-in) | Custom LangChain agent |
+| Feature                         | lxDIG MCP                | Plain RAG / embeddings | GitHub Copilot (built-in) | Custom LangChain agent |
 | ------------------------------- | ------------------------ | ---------------------- | ------------------------- | ---------------------- |
 | Cross-file structural reasoning | ✅ Graph edges           | ❌ Chunks only         | ⚠️ Limited                | ⚠️ Manual setup        |
 | Persistent agent memory         | ✅ Episodes + decisions  | ❌ Stateless           | ❌ Stateless              | ⚠️ Custom DB needed    |
@@ -333,7 +333,7 @@ Benchmarks run against a synthetic 20-scenario agent task suite (`benchmarks/`):
 
 | Metric                                                      | Result                                          |
 | ----------------------------------------------------------- | ----------------------------------------------- |
-| Scenarios where lxRAG was faster than baseline              | **15 / 20**                                     |
+| Scenarios where lxDIG was faster than baseline              | **15 / 20**                                     |
 | MCP-only successful scenarios (baseline could not complete) | **4 / 20**                                      |
 | vs Grep / manual file reads                                 | **9x–6000x faster**, <1% false positives        |
 | vs pure vector RAG                                          | **5x token savings**, 10x more relevant results |
@@ -348,7 +348,7 @@ Every feature below is **production-ready today**:
 
 - ✅ **Hybrid retrieval** for `graph_query` — vector + BM25 + graph expansion fused with RRF
 - ✅ **AST-accurate parsers** via tree-sitter for TypeScript, TSX, JS/MJS/CJS, JSX, Python, Go, Rust, Java
-- ✅ **Watcher-driven incremental rebuilds** — graph stays fresh without manual intervention *(requires `LXRAG_ENABLE_WATCHER=true`)*
+- ✅ **Watcher-driven incremental rebuilds** — graph stays fresh without manual intervention *(requires `LXDIG_ENABLE_WATCHER=true`)*
 - ✅ **Temporal code model** — `asOf` queries any past graph state; `diff_since` shows what changed
 - ✅ **Indexing-time symbol summaries** — compact-profile answers stay useful in tight token budgets
 - ✅ **Leiden community detection + PageRank PPR** with JS fallbacks for non-MAGE environments
@@ -406,7 +406,7 @@ npm run benchmark:check-regression  # check latency/token regressions
 
 ## Roadmap
 
-lxRAG is open source and self-hosted today. Planned work ahead — see [ROADMAP.md](ROADMAP.md) for the full prioritized backlog with detail on each item.
+lxDIG is open source and self-hosted today. Planned work ahead — see [ROADMAP.md](ROADMAP.md) for the full prioritized backlog with detail on each item.
 
 - [ ] Language server protocol (LSP) integration for deeper symbol resolution
 - [ ] Go, Rust, Java parser improvements
@@ -416,7 +416,7 @@ lxRAG is open source and self-hosted today. Planned work ahead — see [ROADMAP.
 - [ ] **Real-time transparent graph sync** — continuous file-watching with live graph and vector index updates surfaced as observable events, so agents and users always know when the graph is current without polling `graph_health` or triggering manual rebuilds
 - [ ] **Domain knowledge layer** — attach external knowledge sources (documentation, standards, specs, research articles) directly to code symbols as graph nodes; a `calculateBMI` function links to CDC/WHO references, a payment function links to PCI-DSS rules, a GDPR-scoped model links to regulation articles — giving agents real-world context alongside structural context
 - [ ] Multi-user coordination — shared agent memory, task ownership, and conflict detection across multiple developers on the same repository
-- [ ] lxRAG Cloud — hosted, zero-infrastructure version for individuals and teams
+- [ ] lxDIG Cloud — hosted, zero-infrastructure version for individuals and teams
 
 ---
 
@@ -429,13 +429,13 @@ Pull requests are welcome. Whether it's a new parser, a tool improvement, a bug 
 - **New language parsers** — add tree-sitter grammar + tests in `src/parsers/`
 - **Docs** — typos, clarifications, and examples are always appreciated
 
-[→ Open a pull request](https://github.com/lexCoder2/lxRAG-MCP/pulls) · [→ Browse open issues](https://github.com/lexCoder2/lxRAG-MCP/issues)
+[→ Open a pull request](https://github.com/lexCoder2/lxDIG-MCP/pulls) · [→ Browse open issues](https://github.com/lexCoder2/lxDIG-MCP/issues)
 
 ---
 
 ## Support the project
 
-lxRAG MCP is built and maintained in personal time — researching graph retrieval techniques, designing the tool surface, writing tests, and keeping everything working across MCP protocol updates. If it saves you time or makes your AI-assisted workflows meaningfully better, consider supporting the work:
+lxDIG MCP is built and maintained in personal time — researching graph retrieval techniques, designing the tool surface, writing tests, and keeping everything working across MCP protocol updates. If it saves you time or makes your AI-assisted workflows meaningfully better, consider supporting the work:
 
 - **GitHub Sponsors** → [github.com/sponsors/lexCoder2](https://github.com/sponsors/lexCoder2)
 - **Buy Me a Coffee** → [buymeacoffee.com/hi8g](https://buymeacoffee.com/hi8g)
@@ -444,8 +444,8 @@ lxRAG MCP is built and maintained in personal time — researching graph retriev
 
 ## FAQ
 
-**Q: Does lxRAG require a cloud service or API key?**
-No. lxRAG runs entirely on your machine. Memgraph and Qdrant run in Docker containers you control. No data leaves your environment.
+**Q: Does lxDIG require a cloud service or API key?**
+No. lxDIG runs entirely on your machine. Memgraph and Qdrant run in Docker containers you control. No data leaves your environment.
 
 **Q: Does it work with Cursor?**
 Yes. Any MCP-compatible client works. Add the stdio config to Cursor's MCP settings the same way as VS Code.
@@ -456,8 +456,8 @@ The graph plane (Memgraph) scales to millions of nodes. For very large monorepos
 **Q: Do I need to run Qdrant?**
 Qdrant is optional but recommended for large codebases. Without it, `semantic_search` and `find_similar_code` are unavailable; all other tools continue to work via graph-only or BM25 retrieval.
 
-**Q: Can multiple developers on a team share one lxRAG instance?**
-Yes, via HTTP transport. One running instance handles multiple independent sessions. Team-level shared memory is on the lxRAG Cloud roadmap.
+**Q: Can multiple developers on a team share one lxDIG instance?**
+Yes, via HTTP transport. One running instance handles multiple independent sessions. Team-level shared memory is on the lxDIG Cloud roadmap.
 
 **Q: Is this production-ready?**
 The core tools are stable and tested (402 tests, all green). Treat it as beta — APIs may change before a 1.0 release. Pin your version and watch the changelog.
@@ -471,5 +471,5 @@ The core tools are stable and tested (402 tests, all green). Treat it as beta �
 ---
 
 <div align="center">
-  <sub>Built with care for the agentic coding era · <a href="https://github.com/lexCoder2/lxRAG-MCP">github.com/lexCoder2/lxRAG-MCP</a></sub>
+  <sub>Built with care for the agentic coding era · <a href="https://github.com/lexCoder2/lxDIG-MCP">github.com/lexCoder2/lxDIG-MCP</a></sub>
 </div>

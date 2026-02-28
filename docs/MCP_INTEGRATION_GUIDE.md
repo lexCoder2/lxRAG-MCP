@@ -1,6 +1,6 @@
 # MCP Server Integration Guide
 
-Complete guide for integrating lxRAG MCP across projects.
+Complete guide for integrating lxDIG MCP across projects.
 
 ## Quick Start (15 minutes)
 
@@ -20,7 +20,7 @@ Edit `~/.claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "lxrag": {
+    "lxdig": {
       "command": "node",
       "args": ["/home/alex_rod/code-graph-server/dist/server.js"],
       "env": {
@@ -30,7 +30,7 @@ Edit `~/.claude_desktop_config.json`:
       }
     }
   },
-  "systemPrompt": "You are a code intelligence expert using lxRAG MCP.\n\nMANDATORY:\n1. NEVER read files directly\n2. NEVER use grep or search patterns\n3. ALWAYS use MCP tools for code intelligence\n4. Call graph_set_workspace on first query\n5. Call graph_health every 5 messages to re-anchor\n\nTools: graph_query, code_explain, impact_analyze, test_select, arch_validate, semantic_search, find_pattern, episode_add, agent_claim, and 29 more.\n\nSee .github/copilot-instructions.md for full reference."
+  "systemPrompt": "You are a code intelligence expert using lxDIG MCP.\n\nMANDATORY:\n1. NEVER read files directly\n2. NEVER use grep or search patterns\n3. ALWAYS use MCP tools for code intelligence\n4. Call graph_set_workspace on first query\n5. Call graph_health every 5 messages to re-anchor\n\nTools: graph_query, code_explain, impact_analyze, test_select, arch_validate, semantic_search, find_pattern, episode_add, agent_claim, and 29 more.\n\nSee .github/copilot-instructions.md for full reference."
 }
 ```
 
@@ -41,7 +41,7 @@ Create `.vscode/mcp.json`:
 ```json
 {
   "servers": {
-    "lxrag": {
+    "lxdig": {
       "type": "stdio",
       "command": "node",
       "args": ["/home/alex_rod/code-graph-server/dist/server.js"]
@@ -60,7 +60,7 @@ See template at end of this file.
 Claude/Copilot Chat
     ↓ (MCP tools only)
     ↓
-lxRAG MCP Server (http://localhost:9000)
+lxDIG MCP Server (http://localhost:9000)
     ↓         ↓
 Memgraph   Qdrant
 (graph)    (vectors)

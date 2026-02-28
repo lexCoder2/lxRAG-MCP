@@ -58,7 +58,7 @@ jobs:
         run: npm run test:coverage
         env:
           # Suppress INFO-level log output during test runs for cleaner CI logs.
-          LXRAG_LOG_LEVEL: error
+          LXDIG_LOG_LEVEL: error
 
       # ── Upload coverage report ────────────────────────────────────────────────
       - name: Upload coverage to GitHub Actions artifacts
@@ -74,6 +74,6 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
         with:
-          name: "lxRAG-MCP"
+          name: "lxDIG-MCP"
           json-summary-compare-path: coverage/coverage-summary.json
         continue-on-error: true

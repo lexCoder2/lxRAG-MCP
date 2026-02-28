@@ -1,4 +1,4 @@
-# lxRAG MCP — Roadmap
+# lxDIG MCP — Roadmap
 
 This document is the single source of truth for planned and pending work. It consolidates findings from audit reports, internal action plans, the alternatives research, and feature requests into one prioritized backlog.
 
@@ -65,7 +65,7 @@ All CLASS and FUNCTION nodes have `path: null`. Path is only accessible by trave
 
 **Source:** Self-audit SX1
 
-All 943 SECTION nodes have `title: null` when `LXRAG_SUMMARIZER_URL` is not configured. Search results and doc lookups surface no human-readable title.
+All 943 SECTION nodes have `title: null` when `LXDIG_SUMMARIZER_URL` is not configured. Search results and doc lookups surface no human-readable title.
 
 **Fix:** Add heuristic H1/H2 heading extraction to the markdown parser as a fallback, so SECTION nodes always have a title regardless of summarizer availability.
 
@@ -75,9 +75,9 @@ All 943 SECTION nodes have `title: null` when `LXRAG_SUMMARIZER_URL` is not conf
 
 **Source:** Self-audit F5 (related to F8)
 
-When `LXRAG_SUMMARIZER_URL` is not set, 0 embeddings are generated across all FUNCTION and CLASS nodes. All semantic tools (`semantic_search`, `find_similar_code`, `code_clusters`) fall back to lexical-only results with no warning to the user.
+When `LXDIG_SUMMARIZER_URL` is not set, 0 embeddings are generated across all FUNCTION and CLASS nodes. All semantic tools (`semantic_search`, `find_similar_code`, `code_clusters`) fall back to lexical-only results with no warning to the user.
 
-**Fix:** Surface a clear warning in `graph_health` output when embedding coverage is 0% — distinct from the normal "Qdrant not connected" case. Document the `LXRAG_SUMMARIZER_URL` requirement more prominently in setup.
+**Fix:** Surface a clear warning in `graph_health` output when embedding coverage is 0% — distinct from the normal "Qdrant not connected" case. Document the `LXDIG_SUMMARIZER_URL` requirement more prominently in setup.
 
 ---
 
@@ -113,7 +113,7 @@ Host path vs `/workspace` container path confusion is the most common first-run 
 
 ## Tier 2 — Core capability improvements
 
-These are well-scoped improvements to existing tools and subsystems. They increase the quality and reliability of what lxRAG already does.
+These are well-scoped improvements to existing tools and subsystems. They increase the quality and reliability of what lxDIG already does.
 
 ### 2.1 🟢 Risk-aware metadata on `impact_analyze` and `code_explain`
 
@@ -167,7 +167,7 @@ Even after fixing the Node PATH issue, `test_run` needs to resolve `vitest` from
 
 ## Tier 3 — New capabilities
 
-These are features that do not exist yet and expand what lxRAG can do.
+These are features that do not exist yet and expand what lxDIG can do.
 
 ### 3.1 🟢 Real-time transparent graph sync
 
@@ -207,7 +207,7 @@ Link external knowledge sources — documentation, standards, specifications, re
 
 Tree-sitter provides syntactic structure. LSP provides semantic structure: hover types, go-to-definition, find-all-references, rename symbols — compiler-accurate for any language with an LSP server.
 
-**Target:** Optional LSP backend (`LXRAG_LSP=true`) that enriches graph nodes with LSP-derived type information and cross-file reference resolution. Complements tree-sitter (which handles speed and zero-config) with semantic depth for projects that have a working language server.
+**Target:** Optional LSP backend (`LXDIG_LSP=true`) that enriches graph nodes with LSP-derived type information and cross-file reference resolution. Complements tree-sitter (which handles speed and zero-config) with semantic depth for projects that have a working language server.
 
 ---
 
@@ -217,7 +217,7 @@ Tree-sitter provides syntactic structure. LSP provides semantic structure: hover
 
 Tree-sitter is syntactic and struggles with polymorphic calls and implicit types. SCIP (Semantic Code Intelligence Protocol) is compiler-accurate: it resolves which concrete implementation is called, tracks interface dispatch, and produces stable cross-repository symbol IDs.
 
-**Target:** SCIP as an opt-in precision tier (`LXRAG_PARSER=scip`). Language support: TypeScript (via `scip-typescript`), Go (`scip-go`), Java (`scip-java`). SCIP symbol IDs are stored on graph nodes alongside SCIP IDs, enabling cross-repo graph linking.
+**Target:** SCIP as an opt-in precision tier (`LXDIG_PARSER=scip`). Language support: TypeScript (via `scip-typescript`), Go (`scip-go`), Java (`scip-java`). SCIP symbol IDs are stored on graph nodes alongside SCIP IDs, enabling cross-repo graph linking.
 
 ---
 
@@ -257,7 +257,7 @@ Today, rebuilds are triggered manually or by the file watcher during active sess
 
 All 39 tools are compiled into the server. There is no way to add domain-specific tools without modifying the source.
 
-**Target:** A plugin API that allows registering additional MCP tools from external modules. Plugins are loaded at startup from a configured directory or `package.json` `lxrag.plugins` field. Each plugin exports a tool definition and handler following the existing registry contract.
+**Target:** A plugin API that allows registering additional MCP tools from external modules. Plugins are loaded at startup from a configured directory or `package.json` `lxdig.plugins` field. Each plugin exports a tool definition and handler following the existing registry contract.
 
 ---
 
@@ -292,13 +292,13 @@ The current coordination model (claims, releases, agent_status) is designed for 
 
 Every repository must be indexed from scratch. For popular open-source libraries (React, Express, Django, FastAPI, Spring Boot), this is redundant work that every user repeats.
 
-**Target:** A community-maintained registry of pre-built graph bundles for popular open-source libraries. Bundles are loaded alongside the project graph and enable agents to traverse into dependency internals. Natural seed for lxRAG Cloud's managed graph service.
+**Target:** A community-maintained registry of pre-built graph bundles for popular open-source libraries. Bundles are loaded alongside the project graph and enable agents to traverse into dependency internals. Natural seed for lxDIG Cloud's managed graph service.
 
 ---
 
-### 4.3 🔵 lxRAG Cloud
+### 4.3 🔵 lxDIG Cloud
 
-A hosted, zero-infrastructure version of lxRAG for individuals and teams who want the full capability without running Memgraph and Qdrant themselves.
+A hosted, zero-infrastructure version of lxDIG for individuals and teams who want the full capability without running Memgraph and Qdrant themselves.
 
 **Scope:**
 - Managed Memgraph + Qdrant, provisioned per workspace
@@ -341,7 +341,7 @@ Use this in issues and PRs to link work back to this roadmap:
 | 3.10 Go/Rust/Java parsers | T3 | Not started | — |
 | 4.1 multi-user coordination | T4 | Planning | — |
 | 4.2 bundle registry | T4 | Planning | — |
-| 4.3 lxRAG Cloud | T4 | Planning | — |
+| 4.3 lxDIG Cloud | T4 | Planning | — |
 
 ---
 
@@ -350,7 +350,7 @@ Use this in issues and PRs to link work back to this roadmap:
 Internal:
 - `docs/PLANS_PENDING_ACTIONS_SUMMARY.md`
 - `docs/AUDITS_EVALUATIONS_SUMMARY.md`
-- `docs/lxrag-self-audit-2026-02-24.md`
+- `docs/lxdig-self-audit-2026-02-24.md`
 - `docs/TOOLS_INFORMATION_GUIDE.md`
 - `plan/Researching Alternative Solutions.md`
 - `README.md` roadmap section

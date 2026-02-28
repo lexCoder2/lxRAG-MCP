@@ -100,7 +100,7 @@ Edit `~/.claude_desktop_config.json`:
 
 - [ ] Copy [templates/copilot-instructions-template.md](templates/copilot-instructions-template.md) to `.github/copilot-instructions.md`
 - [ ] Update project references
-- [ ] Set `LXRAG_PROJECT_ID` in your environment or pass `projectId` to `graph_set_workspace`
+- [ ] Set `LXDIG_PROJECT_ID` in your environment or pass `projectId` to `graph_set_workspace`
 - [ ] Commit `.github/copilot-instructions.md`
 
 ---
@@ -124,7 +124,7 @@ Edit `~/.claude_desktop_config.json`:
 ### Phase 3: Rollout (Per-Project)
 
 1. Copy copilot instructions to `.github/copilot-instructions.md`
-2. Set `LXRAG_PROJECT_ID` or pass projectId to `graph_set_workspace`
+2. Set `LXDIG_PROJECT_ID` or pass projectId to `graph_set_workspace`
 3. Commit and push
 4. Update team
 

@@ -1,14 +1,14 @@
-# LexRAG-MCP Resolution Plan
+# LexDIG-MCP Resolution Plan
 
 **Status**: Ready for Implementation  
 **Last Updated**: 2026-02-22  
-**Analysis Method**: lxRAG Tools Only
+**Analysis Method**: lxDIG Tools Only
 
 ---
 
 ## Executive Summary
 
-Analysis using only lxRAG tools has identified **3 critical blockers** preventing full code intelligence:
+Analysis using only lxDIG tools has identified **3 critical blockers** preventing full code intelligence:
 
 1. **Backend BigInt Error** - Prevents graph health verification
 2. **Missing Architecture Configuration** - Files unassigned to layers
@@ -26,12 +26,12 @@ Analysis using only lxRAG tools has identified **3 critical blockers** preventin
 
 **Problem**: `TypeError: Cannot mix BigInt and other types, use explicit conversions`
 
-**Location**: lxRAG backend graph_health check
+**Location**: lxDIG backend graph_health check
 
 **Resolution Steps**:
 
 ```bash
-# 1. Check lxRAG setup
+# 1. Check lxDIG setup
 docker ps | grep -E "memgraph|qdrant"
 
 # 2. Verify MCP server status
@@ -55,15 +55,15 @@ npm run test:mcp-integration
 
 ### 1.2 Create Architecture Configuration
 
-**Problem**: `.lxrag/config.json` missing or incomplete
+**Problem**: `.lxdig/config.json` missing or incomplete
 
-**File**: `.lxrag/config.json` (create if missing)
+**File**: `.lxdig/config.json` (create if missing)
 
 **Required Content**:
 
 ```json
 {
-  "projectId": "lexrag-mcp",
+  "projectId": "lexdig-mcp",
   "sourceDir": "src",
   "layers": [
     {
@@ -335,25 +335,25 @@ npm run test:episodes -- --scenario "memory-recall"
 **Build Command**:
 
 ```bash
-lxrag build [--project projectId] [--full|--incremental]
+lxdig build [--project projectId] [--full|--incremental]
 ```
 
 **Query Command**:
 
 ```bash
-lxrag query "find all HTTP handlers" [--project projectId]
+lxdig query "find all HTTP handlers" [--project projectId]
 ```
 
 **Test Affected**:
 
 ```bash
-lxrag test-affected [files...] [--report json]
+lxdig test-affected [files...] [--report json]
 ```
 
 **Validate**:
 
 ```bash
-lxrag validate [--strict] [--fix]
+lxdig validate [--strict] [--fix]
 ```
 
 ### 4.2 Testing Infrastructure
@@ -396,12 +396,12 @@ From `benchmarks/` directory:
 
 ### Phase 1: Backend (1 day)
 
-- [x] Create `.lxrag/config.json`
+- [x] Create `.lxdig/config.json`
 - [x] Fix BigInt error in local source (`src/tools/tool-handlers.ts`)
 - [x] Add regression test coverage for BigInt health metrics
 - [x] Force graph rebuild
 - [x] Validate all systems locally (`npm run build`, `npm test`)
-- [ ] Validate hosted/runtime `mcp_lxrag_graph_health` after service restart
+- [ ] Validate hosted/runtime `mcp_lxdig_graph_health` after service restart
 
 **Completion Criteria**:
 
@@ -514,7 +514,7 @@ From `benchmarks/` directory:
 
 ### Overall Success:
 
-**Full lxRAG suite operational with agent memory integration**
+**Full lxDIG suite operational with agent memory integration**
 
 ---
 
@@ -566,7 +566,7 @@ Phase 5:
 
 1. **Right Now**:
    - Review this plan
-   - Create `.lxrag/config.json` (provided above)
+   - Create `.lxdig/config.json` (provided above)
 
 2. **Within 1 hour**:
    - Run Phase 1 validation checklist
@@ -582,6 +582,6 @@ Phase 5:
 
 ---
 
-**Plan created by**: lxRAG Analysis Tools  
+**Plan created by**: lxDIG Analysis Tools  
 **Confidence**: High (based on actual project analysis)  
 **Ready for**: Immediate implementation
