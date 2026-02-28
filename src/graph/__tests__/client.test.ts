@@ -96,9 +96,7 @@ describe("MemgraphClient", () => {
       });
 
     const loaded = await client.loadProjectGraph("proj-a");
-    expect(loaded.nodes).toEqual([
-      { id: "n1", type: "FILE", properties: { path: "src/a.ts" } },
-    ]);
+    expect(loaded.nodes).toEqual([{ id: "n1", type: "FILE", properties: { path: "src/a.ts" } }]);
     expect(loaded.relationships).toEqual([
       {
         id: "n1-CALLS-n2",
@@ -114,11 +112,7 @@ describe("MemgraphClient", () => {
     const client = new MemgraphClient();
 
     const firstSession = {
-      run: vi
-        .fn()
-        .mockRejectedValue(
-          new Error("ServiceUnavailable: temporary network hiccup"),
-        ),
+      run: vi.fn().mockRejectedValue(new Error("ServiceUnavailable: temporary network hiccup")),
       close: vi.fn().mockResolvedValue(undefined),
     };
     const secondSession = {
@@ -130,10 +124,7 @@ describe("MemgraphClient", () => {
 
     (client as any).connected = true;
     (client as any).driver = {
-      session: vi
-        .fn()
-        .mockReturnValueOnce(firstSession)
-        .mockReturnValueOnce(secondSession),
+      session: vi.fn().mockReturnValueOnce(firstSession).mockReturnValueOnce(secondSession),
     };
 
     const result = await client.executeCypher("RETURN 1");

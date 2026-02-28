@@ -67,9 +67,7 @@ describe("DocsParser.extractBacktickRefs", () => {
   const p = parser();
 
   it("extracts single references", () => {
-    expect(p.extractBacktickRefs("Call `graph_rebuild` to start")).toEqual([
-      "graph_rebuild",
-    ]);
+    expect(p.extractBacktickRefs("Call `graph_rebuild` to start")).toEqual(["graph_rebuild"]);
   });
 
   it("extracts multiple unique references", () => {
@@ -122,9 +120,7 @@ describe("DocsParser.parseContent — structure", () => {
     const doc = parser().parseContent(md, "/r/d.md", "/r");
     const headings = doc.sections.map((s) => s.heading);
     expect(headings).not.toContain("Deep");
-    expect(doc.sections.find((s) => s.heading === "Top")?.content).toMatch(
-      /Deep/,
-    );
+    expect(doc.sections.find((s) => s.heading === "Top")?.content).toMatch(/Deep/);
   });
 
   it("section startLine is 1-based and monotonically increasing", () => {
@@ -232,11 +228,7 @@ describe("DocsParser.parseContent — title inference", () => {
   });
 
   it("falls back to filename stem when no H1", () => {
-    const doc = parser().parseContent(
-      "## Section only\n\nBody.",
-      "/r/my-doc.md",
-      "/r",
-    );
+    const doc = parser().parseContent("## Section only\n\nBody.", "/r/my-doc.md", "/r");
     expect(doc.title).toBe("my-doc");
   });
 });
@@ -245,11 +237,7 @@ describe("DocsParser.parseContent — title inference", () => {
 
 describe("DocsParser.parseContent — relativePath", () => {
   it("relativePath is workspace-relative with forward slashes", () => {
-    const doc = parser().parseContent(
-      "# T",
-      "/project/docs/api.md",
-      "/project",
-    );
+    const doc = parser().parseContent("# T", "/project/docs/api.md", "/project");
     expect(doc.relativePath).toBe("docs/api.md");
   });
 });

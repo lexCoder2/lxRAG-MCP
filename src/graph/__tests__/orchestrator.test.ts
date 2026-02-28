@@ -11,10 +11,7 @@ describe("GraphOrchestrator", () => {
     const srcDir = path.join(root, "src");
     fs.mkdirSync(srcDir, { recursive: true });
 
-    fs.writeFileSync(
-      path.join(srcDir, "a.ts"),
-      "export function alpha(): number { return 1; }\n",
-    );
+    fs.writeFileSync(path.join(srcDir, "a.ts"), "export function alpha(): number { return 1; }\n");
     fs.writeFileSync(path.join(srcDir, "note.txt"), "not a source file\n");
 
     const memgraph = {
@@ -46,10 +43,7 @@ describe("GraphOrchestrator", () => {
     fs.mkdirSync(srcDir, { recursive: true });
 
     const inWorkspace = path.join(srcDir, "a.ts");
-    fs.writeFileSync(
-      inWorkspace,
-      "export const value = 1;\n",
-    );
+    fs.writeFileSync(inWorkspace, "export const value = 1;\n");
 
     const outsideRoot = fs.mkdtempSync(path.join(os.tmpdir(), "orch-outside-"));
     const outsideFile = path.join(outsideRoot, "outside.ts");

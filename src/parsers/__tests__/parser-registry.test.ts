@@ -56,15 +56,9 @@ describe("ParserRegistry", () => {
     const parser = makeParser("typescript", [".ts"], parseResult);
 
     registry.register(parser);
-    const result = await registry.parse(
-      "src/index.ts",
-      "export function main() {}",
-    );
+    const result = await registry.parse("src/index.ts", "export function main() {}");
 
-    expect(parser.parse).toHaveBeenCalledWith(
-      "src/index.ts",
-      "export function main() {}",
-    );
+    expect(parser.parse).toHaveBeenCalledWith("src/index.ts", "export function main() {}");
     expect(result).toEqual(parseResult);
   });
 });

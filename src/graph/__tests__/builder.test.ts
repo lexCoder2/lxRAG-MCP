@@ -67,16 +67,12 @@ describe("GraphBuilder — FILE path normalization (A1 regression)", () => {
 
     // Find all FILE node MERGE statements that set targetFile.path
     const filePathStmts = stmts.filter(
-      (s) =>
-        s.query.includes("targetFile:FILE") &&
-        s.params.absoluteTargetPath !== undefined,
+      (s) => s.query.includes("targetFile:FILE") && s.params.absoluteTargetPath !== undefined,
     );
 
     for (const stmt of filePathStmts) {
       const p = stmt.params.absoluteTargetPath as string;
-      expect(path.isAbsolute(p), `Expected absolute path but got: ${p}`).toBe(
-        true,
-      );
+      expect(path.isAbsolute(p), `Expected absolute path but got: ${p}`).toBe(true);
       expect(p).toContain(workspaceRoot);
     }
   });
@@ -92,8 +88,7 @@ describe("GraphBuilder — FILE path normalization (A1 regression)", () => {
 
     // The canonical FILE node (from createFileNode) must have absolute path
     const fileNodeStmt = stmts.find(
-      (s) =>
-        s.query.includes("MERGE (f:FILE") && s.query.includes("f.path = $path"),
+      (s) => s.query.includes("MERGE (f:FILE") && s.query.includes("f.path = $path"),
     )!;
     expect(fileNodeStmt).toBeDefined();
     expect(path.isAbsolute(fileNodeStmt.params.path as string)).toBe(true);
@@ -136,9 +131,7 @@ describe("GraphBuilder — FILE path normalization (A1 regression)", () => {
     const stmts = b.buildFromParsedFile(fileA);
 
     const stubStmt = stmts.find(
-      (s) =>
-        s.query.includes("targetFile:FILE") &&
-        s.params.relativePath !== undefined,
+      (s) => s.query.includes("targetFile:FILE") && s.params.relativePath !== undefined,
     );
 
     if (stubStmt) {
@@ -161,9 +154,7 @@ describe("GraphBuilder — FILE path normalization (A1 regression)", () => {
     const stmts = b.buildFromParsedFile(fileA);
 
     const stubStmt = stmts.find(
-      (s) =>
-        s.query.includes("targetFile:FILE") &&
-        s.params.absoluteTargetPath !== undefined,
+      (s) => s.query.includes("targetFile:FILE") && s.params.absoluteTargetPath !== undefined,
     );
 
     if (stubStmt) {
@@ -199,14 +190,11 @@ describe("GraphBuilder — symbol filePath metadata", () => {
     const stmts = b.buildFromParsedFile(fileA);
     const functionStmt = stmts.find(
       (s) =>
-        s.query.includes("MERGE (func:FUNCTION") &&
-        s.query.includes("func.filePath = $filePath"),
+        s.query.includes("MERGE (func:FUNCTION") && s.query.includes("func.filePath = $filePath"),
     );
 
     expect(functionStmt).toBeDefined();
-    expect(functionStmt!.params.filePath).toBe(
-      "/workspace/src/components/App.tsx",
-    );
+    expect(functionStmt!.params.filePath).toBe("/workspace/src/components/App.tsx");
   });
 
   it("sets CLASS.filePath to the parent file absolute path", () => {
@@ -232,14 +220,10 @@ describe("GraphBuilder — symbol filePath metadata", () => {
 
     const stmts = b.buildFromParsedFile(fileA);
     const classStmt = stmts.find(
-      (s) =>
-        s.query.includes("MERGE (cls:CLASS") &&
-        s.query.includes("cls.filePath = $filePath"),
+      (s) => s.query.includes("MERGE (cls:CLASS") && s.query.includes("cls.filePath = $filePath"),
     );
 
     expect(classStmt).toBeDefined();
-    expect(classStmt!.params.filePath).toBe(
-      "/workspace/src/components/App.tsx",
-    );
+    expect(classStmt!.params.filePath).toBe("/workspace/src/components/App.tsx");
   });
 });

@@ -28,9 +28,7 @@ function seedIndex(): GraphIndexManager {
 describe("HybridRetriever", () => {
   it("uses native bm25 when memgraph text search returns rows", async () => {
     const memgraph = {
-      executeCypher: vi
-        .fn()
-        .mockResolvedValue({ data: [{ nodeId: "fn:1", score: 5.2 }] }),
+      executeCypher: vi.fn().mockResolvedValue({ data: [{ nodeId: "fn:1", score: 5.2 }] }),
     } as any;
     const retriever = new HybridRetriever(seedIndex(), undefined, memgraph);
 

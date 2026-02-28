@@ -69,17 +69,13 @@ describe("DocsBuilder.buildFromParsedDoc — output shape", () => {
       ],
     });
     const stmts = builder().buildFromParsedDoc(doc);
-    const nextSectionStmts = stmts.filter((s) =>
-      s.query.includes("NEXT_SECTION"),
-    );
+    const nextSectionStmts = stmts.filter((s) => s.query.includes("NEXT_SECTION"));
     expect(nextSectionStmts).toHaveLength(2);
   });
 
   it("with 1 section generates 0 NEXT_SECTION edges", () => {
     const stmts = builder().buildFromParsedDoc(makeDoc());
-    const nextSectionStmts = stmts.filter((s) =>
-      s.query.includes("NEXT_SECTION"),
-    );
+    const nextSectionStmts = stmts.filter((s) => s.query.includes("NEXT_SECTION"));
     expect(nextSectionStmts).toHaveLength(0);
   });
 });
@@ -94,9 +90,7 @@ describe("DocsBuilder — DOCUMENT statement", () => {
 
   it("DOCUMENT params include all required fields", () => {
     const doc = makeDoc();
-    const stmts = builder("proj", "/root", "tx-1", 1000).buildFromParsedDoc(
-      doc,
-    );
+    const stmts = builder("proj", "/root", "tx-1", 1000).buildFromParsedDoc(doc);
     const p = stmts[0].params;
     expect(p.relativePath).toBe("docs/guide.md");
     expect(p.filePath).toBe("/workspace/docs/guide.md");
@@ -128,9 +122,7 @@ describe("DocsBuilder — DOCUMENT statement", () => {
 describe("DocsBuilder — SECTION statement", () => {
   it("SECTION statement uses MERGE", () => {
     const stmts = builder().buildFromParsedDoc(makeDoc());
-    const secStmt = stmts.find(
-      (s) => s.query.includes("SECTION") && s.query.includes("heading"),
-    )!;
+    const secStmt = stmts.find((s) => s.query.includes("SECTION") && s.query.includes("heading"))!;
     expect(secStmt).toBeDefined();
     expect(secStmt.query).toMatch(/MERGE.*SECTION/);
   });
@@ -171,15 +163,10 @@ describe("DocsBuilder — SECTION statement", () => {
 
   it("each section gets a unique id", () => {
     const doc = makeDoc({
-      sections: [
-        makeSection({ index: 0, heading: "A" }),
-        makeSection({ index: 1, heading: "B" }),
-      ],
+      sections: [makeSection({ index: 0, heading: "A" }), makeSection({ index: 1, heading: "B" })],
     });
     const stmts = builder().buildFromParsedDoc(doc);
-    const ids = stmts
-      .filter((s) => s.query.includes("heading"))
-      .map((s) => s.params.id);
+    const ids = stmts.filter((s) => s.query.includes("heading")).map((s) => s.params.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
@@ -187,9 +174,7 @@ describe("DocsBuilder — SECTION statement", () => {
   it("SECTION params include relativePath matching the parent document", () => {
     const doc = makeDoc({ relativePath: "docs/architecture.md" });
     const stmts = builder("p", "/r", "tx", 0).buildFromParsedDoc(doc);
-    const secStmt = stmts.find(
-      (s) => s.query.includes("s.relativePath") && s.params.relativePath,
-    )!;
+    const secStmt = stmts.find((s) => s.query.includes("s.relativePath") && s.params.relativePath)!;
     expect(secStmt).toBeDefined();
     expect(secStmt.params.relativePath).toBe("docs/architecture.md");
   });
@@ -225,9 +210,7 @@ describe("DocsBuilder — DOC_DESCRIBES edges", () => {
     });
     const doc = makeDoc({ sections: [section] });
     const stmts = builder().buildFromParsedDoc(doc);
-    const describeStmts = stmts.filter((s) =>
-      s.query.includes("DOC_DESCRIBES"),
-    );
+    const describeStmts = stmts.filter((s) => s.query.includes("DOC_DESCRIBES"));
     // 2 refs × 2 match patterns (FILE + FUNCTION|CLASS) = 4 statements
     expect(describeStmts.length).toBe(4);
   });
@@ -244,9 +227,7 @@ describe("DocsBuilder — DOC_DESCRIBES edges", () => {
     const section = makeSection({ backtickRefs: [] });
     const doc = makeDoc({ sections: [section] });
     const stmts = builder().buildFromParsedDoc(doc);
-    const describeStmts = stmts.filter((s) =>
-      s.query.includes("DOC_DESCRIBES"),
-    );
+    const describeStmts = stmts.filter((s) => s.query.includes("DOC_DESCRIBES"));
     expect(describeStmts).toHaveLength(0);
   });
 
@@ -283,9 +264,7 @@ describe("DocsBuilder — idempotency (MERGE)", () => {
   it("calling twice on same doc returns same number of stmts", () => {
     const doc = makeDoc();
     const b = builder();
-    expect(b.buildFromParsedDoc(doc).length).toBe(
-      b.buildFromParsedDoc(doc).length,
-    );
+    expect(b.buildFromParsedDoc(doc).length).toBe(b.buildFromParsedDoc(doc).length);
   });
 });
 
@@ -301,27 +280,16 @@ describe("DocsBuilder — edge cases", () => {
   });
 
   it("handles doc with various kinds without throwing", () => {
-    const kinds = [
-      "readme",
-      "adr",
-      "changelog",
-      "guide",
-      "architecture",
-      "other",
-    ] as const;
+    const kinds = ["readme", "adr", "changelog", "guide", "architecture", "other"] as const;
     for (const kind of kinds) {
-      expect(() =>
-        builder().buildFromParsedDoc(makeDoc({ kind })),
-      ).not.toThrow();
+      expect(() => builder().buildFromParsedDoc(makeDoc({ kind }))).not.toThrow();
     }
   });
 
   it("different relativePaths produce different DOCUMENT ids", () => {
     const b = builder("p");
-    const id1 = b.buildFromParsedDoc(makeDoc({ relativePath: "docs/a.md" }))[0]
-      .params.id;
-    const id2 = b.buildFromParsedDoc(makeDoc({ relativePath: "docs/b.md" }))[0]
-      .params.id;
+    const id1 = b.buildFromParsedDoc(makeDoc({ relativePath: "docs/a.md" }))[0].params.id;
+    const id2 = b.buildFromParsedDoc(makeDoc({ relativePath: "docs/b.md" }))[0].params.id;
     expect(id1).not.toBe(id2);
   });
 });
