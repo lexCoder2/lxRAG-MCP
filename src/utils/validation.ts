@@ -21,9 +21,7 @@ export function validateProjectId(projectId: unknown): string {
   }
 
   if (!/^[a-zA-Z0-9_-]+$/.test(projectId)) {
-    throw new Error(
-      "projectId can only contain alphanumeric characters, hyphens, and underscores",
-    );
+    throw new Error("projectId can only contain alphanumeric characters, hyphens, and underscores");
   }
 
   return projectId;
@@ -59,10 +57,7 @@ export function validateFilePath(filePath: unknown): string {
  * @param maxLength Maximum allowed length (default 10000)
  * @throws Error if invalid
  */
-export function validateQuery(
-  query: unknown,
-  maxLength: number = 10000,
-): string {
+export function validateQuery(query: unknown, maxLength: number = 10000): string {
   if (typeof query !== "string") {
     throw new Error("query must be a string");
   }
@@ -96,9 +91,7 @@ export function validateCypherQuery(query: unknown): string {
   // Warn about raw string concatenation patterns (but don't block - parametrized queries should be used)
   const upperQuery = query.toUpperCase();
   if (
-    (upperQuery.includes("+ '") ||
-      upperQuery.includes("+ \"") ||
-      upperQuery.includes("$")) &&
+    (upperQuery.includes("+ '") || upperQuery.includes('+ "') || upperQuery.includes("$")) &&
     upperQuery.includes("MATCH")
   ) {
     // Note: This is a heuristic - legitimate queries may have these patterns
@@ -126,9 +119,7 @@ export function validateNodeId(nodeId: unknown): string {
   // Format: projectId:type:name
   const parts = nodeId.split(":");
   if (parts.length < 1 || parts.length > 10) {
-    throw new Error(
-      "nodeId has invalid format (should be space-separated with colon delimiters)",
-    );
+    throw new Error("nodeId has invalid format (should be space-separated with colon delimiters)");
   }
 
   return nodeId;
@@ -140,10 +131,7 @@ export function validateNodeId(nodeId: unknown): string {
  * @param maxLimit Maximum allowed limit (default 10000)
  * @throws Error if invalid
  */
-export function validateLimit(
-  limit: unknown,
-  maxLimit: number = 10000,
-): number {
+export function validateLimit(limit: unknown, maxLimit: number = 10000): number {
   if (typeof limit !== "number" && typeof limit !== "string") {
     throw new Error("limit must be a number or string");
   }
@@ -151,9 +139,7 @@ export function validateLimit(
   const numLimit = typeof limit === "string" ? parseInt(limit, 10) : limit;
 
   if (!Number.isInteger(numLimit) || numLimit < 1 || numLimit > maxLimit) {
-    throw new Error(
-      `limit must be an integer between 1 and ${maxLimit} (received ${numLimit})`,
-    );
+    throw new Error(`limit must be an integer between 1 and ${maxLimit} (received ${numLimit})`);
   }
 
   return numLimit;
@@ -165,18 +151,13 @@ export function validateLimit(
  * @param allowedModes List of allowed modes
  * @throws Error if invalid
  */
-export function validateMode(
-  mode: unknown,
-  allowedModes: string[],
-): string {
+export function validateMode(mode: unknown, allowedModes: string[]): string {
   if (typeof mode !== "string") {
     throw new Error("mode must be a string");
   }
 
   if (!allowedModes.includes(mode)) {
-    throw new Error(
-      `mode must be one of: ${allowedModes.join(", ")} (received "${mode}")`,
-    );
+    throw new Error(`mode must be one of: ${allowedModes.join(", ")} (received "${mode}")`);
   }
 
   return mode;
@@ -188,11 +169,7 @@ export function validateMode(
  * @param value Value that failed validation
  * @param reason Reason for validation failure
  */
-export function createValidationError(
-  field: string,
-  value: unknown,
-  reason: string,
-): Error {
+export function createValidationError(field: string, value: unknown, reason: string): Error {
   return new Error(
     `Validation failed for ${field}: ${reason} (received ${JSON.stringify(value).substring(0, 100)})`,
   );
@@ -232,9 +209,7 @@ export function extractProjectIdFromScopedId(
  * @param id Scoped ID string
  * @returns Object with projectId, type (optional), and name (optional)
  */
-export function parseScopedId(
-  id: string,
-): {
+export function parseScopedId(id: string): {
   projectId: string;
   type?: string;
   name?: string;
@@ -256,10 +231,7 @@ export function parseScopedId(
  * @param length Length of random part (bytes, default 8)
  * @returns Secure random ID with format: prefix-randomHex
  */
-export function generateSecureId(
-  prefix: string = "id",
-  length: number = 8,
-): string {
+export function generateSecureId(prefix: string = "id", length: number = 8): string {
   const hex = randomBytes(length).toString("hex");
   return `${prefix}-${hex}`;
 }

@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 import type { ExecSyncOptionsWithStringEncoding } from "child_process";
 import * as env from "../env.js";
 
-export interface SafeExecOptions extends Omit<ExecSyncOptionsWithStringEncoding, 'encoding'> {
+export interface SafeExecOptions extends Omit<ExecSyncOptionsWithStringEncoding, "encoding"> {
   timeout?: number;
   maxOutputBytes?: number;
   encoding?: "utf-8";
@@ -20,10 +20,7 @@ export interface SafeExecOptions extends Omit<ExecSyncOptionsWithStringEncoding,
  * @returns Command output
  * @throws Error if timeout exceeded or output exceeds limit
  */
-export function execWithTimeout(
-  command: string,
-  options: SafeExecOptions = {},
-): string {
+export function execWithTimeout(command: string, options: SafeExecOptions = {}): string {
   const {
     timeout = env.LXRAG_COMMAND_EXECUTION_TIMEOUT_MS,
     maxOutputBytes = env.LXRAG_COMMAND_OUTPUT_SIZE_LIMIT_BYTES,
@@ -45,11 +42,13 @@ export function execWithTimeout(
       if (error.message.includes("ETIMEDOUT")) {
         throw new Error(
           `Command execution timeout exceeded (${timeout}ms): ${command.substring(0, 100)}`,
+          { cause: error },
         );
       }
       if (error.message.includes("maxBuffer")) {
         throw new Error(
           `Command output exceeded size limit (${maxOutputBytes} bytes): ${command.substring(0, 100)}`,
+          { cause: error },
         );
       }
     }
