@@ -1,75 +1,91 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 380 360" version="1.1" xmlns="http://www.w3.org/2000/svg"
-     style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;">
+<svg viewBox="0 0 400 440" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Deep navy → vibrant indigo -->
-    <linearGradient id="brainArc" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#1e3a8a"/>
-      <stop offset="100%" stop-color="#3b5bdb"/>
+    <!-- Primary gradient: deep indigo → brand blue → vivid cyan -->
+    <linearGradient id="brainFlow" x1="20%" y1="100%" x2="80%" y2="0%">
+      <stop offset="0%" stop-color="#1A2980"/>
+      <stop offset="50%" stop-color="#3D58CA"/>
+      <stop offset="100%" stop-color="#00D4AA"/>
     </linearGradient>
-    <!-- Indigo → cyan energy flow -->
-    <linearGradient id="neural" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3b5bdb"/>
-      <stop offset="100%" stop-color="#06b6d4"/>
+
+    <!-- Accent gradient for inner neural folds -->
+    <linearGradient id="foldFlow" x1="0%" y1="50%" x2="100%" y2="30%">
+      <stop offset="0%" stop-color="#2845B8"/>
+      <stop offset="100%" stop-color="#00E0B8"/>
     </linearGradient>
-    <!-- Cyan → dark teal kinetic stem -->
-    <linearGradient id="stem" x1="50%" y1="0%" x2="50%" y2="100%">
-      <stop offset="0%" stop-color="#06b6d4"/>
-      <stop offset="100%" stop-color="#0e7490"/>
+
+    <!-- Subtle graph edge gradient -->
+    <linearGradient id="edgeFlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3D58CA" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#00D4AA" stop-opacity="0.15"/>
     </linearGradient>
+
+    <!-- Node radial glow -->
+    <radialGradient id="nodeGlow" cx="35%" cy="35%">
+      <stop offset="0%" stop-color="#00E0B8"/>
+      <stop offset="100%" stop-color="#2845B8"/>
+    </radialGradient>
+
+    <!-- Subtle hub halo -->
+    <radialGradient id="hubHalo" cx="50%" cy="50%">
+      <stop offset="0%" stop-color="#00D4AA" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#00D4AA" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
-  <!-- ══════ BRAIN STRUCTURE ══════ -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
 
-  <!-- Outer brain arc: bold silhouette — sweeps from stem origin
-       up over the cranial dome and curves down to the posterior -->
-  <path d="M 88,228
-           C 58,152 88,55 192,36
-           C 296,17 342,82 336,162
-           C 332,212 302,244 265,257"
-        fill="none" stroke="url(#brainArc)" stroke-width="14"/>
+    <!-- ═══ LAYER 1: Graph edges — subtle intelligence connections ═══ -->
+    <line x1="240" y1="35" x2="220" y2="158" stroke="url(#edgeFlow)" stroke-width="1.5"/>
+    <line x1="220" y1="158" x2="355" y2="160" stroke="url(#edgeFlow)" stroke-width="1.5"/>
+    <line x1="100" y1="235" x2="220" y2="158" stroke="url(#edgeFlow)" stroke-width="1.3"/>
+    <line x1="220" y1="158" x2="270" y2="295" stroke="url(#edgeFlow)" stroke-width="1.2"/>
 
-  <!-- Central neural pathway: crosses through the brain,
-       creating the primary fissure with gradient energy -->
-  <path d="M 132,118
-           C 172,88 232,86 260,128
-           C 288,170 262,222 216,248"
-        fill="none" stroke="url(#neural)" stroke-width="9"/>
+    <!-- ═══ LAYER 2: Brain contour — single flowing stroke ═══ -->
+    <!-- Sweeps from stem tip, up through frontal lobe, across the crown, 
+         down the occipital, trailing off at the back-bottom -->
+    <path d="M 155 400
+             C 150 365, 145 330, 140 295
+             C 130 258, 108 238, 88 205
+             C 60 160, 68 100, 110 62
+             C 152 24, 215 18, 268 28
+             C 325 40, 365 88, 360 152
+             C 355 218, 322 272, 275 298
+             C 245 312, 218 308, 195 292"
+          stroke="url(#brainFlow)" stroke-width="5.5"/>
 
-  <!-- Deep neural fold: subtle interior rhythm at reduced opacity -->
-  <path d="M 170,168
-           C 198,142 230,150 234,180
-           C 238,210 216,232 194,236"
-        fill="none" stroke="#3b5bdb" stroke-width="6.5" opacity="0.5"/>
+    <!-- ═══ LAYER 3: Inner neural folds — brain texture ═══ -->
+    <!-- Main sulcus — flows through the center -->
+    <path d="M 88 200
+             C 128 178, 178 150, 220 155
+             C 262 160, 305 182, 342 215"
+          stroke="url(#foldFlow)" stroke-width="3.8"/>
 
-  <!-- Dynamic brain stem: kinetic sweep implying forward motion -->
-  <path d="M 88,228
-           C 96,270 118,302 160,320
-           C 182,330 206,326 218,328"
-        fill="none" stroke="url(#stem)" stroke-width="11"/>
+    <!-- Upper fold — crosses the upper brain -->
+    <path d="M 108 128
+             C 148 148, 195 118, 240 108
+             C 285 98, 325 115, 352 148"
+          stroke="url(#foldFlow)" stroke-width="3.2" opacity="0.75"/>
 
-  <!-- ══════ INTELLIGENCE NODES ══════ -->
+    <!-- ═══ LAYER 4: Graph nodes — intelligence vertices ═══ -->
+    <!-- Hub node halo (subtle glow behind the central node) -->
+    <circle cx="220" cy="158" r="16" fill="url(#hubHalo)"/>
 
-  <!-- Apex — crown of the brain -->
-  <circle cx="192" cy="36" r="10" fill="#1e3a8a"/>
-  <!-- Posterior — back curve terminus -->
-  <circle cx="336" cy="162" r="9" fill="#3b5bdb"/>
-  <!-- Central — largest node, core intelligence -->
-  <circle cx="198" cy="128" r="12" fill="#3b5bdb"/>
-  <!-- Deep fold junction -->
-  <circle cx="234" cy="180" r="8" fill="#06b6d4"/>
-  <!-- Temporal junction -->
-  <circle cx="265" cy="257" r="9" fill="#06b6d4"/>
-  <!-- Stem origin -->
-  <circle cx="88" cy="228" r="8" fill="#1e3a8a"/>
-  <!-- Frontal accent -->
-  <circle cx="132" cy="118" r="7" fill="#3b5bdb" opacity="0.65"/>
-  <!-- Stem terminus — fading energy -->
-  <circle cx="218" cy="328" r="6" fill="#06b6d4" opacity="0.7"/>
+    <!-- Hub node — the intelligence core (largest) -->
+    <circle cx="220" cy="158" r="8" fill="url(#nodeGlow)"/>
 
-  <!-- ══════ NEURAL SPARKS ══════ -->
+    <!-- Primary nodes -->
+    <circle cx="240" cy="35" r="6" fill="url(#nodeGlow)"/>
+    <circle cx="355" cy="160" r="5.5" fill="url(#nodeGlow)"/>
+    <circle cx="100" cy="235" r="5.5" fill="url(#nodeGlow)"/>
 
-  <!-- Subtle energy accents near the posterior dome -->
-  <circle cx="308" cy="62" r="3.5" fill="#22d3ee" opacity="0.45"/>
-  <circle cx="328" cy="92" r="2.5" fill="#3b5bdb" opacity="0.35"/>
+    <!-- Secondary nodes -->
+    <circle cx="275" cy="298" r="5" fill="url(#nodeGlow)"/>
+    <circle cx="155" cy="400" r="4.5" fill="url(#nodeGlow)"/>
+
+    <!-- Tertiary nodes (fold endpoints) -->
+    <circle cx="88" cy="200" r="4" fill="url(#nodeGlow)"/>
+    <circle cx="342" cy="215" r="4" fill="url(#nodeGlow)"/>
+
+  </g>
 </svg>
