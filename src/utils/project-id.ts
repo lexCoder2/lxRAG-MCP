@@ -31,10 +31,7 @@ interface ProjectMeta {
  * @param friendlyName  - Optional human-readable label (stored in project.json
  *                        as `name`, never used as a graph key).
  */
-export function resolvePersistedProjectId(
-  workspaceRoot: string,
-  friendlyName?: string,
-): string {
+export function resolvePersistedProjectId(workspaceRoot: string, friendlyName?: string): string {
   const lxdigDir = path.join(workspaceRoot, LXDIG_DIR);
   const projectFile = path.join(lxdigDir, PROJECT_FILE);
 
@@ -50,7 +47,10 @@ export function resolvePersistedProjectId(
   }
 
   const projectId = computeProjectFingerprint(workspaceRoot);
-  const defaultName = path.basename(workspaceRoot).toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  const defaultName = path
+    .basename(workspaceRoot)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-");
 
   const meta: ProjectMeta = {
     projectId,
@@ -63,6 +63,9 @@ export function resolvePersistedProjectId(
     mkdirSync(lxdigDir, { recursive: true });
     writeFileSync(projectFile, JSON.stringify(meta, null, 2) + "\n", "utf-8");
   } catch (err) {
+    console.error(
+      `[resolvePersistedProjectId] Warning: Failed to persist project metadata for '${workspaceRoot}': ${err}`,
+    );
     // Non-fatal: project.json creation failed (e.g., read-only FS).
     // The hash is still returned and used for this session.
   }
