@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { logger } from "../utils/logger.js";
 /**
  * Qdrant Vector Store Client
@@ -80,15 +81,23 @@ export class QdrantClient {
   }
 
   /**
-   * Hash a string ID to a stable unsigned 32-bit integer for Qdrant.
-   * Qdrant REST API only accepts unsigned integers or UUID v4 as point IDs.
+   * Convert a stable string ID to a deterministic UUID (v4-compatible format).
+   * Uses SHA-256 so two different inputs never produce the same UUID, unlike
+   * the previous 32-bit DJB2 hash which had ~0.3% collision probability at
+   * 5k symbols.
+   * Qdrant REST API accepts UUID v4 strings as point IDs natively.
    */
-  private stringToUint32(s: string): number {
-    let h = 5381;
-    for (let i = 0; i < s.length; i++) {
-      h = (((h * 33) >>> 0) ^ s.charCodeAt(i)) >>> 0;
-    }
-    return h;
+  private stableUuid(s: string): string {
+    const hex = createHash("sha256").update(s).digest("hex");
+    const b = parseInt(hex[16], 16);
+    const variant = ["8", "9", "a", "b"][b % 4];
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      `4${hex.slice(13, 16)}`,
+      `${variant}${hex.slice(17, 20)}`,
+      hex.slice(20, 32),
+    ].join("-");
   }
 
   /**
@@ -108,7 +117,7 @@ export class QdrantClient {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             points: points.map((p) => ({
-              id: this.stringToUint32(p.id),
+              id: this.stableUuid(p.id),
               vector: p.vector,
               // Store original string ID in payload so we can recover it
               payload: { ...p.payload, originalId: p.id },

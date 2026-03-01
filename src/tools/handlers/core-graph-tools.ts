@@ -414,28 +414,26 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             );
           }
 
-          if (mode === "incremental") {
-            ctx.setProjectEmbeddingsReady(projectId, false);
-            logger.error(
-              `[Phase2a] Embeddings flag reset for incremental rebuild of project ${projectId}`,
-            );
-          } else if (mode === "full") {
-            try {
-              const generated = await embeddingEngine?.generateAllEmbeddings();
-              if (generated && generated.functions + generated.classes + generated.files > 0) {
-                await embeddingEngine?.storeInQdrant(projectId);
-                ctx.setProjectEmbeddingsReady(projectId, true);
-                logger.error(
-                  `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
-                );
-              }
-            } catch (embeddingError) {
+          // Sync embeddings for both full and incremental modes.
+          // The in-memory symbol index always reflects the post-build state, so
+          // re-generating all embeddings is idempotent and correct for both.
+          try {
+            const generated = await embeddingEngine?.generateAllEmbeddings();
+            if (generated && generated.functions + generated.classes + generated.files > 0) {
+              await embeddingEngine?.storeInQdrant(projectId);
+              ctx.setProjectEmbeddingsReady(projectId, true);
               logger.error(
-                `[Phase2b] Embedding generation failed during full rebuild for project ${projectId}:`,
-                embeddingError,
+                `[Phase2b] Embeddings synced after ${mode} rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
               );
             }
+          } catch (embeddingError) {
+            logger.error(
+              `[Phase2b] Embedding sync failed during ${mode} rebuild for project ${projectId}:`,
+              embeddingError,
+            );
+          }
 
+          if (mode === "full") {
             const communityRun = await communityDetector!.run(projectId);
             logger.error(
               `[community] ${communityRun.mode}: ${communityRun.communities} communities across ${communityRun.members} member node(s) for project ${projectId}`,

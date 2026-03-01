@@ -95,11 +95,6 @@ export interface BuildResult {
 export class GraphBuilder {
   private nodeStmts: CypherStatement[] = [];
   private edgeStmts: CypherStatement[] = [];
-
-  /** @deprecated Use buildFromParsedFile().nodes and .edges instead */
-  get statements(): CypherStatement[] {
-    return [...this.nodeStmts, ...this.edgeStmts];
-  }
   private processedNodes = new Set<string>();
   private projectId: string;
   private projectFingerprint: string;

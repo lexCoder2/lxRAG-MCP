@@ -95,6 +95,7 @@ describe("EmbeddingEngine", () => {
       createCollection: vi.fn().mockResolvedValue(undefined),
       upsertPoints: vi.fn().mockResolvedValue(undefined),
       deleteByFilter: vi.fn().mockResolvedValue(undefined),
+      countByFilter: vi.fn().mockResolvedValue(1),
       search: vi.fn(),
     } as any;
     const engineB = new EmbeddingEngine(buildIndex(), qdrantConnected);
@@ -103,5 +104,48 @@ describe("EmbeddingEngine", () => {
 
     expect(qdrantConnected.createCollection).toHaveBeenCalledTimes(3);
     expect(qdrantConnected.upsertPoints).toHaveBeenCalledTimes(3);
+    // E3: count verification called once per collection after upserts
+    expect(qdrantConnected.countByFilter).toHaveBeenCalledTimes(3);
+  });
+
+  it("skips Qdrant entirely when no embeddings have been generated", async () => {
+    const qdrant = {
+      isConnected: vi.fn().mockReturnValue(true),
+      createCollection: vi.fn(),
+      upsertPoints: vi.fn(),
+      deleteByFilter: vi.fn(),
+      countByFilter: vi.fn(),
+      search: vi.fn(),
+    } as any;
+    const index = new GraphIndexManager(); // empty index — no nodes
+    const engine = new EmbeddingEngine(index, qdrant);
+    // Do NOT call generateAllEmbeddings() — embeddings map stays empty
+    await engine.storeInQdrant("empty-project");
+
+    // All Qdrant operations should be skipped
+    expect(qdrant.createCollection).not.toHaveBeenCalled();
+    expect(qdrant.deleteByFilter).not.toHaveBeenCalled();
+    expect(qdrant.upsertPoints).not.toHaveBeenCalled();
+    expect(qdrant.countByFilter).not.toHaveBeenCalled();
+  });
+
+  it("logs an error when Qdrant count is below 95% of expected after upsert", async () => {
+    const qdrant = {
+      isConnected: vi.fn().mockReturnValue(true),
+      createCollection: vi.fn().mockResolvedValue(undefined),
+      upsertPoints: vi.fn().mockResolvedValue(undefined),
+      deleteByFilter: vi.fn().mockResolvedValue(undefined),
+      // Return 0 for every collection — simulate total loss
+      countByFilter: vi.fn().mockResolvedValue(0),
+      search: vi.fn(),
+    } as any;
+
+    const engine = new EmbeddingEngine(buildIndex(), qdrant);
+    await engine.generateAllEmbeddings(); // 3 embeddings
+
+    // Should not throw — Qdrant failures are non-fatal
+    await expect(engine.storeInQdrant("bad-project")).resolves.toBeUndefined();
+    // Verification was still called
+    expect(qdrant.countByFilter).toHaveBeenCalledTimes(3);
   });
 });

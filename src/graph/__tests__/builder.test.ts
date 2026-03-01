@@ -389,7 +389,5 @@ describe("GraphBuilder — two-phase BuildResult structure", () => {
     const totalFromResult = result.nodes.length + result.edges.length;
     // Verify it's a reasonable number (at least: 1 file + 1 func + 1 class + 1 var + 1 import + 1 export = 6 nodes minimum)
     expect(totalFromResult).toBeGreaterThanOrEqual(12);
-    // The deprecated getter should return the same total
-    expect((b as any).statements.length).toBe(totalFromResult);
   });
 });

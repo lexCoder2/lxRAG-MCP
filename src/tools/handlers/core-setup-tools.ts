@@ -6,7 +6,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+import type { HandlerBridge, ToolDefinition, ToolArgs } from "../types.js";
 import { CANDIDATE_SOURCE_DIRS } from "../../utils/source-dirs.js";
 
 export const coreSetupToolDefinitions: ToolDefinition[] = [
@@ -390,7 +390,11 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
           "> → read `.github/lxdig-agent-guide.md`",
         );
 
-        const content = lines.filter((l) => l !== undefined).join("\n").trimEnd() + "\n";
+        const content =
+          lines
+            .filter((l) => l !== undefined)
+            .join("\n")
+            .trimEnd() + "\n";
 
         // ── .github/lxdig-agent-guide.md — detailed reference, read on demand ──
         const guideLines: string[] = [
@@ -462,10 +466,10 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
           '| `code_clusters({ granularity: "module" })` | `code_clusters({ type: "file" })` |',
           '| `arch_suggest({ codeName: "X" })` | `arch_suggest({ name: "X" })` |',
           '| `episode_add({ type: "decision" })` | `episode_add({ type: "DECISION" })` (uppercase) |',
-          "| DECISION without `metadata.rationale` | always include `metadata: { rationale: \"...\" }` |",
+          '| DECISION without `metadata.rationale` | always include `metadata: { rationale: "..." }` |',
           '| `decision_query({ topic: "X" })` | `decision_query({ query: "X" })` |',
           '| `agent_claim({ target: "f.ts" })` | `agent_claim({ targetId: "f.ts" })` |',
-          "| `agent_release({ agentId, taskId })` | `agent_release({ claimId: \"claim-xxx\" })` |",
+          '| `agent_release({ agentId, taskId })` | `agent_release({ claimId: "claim-xxx" })` |',
           '| `diff_since({ since: "HEAD~3" })` | `diff_since({ since: "<txId from graph_rebuild>" })` |',
           "",
           "## Usage Patterns",
@@ -493,7 +497,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
           "```",
           '1. agent_claim({ agentId: "me", targetId: "src/file.ts", intent: "refactor Y" }) → { claimId }',
           "2. // make changes",
-          '3. agent_release({ claimId })  // always release, even on error',
+          "3. agent_release({ claimId })  // always release, even on error",
           "```",
           "",
           "### Docs cold start",

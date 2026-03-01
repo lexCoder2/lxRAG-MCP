@@ -951,9 +951,10 @@ export class GraphOrchestrator {
   }
 
   /**
-   * Build TEST_SUITE-[:TESTS]->FILE relationships (Phase 3.3)
-   * For each test file with test suites, find what source files it imports
-   * and create TESTS relationships to those files
+   * Build TEST→symbol relationships (Phase C — symbol-level accuracy)
+   * For each test file, match imported specifiers to functions/classes in the
+   * target source file. Creates TEST_SUITE→FUNCTION, TEST_SUITE→CLASS,
+   * TEST_CASE→FUNCTION, TEST_CASE→CLASS edges. Keeps TEST_SUITE→FILE always.
    */
   private buildTestRelationships(
     parsedFiles: Array<{ filePath: string; parsed: ParsedFile }>,
@@ -967,7 +968,8 @@ export class GraphOrchestrator {
 
     for (const testFile of testFiles) {
       const testSuites = testFile.parsed.testSuites || [];
-      if (testSuites.length === 0) continue;
+      const testCases = testFile.parsed.testCases || [];
+      if (testSuites.length === 0 && testCases.length === 0) continue;
 
       // Get imports from test file
       const imports = testFile.parsed.imports || [];
@@ -982,7 +984,27 @@ export class GraphOrchestrator {
         );
         if (!importedFile) continue;
 
-        // Create TEST_SUITE-[:TESTS]->FILE relationships
+        // Find the target parsed file for symbol matching
+        const targetParsed = parsedFiles.find(
+          (f) => path.relative(workspaceRoot, f.filePath).replace(/\\/g, "/") === importedFile,
+        );
+
+        // Collect imported symbol names
+        const importedNames = new Set(
+          (imp.specifiers || []).map((spec) =>
+            typeof spec === "string" ? spec : spec.imported || spec.name,
+          ),
+        );
+
+        // Match to functions and classes in target file
+        const matchedFunctions = (targetParsed?.parsed.functions || []).filter((fn) =>
+          importedNames.has(fn.name),
+        );
+        const matchedClasses = (targetParsed?.parsed.classes || []).filter((cls) =>
+          importedNames.has(cls.name),
+        );
+
+        // Always create TEST_SUITE→FILE edges (broad relationship)
         for (const suite of testSuites) {
           statements.push({
             query: `
@@ -995,6 +1017,78 @@ export class GraphOrchestrator {
               targetFileId: `${projectId}:file:${importedFile}`,
             },
           });
+        }
+
+        // Create TEST_SUITE→FUNCTION edges
+        for (const suite of testSuites) {
+          for (const fn of matchedFunctions) {
+            const funcId = `${projectId}:${fn.id || `func:${importedFile}:${fn.name}:${fn.startLine || (fn as any).line || 0}`}`;
+            statements.push({
+              query: `
+                MATCH (ts:TEST_SUITE {id: $testSuiteId})
+                MATCH (func:FUNCTION {id: $funcId})
+                MERGE (ts)-[:TESTS]->(func)
+              `,
+              params: {
+                testSuiteId: `${projectId}:test_suite:${suite.id}`,
+                funcId,
+              },
+            });
+          }
+        }
+
+        // Create TEST_SUITE→CLASS edges
+        for (const suite of testSuites) {
+          for (const cls of matchedClasses) {
+            const classId = `${projectId}:${cls.id}`;
+            statements.push({
+              query: `
+                MATCH (ts:TEST_SUITE {id: $testSuiteId})
+                MATCH (cls:CLASS {id: $classId})
+                MERGE (ts)-[:TESTS]->(cls)
+              `,
+              params: {
+                testSuiteId: `${projectId}:test_suite:${suite.id}`,
+                classId,
+              },
+            });
+          }
+        }
+
+        // Create TEST_CASE→FUNCTION edges
+        for (const tc of testCases) {
+          for (const fn of matchedFunctions) {
+            const funcId = `${projectId}:${fn.id || `func:${importedFile}:${fn.name}:${fn.startLine || (fn as any).line || 0}`}`;
+            statements.push({
+              query: `
+                MATCH (tc:TEST_CASE {id: $testCaseId})
+                MATCH (func:FUNCTION {id: $funcId})
+                MERGE (tc)-[:TESTS]->(func)
+              `,
+              params: {
+                testCaseId: `${projectId}:test_case:${tc.id}`,
+                funcId,
+              },
+            });
+          }
+        }
+
+        // Create TEST_CASE→CLASS edges
+        for (const tc of testCases) {
+          for (const cls of matchedClasses) {
+            const classId = `${projectId}:${cls.id}`;
+            statements.push({
+              query: `
+                MATCH (tc:TEST_CASE {id: $testCaseId})
+                MATCH (cls:CLASS {id: $classId})
+                MERGE (tc)-[:TESTS]->(cls)
+              `,
+              params: {
+                testCaseId: `${projectId}:test_case:${tc.id}`,
+                classId,
+              },
+            });
+          }
         }
       }
     }

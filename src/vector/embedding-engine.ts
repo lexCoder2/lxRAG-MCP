@@ -169,17 +169,23 @@ export class EmbeddingEngine {
       return;
     }
 
+    // Guard: skip if nothing to store — avoids deleting live data for an empty project
+    if (this.embeddings.size === 0) {
+      logger.warn("[EmbeddingEngine] No embeddings to store — skipping Qdrant sync");
+      return;
+    }
+
     // Create collections (no-op if already exist)
     await this.qdrant.createCollection("functions", 128);
     await this.qdrant.createCollection("classes", 128);
     await this.qdrant.createCollection("files", 128);
 
-    // Purge stale ghost points for this project before inserting fresh ones
-    await Promise.all([
-      this.qdrant.deleteByFilter("functions", projectId),
-      this.qdrant.deleteByFilter("classes", projectId),
-      this.qdrant.deleteByFilter("files", projectId),
-    ]);
+    // Purge stale ghost points for this project before inserting fresh ones.
+    // Sequential (not parallel) so a crash between deletes doesn't leave a
+    // partial purge that silently mixes old and new data.
+    await this.qdrant.deleteByFilter("functions", projectId);
+    await this.qdrant.deleteByFilter("classes", projectId);
+    await this.qdrant.deleteByFilter("files", projectId);
 
     // Separate embeddings by type
     const functionEmbeddings: VectorPoint[] = [];
@@ -204,6 +210,7 @@ export class EmbeddingEngine {
     }
 
     // Upsert to Qdrant
+    const totalToStore = functionEmbeddings.length + classEmbeddings.length + fileEmbeddings.length;
     if (functionEmbeddings.length > 0) {
       await this.qdrant.upsertPoints("functions", functionEmbeddings);
     }
@@ -214,7 +221,24 @@ export class EmbeddingEngine {
       await this.qdrant.upsertPoints("files", fileEmbeddings);
     }
 
-    logger.error("[EmbeddingEngine] Embeddings stored in Qdrant");
+    // Verify point counts — warn if Qdrant accepted significantly fewer than expected.
+    // This catches partial writes without throwing (Qdrant is optional infrastructure).
+    const [actualFunctions, actualClasses, actualFiles] = await Promise.all([
+      this.qdrant.countByFilter("functions", projectId),
+      this.qdrant.countByFilter("classes", projectId),
+      this.qdrant.countByFilter("files", projectId),
+    ]);
+    const actualTotal = actualFunctions + actualClasses + actualFiles;
+    if (actualTotal < totalToStore * 0.95) {
+      logger.error(
+        `[EmbeddingEngine] Qdrant sync incomplete for project ${projectId}: ` +
+          `expected ~${totalToStore} points, got ${actualTotal}`,
+      );
+    } else {
+      logger.error(
+        `[EmbeddingEngine] Qdrant sync verified: ${actualTotal}/${totalToStore} points for project ${projectId}`,
+      );
+    }
   }
 
   /**
