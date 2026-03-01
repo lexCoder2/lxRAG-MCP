@@ -92,9 +92,9 @@ export class HybridRetriever {
     if (this.embeddingEngine) {
       try {
         const [functions, classes, files] = await Promise.all([
-          this.embeddingEngine.findSimilar(query, "function", limit),
-          this.embeddingEngine.findSimilar(query, "class", limit),
-          this.embeddingEngine.findSimilar(query, "file", limit),
+          this.embeddingEngine.findSimilar(query, "function", limit, opts.projectId),
+          this.embeddingEngine.findSimilar(query, "class", limit, opts.projectId),
+          this.embeddingEngine.findSimilar(query, "file", limit, opts.projectId),
         ]);
 
         const merged = [...functions, ...classes, ...files];

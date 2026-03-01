@@ -87,18 +87,19 @@ describe("EmbeddingEngine", () => {
     } as any;
     const engineA = new EmbeddingEngine(buildIndex(), qdrantDisconnected);
     await engineA.generateAllEmbeddings();
-    await engineA.storeInQdrant();
+    await engineA.storeInQdrant("test-project");
     expect(qdrantDisconnected.createCollection).not.toHaveBeenCalled();
 
     const qdrantConnected = {
       isConnected: vi.fn().mockReturnValue(true),
       createCollection: vi.fn().mockResolvedValue(undefined),
       upsertPoints: vi.fn().mockResolvedValue(undefined),
+      deleteByFilter: vi.fn().mockResolvedValue(undefined),
       search: vi.fn(),
     } as any;
     const engineB = new EmbeddingEngine(buildIndex(), qdrantConnected);
     await engineB.generateAllEmbeddings();
-    await engineB.storeInQdrant();
+    await engineB.storeInQdrant("test-project");
 
     expect(qdrantConnected.createCollection).toHaveBeenCalledTimes(3);
     expect(qdrantConnected.upsertPoints).toHaveBeenCalledTimes(3);

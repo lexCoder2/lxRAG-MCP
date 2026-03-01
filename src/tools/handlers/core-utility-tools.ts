@@ -25,12 +25,12 @@ export const coreUtilityToolDefinitions: ToolDefinition[] = [
       const profile = args?.profile ?? "compact";
 
       const KNOWN_CATEGORIES: Record<string, string[]> = {
+        setup: ["init_project_setup", "setup_copilot_instructions"],
         graph: [
           "graph_set_workspace",
           "graph_rebuild",
           "graph_query",
           "graph_health",
-          "tools_list",
           "ref_query",
         ],
         architecture: ["arch_validate", "arch_suggest"],
@@ -52,9 +52,9 @@ export const coreUtilityToolDefinitions: ToolDefinition[] = [
           "agent_claim",
           "agent_release",
           "coordination_overview",
-          "contract_validate",
           "diff_since",
         ],
+        utility: ["tools_list", "contract_validate"],
       };
 
       const result: Record<string, { available: string[]; unavailable: string[] }> = {};

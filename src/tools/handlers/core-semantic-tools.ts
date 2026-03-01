@@ -71,7 +71,8 @@ export const coreSemanticToolDefinitions: ToolDefinition[] = [
   {
     name: "find_similar_code",
     category: "code",
-    description: "Find code similar to a given function or class",
+    description:
+      "Find code elements similar to a given function or class by vector similarity. Requires elementId — use the id field returned by graph_query or code_explain (not a symbol name or natural language string). Optionally set threshold (0–1, default 0.7) and limit. Returns similar elements with names and file paths.",
     inputShape: {
       elementId: z.string().describe("Code element ID"),
       threshold: z.number().default(0.7).describe("Similarity threshold (0-1)"),
@@ -133,7 +134,8 @@ export const coreSemanticToolDefinitions: ToolDefinition[] = [
   {
     name: "code_clusters",
     category: "code",
-    description: "Find clusters of related code",
+    description:
+      "Cluster code elements by directory proximity and vector similarity. Requires type (function | class | file). Returns clusters with member counts and samples — useful for understanding module boundaries and finding groups of related code. Depends on Qdrant embeddings.",
     inputShape: {
       type: z.enum(["function", "class", "file"]).describe("Code type to cluster"),
       count: z.number().default(5).describe("Number of clusters"),
@@ -198,7 +200,8 @@ export const coreSemanticToolDefinitions: ToolDefinition[] = [
   {
     name: "semantic_diff",
     category: "code",
-    description: "Find semantic differences between code elements",
+    description:
+      "Compare graph-stored metadata properties between two code elements. Requires elementId1 and elementId2 — use the id fields from graph_query or code_explain results (not symbol names). Returns changed property keys and left/right-only properties. Note: compares graph metadata, not source-code semantics or embedding similarity.",
     inputShape: {
       elementId1: z.string().describe("First code element ID"),
       elementId2: z.string().describe("Second code element ID"),
@@ -255,7 +258,8 @@ export const coreSemanticToolDefinitions: ToolDefinition[] = [
   {
     name: "suggest_tests",
     category: "test",
-    description: "Suggest tests for a code element based on semantics",
+    description:
+      "Suggest test cases for a code element. Requires elementId — use the id field returned by graph_query or code_explain (not a symbol name). Returns suggested test names, types, and coverage gaps based on the element's structure and similar existing tests.",
     inputShape: {
       elementId: z.string().describe("Code element ID"),
       limit: z.number().default(5).describe("Number of suggestions"),

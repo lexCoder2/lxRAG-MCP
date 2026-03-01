@@ -586,7 +586,7 @@ describe("SIGNIFICANT: code_clusters returns single cluster", () => {
       };
 
       // Mark embeddings as ready so ensureEmbeddings() skips
-      (handlers as any).projectEmbeddingsReady.set("cluster-proj", true);
+      handlers.setProjectEmbeddingsReady("cluster-proj", true);
 
       const response = await handlers.callTool("code_clusters", {
         type: "file",

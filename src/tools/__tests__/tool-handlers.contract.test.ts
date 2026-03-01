@@ -1656,7 +1656,16 @@ describe("ToolHandlers deeper integration contracts", () => {
   });
 
   it("init_project_setup runs happy path and returns step statuses", async () => {
-    const build = vi.fn().mockResolvedValue({ success: true });
+    const build = vi.fn().mockResolvedValue({
+      success: true,
+      duration: 50,
+      filesProcessed: 1,
+      nodesCreated: 0,
+      relationshipsCreated: 0,
+      filesChanged: 0,
+      warnings: [],
+      errors: [],
+    });
     const handlers = new ToolHandlers({
       index: new GraphIndexManager(),
       memgraph: {

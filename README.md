@@ -1,8 +1,10 @@
 <div align="center">
-  <img src="docs/brain-logo.svg" alt="lxDIG MCP — Code Graph Intelligence for AI Coding Agents" width="180" />
-  <h1>lxDIG MCP</h1>
+  <img src="docs/brain-logo.svg" alt="lxDIG MCP — MCP server for code graph intelligence, persistent agent memory, and multi-agent coordination" width="180" />
+  <h1>lxDIG MCP — Code Graph Intelligence & Persistent Agent Memory for AI Coding Assistants</h1>
+  <em>Stop RAGing, start DIGging.</em>
+  <br/><br/>
   <p><strong>Dynamic Intelligence Graph · Agent Memory · Multi-Agent Coordination</strong></p>
-  <p>A Dynamic Intelligence Graph (DIG) MCP server that gives AI coding assistants persistent memory,<br/>structural code understanding, and safe multi-agent coordination — beyond static RAG and GraphRAG.</p>
+  <p>An open-source <a href="https://modelcontextprotocol.io">Model Context Protocol (MCP)</a> server that gives AI coding assistants<br/>persistent memory, structural code graph analysis, and safe multi-agent coordination — beyond static RAG and GraphRAG.</p>
 </div>
 
 <div align="center">
@@ -24,27 +26,32 @@
 
 > **Works with:** VS Code Copilot · Claude Code · Claude Desktop · Cursor · any MCP-compatible AI assistant
 
+**Supported languages:** TypeScript · JavaScript · TSX/JSX · Python · Go · Rust · Java
+**Databases:** Memgraph (graph) · Qdrant (vector)
+**Transports:** stdio (local) · HTTP (remote/fleet)
+
 ---
 
 ## What is lxDIG MCP?
 
-**lxDIG MCP** (_lexic Dynamic Intelligence Graph_) is an open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that adds a **persistent code intelligence layer** to AI coding assistants. Unlike static RAG or batch-oriented GraphRAG, lxDIG is a live, incrementally-updated intelligence graph that turns any repository into a queryable knowledge graph — so agents can answer architectural questions, track decisions across sessions, coordinate safely in multi-agent workflows, and run only the tests that actually changed — without re-reading the entire codebase on every turn.
+An open-source **Model Context Protocol (MCP) server** that adds a **persistent code intelligence layer** to AI coding assistants — Claude Code, VS Code Copilot, Cursor, and Claude Desktop. Unlike static RAG or batch-oriented GraphRAG, lxDIG MCP is a live, incrementally-updated intelligence graph that turns any repository into a queryable knowledge graph — so agents can answer architectural questions, track decisions across sessions, coordinate safely in multi-agent workflows, and run only the tests that actually changed — without re-reading the entire codebase on every turn.
 
 It is purpose-built for the **agentic coding loop**: the cycle of understand → plan → implement → verify → remember that AI agents (Claude, Copilot, Cursor) repeat continuously.
 
-**The core problem it solves:** most AI coding assistants are stateless and architecturally blind. They re-read unchanged files on every session, miss cross-file relationships, forget past decisions, and collide when multiple agents work in parallel. lxDIG is the memory and structure layer that fixes all four.
+**The core problem it solves:** most AI coding assistants are stateless and architecturally blind. They re-read unchanged files on every session, miss cross-file relationships, forget past decisions, and collide when multiple agents work in parallel. lxDIG MCP is the memory and structure layer that fixes all four.
 
 ---
 
 ## Table of Contents
 
-- [Why lxDIG?](#why-lxdig)
-- [Key capabilities](#key-capabilities)
-- [How it works](#how-it-works)
+- [Why lxDIG?](#why-use-a-code-graph-mcp-server-problems-lxdig-solves)
+- [Key capabilities](#key-capabilities-code-graph-agent-memory--multi-agent-coordination)
+- [How it works](#how-lxdig-mcp-works-graph--vector--bm25-hybrid-retrieval)
+- [Visualize your code graph](#visualize-your-code-graph--lxdig-visual)
 - [Quick start](#quick-start)
-- [38 MCP tools — at a glance](#38-mcp-tools--at-a-glance)
-- [Use cases](#use-cases)
-- [Comparison with alternatives](#comparison-with-alternatives)
+- [39 MCP tools — at a glance](#39-mcp-tools--at-a-glance)
+- [Use cases](#use-cases-claude-code-vs-code-copilot-cursor--ci-pipelines)
+- [Comparison with alternatives](#lxdig-mcp-vs-rag-graphrag-github-copilot--langchain-agents)
 - [Performance](#performance)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -53,7 +60,7 @@ It is purpose-built for the **agentic coding loop**: the cycle of understand →
 
 ---
 
-## Why lxDIG?
+## Why Use a Code Graph MCP Server? Problems lxDIG Solves
 
 Most code intelligence tools solve **one** of these problems. lxDIG solves all of them together:
 
@@ -69,7 +76,7 @@ Most code intelligence tools solve **one** of these problems. lxDIG solves all o
 
 ---
 
-## Key capabilities
+## Key Capabilities: Code Graph, Agent Memory & Multi-Agent Coordination
 
 ### 1. Code graph intelligence
 
@@ -135,7 +142,7 @@ Go from a fresh clone to a fully wired AI assistant in **one tool call**.
 
 ---
 
-## How it works
+## How lxDIG MCP Works: Graph + Vector + BM25 Hybrid Retrieval
 
 lxDIG runs as an **MCP server** over stdio or HTTP and coordinates three data planes behind a single tool interface:
 
@@ -175,7 +182,35 @@ The result: structurally accurate, semantically relevant answers — not just th
 
 ---
 
-## Quick start
+## Visualize Your Code Graph — lxDIG Visual
+
+**[lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual)** is the open-source browser-based visualization layer for lxDIG MCP. It renders your code dependency graph as an **interactive, navigable canvas** — turning abstract code relationships into a tangible spatial representation you can explore.
+
+**Key features:**
+
+- **Force-directed interactive graph** — files, functions, and classes rendered as explorable nodes with physics-based positioning
+- **Expand-by-depth navigation** — double-click any node to progressively reveal its direct relationships
+- **Architecture layer awareness** — color-coded module boundaries and structural compliance indicators
+- **Multi-agent visualization** — real-time view of coordination when multiple AI agents are active via lxDIG MCP
+- **Live + mock modes** — connects to your running Memgraph instance or uses built-in fallback data
+
+**Setup** (shares the same Memgraph instance as lxDIG MCP — no extra database needed):
+
+```bash
+git clone https://github.com/lexCoder2/lxDIG-visual.git
+cd lxDIG-visual
+npm install && cp .env.example .env
+npm run dev:all
+# Open http://localhost:5173
+```
+
+After indexing with `graph_rebuild`, changes appear in the visual explorer immediately — no manual refresh required.
+
+> → [github.com/lexCoder2/lxDIG-visual](https://github.com/lexCoder2/lxDIG-visual)
+
+---
+
+## Quick Start
 
 > **Recommended setup:** Memgraph + Qdrant in Docker, MCP server on your host via stdio. Your editor spawns and owns the process — no HTTP ports, no session headers.
 
@@ -263,7 +298,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 
 ---
 
-## 38 MCP tools — at a glance
+## 39 MCP Tools — At a Glance
 
 | Category                  | Tools                                                                              | What they do                                   |
 | ------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- |
@@ -281,7 +316,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 
 ---
 
-## Use cases
+## Use Cases: Claude Code, VS Code Copilot, Cursor & CI Pipelines
 
 ### Individual developer — Claude Code or VS Code Copilot
 
@@ -289,6 +324,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 - Resume a refactoring task after a VS Code restart — your agent remembers every decision
 - Run `impact_analyze` before committing — know exactly which tests to run
 - Use `arch_validate` to catch layer violations before they become bugs
+- Explore your dependency graph visually with [lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual)
 
 ### Engineering team — multi-agent workflows
 
@@ -311,7 +347,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 
 ---
 
-## Comparison with alternatives
+## lxDIG MCP vs RAG, GraphRAG, GitHub Copilot & LangChain Agents
 
 | Feature                         | lxDIG MCP                | Plain RAG / embeddings | GitHub Copilot (built-in) | Custom LangChain agent |
 | ------------------------------- | ------------------------ | ---------------------- | ------------------------- | ---------------------- |
@@ -321,6 +357,7 @@ This single call sets the workspace context, rebuilds the code graph, and genera
 | Temporal code model             | ✅ `asOf` + `diff_since` | ❌                     | ❌                        | ❌                     |
 | Impact-scoped test selection    | ✅ Built-in              | ❌                     | ❌                        | ❌                     |
 | Architecture validation         | ✅ Rule-based            | ❌                     | ❌                        | ❌                     |
+| Interactive graph visualization | ✅ lxDIG Visual          | ❌                     | ❌                        | ❌                     |
 | MCP-native (any AI client)      | ✅ 39 tools              | ❌                     | ❌                        | ❌                     |
 | Open source / self-hosted       | ✅ MIT                   | ⚠️ Varies              | ❌ Closed                 | ✅                     |
 | Setup complexity                | Medium (Docker)          | Low                    | None                      | High                   |
@@ -342,24 +379,25 @@ Benchmarks run against a synthetic 20-scenario agent task suite (`benchmarks/`):
 
 ---
 
-## What's already shipped
+## What's Already Shipped
 
 Every feature below is **production-ready today**:
 
 - ✅ **Hybrid retrieval** for `graph_query` — vector + BM25 + graph expansion fused with RRF
 - ✅ **AST-accurate parsers** via tree-sitter for TypeScript, TSX, JS/MJS/CJS, JSX, Python, Go, Rust, Java
-- ✅ **Watcher-driven incremental rebuilds** — graph stays fresh without manual intervention *(requires `LXDIG_ENABLE_WATCHER=true`)*
+- ✅ **Watcher-driven incremental rebuilds** — graph stays fresh without manual intervention _(requires `LXDIG_ENABLE_WATCHER=true`)_
 - ✅ **Temporal code model** — `asOf` queries any past graph state; `diff_since` shows what changed
 - ✅ **Indexing-time symbol summaries** — compact-profile answers stay useful in tight token budgets
 - ✅ **Leiden community detection + PageRank PPR** with JS fallbacks for non-MAGE environments
 - ✅ **SCIP IDs** on all FILE, FUNCTION, and CLASS nodes for precise cross-tool symbol references
 - ✅ **Episode memory, agent coordination, context packs, and response budget shaping**
 - ✅ **Docs & ADR indexing** — markdown parsed into graph nodes; queried by text or symbol association
+- ✅ **Interactive graph visualization** via [lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual) — force-directed canvas explorer
 - ✅ **402 tests** across parsers, builders, engines, and tool handlers — all green
 
 ---
 
-## Runtime modes
+## Runtime Modes
 
 | Mode                     | Best for                                             | Command              |
 | ------------------------ | ---------------------------------------------------- | -------------------- |
@@ -378,7 +416,7 @@ npm run benchmark:check-regression  # check latency/token regressions
 
 ---
 
-## Repository map
+## Repository Map
 
 | Path                                 | What's inside                                                       |
 | ------------------------------------ | ------------------------------------------------------------------- |
@@ -394,13 +432,14 @@ npm run benchmark:check-regression  # check latency/token regressions
 
 ---
 
-## Integration tips
+## Integration Tips
 
 - **Start every session** with `graph_set_workspace` → `graph_rebuild` (or configure `init_project_setup` to run automatically)
 - **Prefer `graph_query` over file reads** for discovery — far fewer tokens, cross-file context included
 - **Use `profile: compact`** in autonomous loops; switch to `balanced` or `debug` when you need detail
 - **Rebuild incrementally** after meaningful edits; the file watcher handles this automatically during active sessions
 - **Run `impact_analyze` before tests** so your agent only executes what's actually affected
+- **Open [lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual)** alongside your editor for a spatial view of the graph while your agent works
 
 ---
 
@@ -433,7 +472,7 @@ Pull requests are welcome. Whether it's a new parser, a tool improvement, a bug 
 
 ---
 
-## Support the project
+## Support the Project
 
 lxDIG MCP is built and maintained in personal time — researching graph retrieval techniques, designing the tool surface, writing tests, and keeping everything working across MCP protocol updates. If it saves you time or makes your AI-assisted workflows meaningfully better, consider supporting the work:
 
@@ -461,6 +500,15 @@ Yes, via HTTP transport. One running instance handles multiple independent sessi
 
 **Q: Is this production-ready?**
 The core tools are stable and tested (402 tests, all green). Treat it as beta — APIs may change before a 1.0 release. Pin your version and watch the changelog.
+
+**Q: Is lxDIG MCP the same as GraphRAG?**
+No. GraphRAG is a batch retrieval technique applied to documents. lxDIG MCP is a live, incrementally-updated **code graph** with persistent agent memory, multi-agent coordination, and impact-scoped test selection — not just a retrieval improvement.
+
+**Q: How do I add persistent memory to Claude Code?**
+Install lxDIG MCP, add the stdio config to `.vscode/mcp.json`, and call `init_project_setup` once per repository. From that point, Claude Code can call `episode_add` / `episode_recall` and `decision_query` to read and write memory that persists across sessions.
+
+**Q: Can I visualize the code graph?**
+Yes. [lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual) is the companion browser-based graph explorer. It shares the same Memgraph instance — run `npm run dev:all` in the lxDIG-visual repo and open `http://localhost:5173`.
 
 ---
 

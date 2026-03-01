@@ -14,7 +14,8 @@ export const archToolDefinitions: ToolDefinition[] = [
   {
     name: "arch_validate",
     category: "arch",
-    description: "Validate code against layer rules",
+    description:
+      "Check code files against architecture layer rules. Returns a violations list and statistics. Call with no files to validate the full project, or pass a list of file paths to scope validation. Violations are returned as warnings by default; set strict=true to elevate to errors.",
     inputShape: {
       files: z.array(z.string()).optional().describe("Files to validate"),
       strict: z.boolean().default(false).describe("Strict validation mode"),
@@ -58,7 +59,8 @@ export const archToolDefinitions: ToolDefinition[] = [
   {
     name: "arch_suggest",
     category: "arch",
-    description: "Suggest best location for new code",
+    description:
+      "Suggest the best file path and layer for a new code element. Requires name (the identifier, e.g. 'UserService') and type (one of: component, hook, service, context, utility, engine, class, module). Optionally pass dependencies (list of imports the new element will use). Returns recommended path, layer, and rationale.",
     inputShape: {
       name: z.string().describe("Code name/identifier"),
       type: z

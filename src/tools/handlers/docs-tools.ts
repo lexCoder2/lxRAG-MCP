@@ -71,6 +71,21 @@ export const docsToolDefinitions: ToolDefinition[] = [
           withEmbeddings,
         });
 
+        const allFailed = result.indexed === 0 && result.errors.length > 0;
+        if (allFailed) {
+          const firstError = result.errors[0];
+          const firstMsg =
+            firstError && typeof firstError === "object" && "error" in firstError
+              ? String((firstError as Record<string, unknown>).error)
+              : String(firstError);
+          return ctx.errorEnvelope(
+            "INDEX_DOCS_ALL_FAILED",
+            `Indexed 0 files — all ${result.errors.length} file(s) failed. First error: ${firstMsg}`,
+            true,
+            "Run graph_health to check Memgraph connectivity before indexing docs.",
+          );
+        }
+
         return ctx.formatSuccess(
           {
             ok: true,

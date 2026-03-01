@@ -41,6 +41,18 @@ async function cleanupGraph() {
   } finally {
     await driver.close();
   }
+
+  // Clean Qdrant after Memgraph
+  const { spawn } = require("child_process");
+  const qdrantScript = require("path").join(__dirname, "cleanup-qdrant.cjs");
+  const proc = spawn("node", [qdrantScript], { stdio: "inherit" });
+  proc.on("close", (code) => {
+    if (code === 0) {
+      console.log("✅ Qdrant cleanup complete");
+    } else {
+      console.error(`❌ Qdrant cleanup failed with code ${code}`);
+    }
+  });
 }
 
 cleanupGraph();

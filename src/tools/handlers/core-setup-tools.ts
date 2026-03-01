@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as z from "zod";
 import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+import { CANDIDATE_SOURCE_DIRS } from "../../utils/source-dirs.js";
 
 export const coreSetupToolDefinitions: ToolDefinition[] = [
   {
@@ -81,13 +82,13 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             steps.push({
               step: "graph_set_workspace",
               status: "failed",
-              detail: setJson.error,
+              detail: setJson.error?.reason ?? setJson.error,
             });
-            return ctx.formatSuccess(
-              { steps, abortedAt: "graph_set_workspace" },
-              profile,
-              "Initialization aborted at workspace setup",
-              "init_project_setup",
+            return ctx.errorEnvelope(
+              "INIT_WORKSPACE_SETUP_FAILED",
+              `Workspace setup failed: ${setJson.error?.reason ?? JSON.stringify(setJson.error)}`,
+              false,
+              "Check workspaceRoot and sourceDir parameters.",
             );
           }
           const setCtx = setJson?.data?.projectContext ?? setJson?.data ?? {};
@@ -102,11 +103,11 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             status: "failed",
             detail: String(err),
           });
-          return ctx.formatSuccess(
-            { steps, abortedAt: "graph_set_workspace" },
-            profile,
-            "Initialization aborted at workspace setup",
-            "init_project_setup",
+          return ctx.errorEnvelope(
+            "INIT_WORKSPACE_SETUP_FAILED",
+            `Workspace setup failed: ${String(err)}`,
+            false,
+            "Check workspaceRoot and sourceDir parameters.",
           );
         }
 
@@ -126,8 +127,14 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             steps.push({
               step: "graph_rebuild",
               status: "failed",
-              detail: rebuildJson.error,
+              detail: rebuildJson.error?.reason ?? rebuildJson.error,
             });
+            return ctx.errorEnvelope(
+              "INIT_REBUILD_FAILED",
+              `Graph rebuild failed: ${rebuildJson.error?.reason ?? JSON.stringify(rebuildJson.error)}`,
+              true,
+              "Check that the source directory exists and contains parseable source files.",
+            );
           } else {
             steps.push({
               step: "graph_rebuild",
@@ -141,27 +148,42 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             status: "failed",
             detail: String(err),
           });
+          return ctx.errorEnvelope(
+            "INIT_REBUILD_FAILED",
+            `Graph rebuild failed: ${String(err)}`,
+            true,
+            "Check that the source directory exists and contains parseable source files.",
+          );
         }
 
         const copilotPath = path.join(resolvedRoot, ".github", "copilot-instructions.md");
         if (!fs.existsSync(copilotPath)) {
+          const ciResult = await ctx.callTool("setup_copilot_instructions", {
+            targetPath: resolvedRoot,
+            dryRun: false,
+            overwrite: false,
+            profile: "compact",
+          });
           try {
-            await ctx.callTool("setup_copilot_instructions", {
-              targetPath: resolvedRoot,
-              dryRun: false,
-              overwrite: false,
-              profile: "compact",
-            });
+            const ciJson = JSON.parse(ciResult);
+            if (ciJson?.error) {
+              steps.push({
+                step: "setup_copilot_instructions",
+                status: "failed",
+                detail: ciJson.error?.reason ?? String(ciJson.error),
+              });
+            } else {
+              steps.push({
+                step: "setup_copilot_instructions",
+                status: "created",
+                detail: ciJson?.data?.path ?? ".github/copilot-instructions.md",
+              });
+            }
+          } catch {
             steps.push({
               step: "setup_copilot_instructions",
               status: "created",
               detail: ".github/copilot-instructions.md",
-            });
-          } catch (err) {
-            steps.push({
-              step: "setup_copilot_instructions",
-              status: "skipped",
-              detail: String(err),
             });
           }
         } else {
@@ -241,12 +263,12 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
         resolvedTarget = active.workspaceRoot;
       }
 
-      if (!fs.existsSync(resolvedTarget)) {
+      if (!fs.existsSync(resolvedTarget) || !fs.statSync(resolvedTarget).isDirectory()) {
         return ctx.errorEnvelope(
           "COPILOT_INSTR_TARGET_NOT_FOUND",
-          `Target path does not exist: ${resolvedTarget}`,
+          `Target path does not exist or is not a directory: ${resolvedTarget}`,
           false,
-          "Provide an accessible absolute path via targetPath parameter.",
+          "Provide an accessible absolute directory path via targetPath parameter.",
         );
       }
 
@@ -314,9 +336,8 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
               .join("\n")
           : "";
 
-        const candidateSrcDirs = ["src", "lib", "app", "packages", "source"];
         const srcDir =
-          candidateSrcDirs.find((d) => fs.existsSync(path.join(resolvedTarget, d))) ?? "src";
+          CANDIDATE_SOURCE_DIRS.find((d) => fs.existsSync(path.join(resolvedTarget, d))) ?? "src";
 
         const srcPath = path.join(resolvedTarget, srcDir);
         let subDirs: string[] = [];
@@ -376,7 +397,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             "1. `graph_set_workspace({ projectId, workspaceRoot })` — anchor the session",
             '2. `graph_rebuild({ projectId, mode: "full", workspaceRoot })` — capture `txId` from response',
             '3. `graph_health({ profile: "balanced" })` — verify nodes > 0',
-            '4. `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) LIMIT 8", projectId })` — confirm data',
+            '4. `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) LIMIT 8", language: "cypher", projectId })` — confirm data',
             "",
             "**HTTP transport only:** capture `mcp-session-id` from `initialize` response and include on every request.",
           );
@@ -387,7 +408,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             "",
             "1. Call `init_project_setup({ projectId, workspaceRoot })` — sets context, triggers graph rebuild, writes copilot instructions.",
             '2. Validate with `graph_health({ profile: "balanced" })`',
-            '3. Explore with `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) DESC LIMIT 10" })`',
+            '3. Explore with `graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) ORDER BY count(n) DESC LIMIT 10", language: "cypher" })`',
           );
         }
 
@@ -467,7 +488,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
           "### Explore unfamiliar codebase",
           "```",
           "1. init_project_setup({ projectId, workspaceRoot })",
-          '2. graph_query("MATCH (n) RETURN labels(n)[0], count(n) ORDER BY count(n) DESC LIMIT 10")',
+          '2. graph_query({ query: "MATCH (n) RETURN labels(n)[0], count(n) ORDER BY count(n) DESC LIMIT 10", language: "cypher" })',
           '3. code_explain({ element: "MainEntryPoint" })',
           "```",
           "",
@@ -521,6 +542,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
         if (!fs.existsSync(githubDir)) {
           fs.mkdirSync(githubDir, { recursive: true });
         }
+        const alreadyExisted = fs.existsSync(destFile);
         fs.writeFileSync(destFile, content, "utf-8");
 
         return ctx.formatSuccess(
@@ -529,7 +551,7 @@ export const coreSetupToolDefinitions: ToolDefinition[] = [
             path: destFile,
             projectName: name,
             stackDetected: stack,
-            overwritten: overwrite && fs.existsSync(destFile),
+            overwritten: overwrite && alreadyExisted,
           },
           profile,
           `Copilot instructions written to ${path.relative(resolvedTarget, destFile)}`,

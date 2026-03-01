@@ -18,7 +18,8 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
   {
     name: "episode_add",
     category: "memory",
-    description: "Persist a structured episode in long-term agent memory",
+    description:
+      "Persist a structured episode in long-term agent memory. Required: type (one of: OBSERVATION, DECISION, EDIT, TEST_RESULT, ERROR, REFLECTION, LEARNING) and content (the episode text). IMPORTANT: DECISION type also requires metadata: { rationale: '...' } — omitting it returns an error. Optional: entities (related file/symbol names), taskId, outcome (success | failure | partial), sensitive (exclude from default recalls).",
     inputShape: {
       type: z
         .enum(["OBSERVATION", "DECISION", "EDIT", "TEST_RESULT", "ERROR", "REFLECTION", "LEARNING"])
@@ -360,9 +361,10 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
   {
     name: "agent_claim",
     category: "coordination",
-    description: "Create a coordination claim for a task or code target with conflict detection",
+    description:
+      "Claim a file, function, task, or feature for exclusive editing. Conflict detection prevents two agents from claiming the same target simultaneously. Requires targetId (file path or task ID) and intent (natural language description of what you plan to do). Returns a claimId — save it for the matching agent_release call. claimType: task | file | function | feature.",
     inputShape: {
-      targetId: z.string().describe("Target task/code node id"),
+      targetId: z.string().describe("Target file path or task ID to claim"),
       claimType: z
         .enum(["task", "file", "function", "feature"])
         .default("task")
@@ -480,16 +482,26 @@ export const memoryCoordinationToolDefinitions: ToolDefinition[] = [
       try {
         const feedback = await coordinationEngine!.release(String(claimId), outcome);
 
+        if (!feedback.found) {
+          return ctx.errorEnvelope(
+            "AGENT_RELEASE_NOT_FOUND",
+            `Claim ${claimId} not found — it may have already been released, or was never persisted (Memgraph unavailable at claim time).`,
+            true,
+            "Run graph_health to verify Memgraph connectivity. If Memgraph was down when agent_claim was called, the claim was stored in memory only and cannot be released after a tool boundary.",
+          );
+        }
+
         return ctx.formatSuccess(
           {
             claimId: String(claimId),
-            released: feedback.found && !feedback.alreadyClosed,
+            released: !feedback.alreadyClosed,
             alreadyClosed: feedback.alreadyClosed,
-            notFound: !feedback.found,
             outcome: outcome || null,
           },
           profile,
-          feedback.found ? `Claim ${claimId} released.` : `Claim ${claimId} not found.`,
+          feedback.alreadyClosed
+            ? `Claim ${claimId} was already closed.`
+            : `Claim ${claimId} released.`,
         );
       } catch (error) {
         return ctx.errorEnvelope("AGENT_RELEASE_FAILED", String(error), true);

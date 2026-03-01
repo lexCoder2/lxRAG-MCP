@@ -116,6 +116,11 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
         .default("local")
         .describe("Query mode for natural language"),
       limit: z.number().default(100).describe("Result limit"),
+      projectId: z.string().optional().describe("Project namespace for graph isolation"),
+      profile: z
+        .enum(["compact", "balanced", "debug"])
+        .default("compact")
+        .describe("Response profile"),
       asOf: z
         .string()
         .optional()
@@ -168,7 +173,15 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             if (queryMode === "global") {
               result = { data: globalRows };
             } else {
-              const localResults = await hybridRetriever!.retrieve({
+              if (!hybridRetriever) {
+                return ctx.errorEnvelope(
+                  "HYBRID_RETRIEVER_UNAVAILABLE",
+                  "Hybrid retriever not initialized — Qdrant or BM25 engine may be down",
+                  true,
+                  "Retry with language='cypher' or ensure Qdrant is running.",
+                );
+              }
+              const localResults = await hybridRetriever.retrieve({
                 query,
                 projectId,
                 limit,
@@ -189,7 +202,15 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
               };
             }
           } else {
-            const localResults = await hybridRetriever!.retrieve({
+            if (!hybridRetriever) {
+              return ctx.errorEnvelope(
+                "HYBRID_RETRIEVER_UNAVAILABLE",
+                "Hybrid retriever not initialized — Qdrant or BM25 engine may be down",
+                true,
+                "Retry with language='cypher' or ensure Qdrant is running.",
+              );
+            }
+            const localResults = await hybridRetriever.retrieve({
               query,
               projectId,
               limit,
@@ -288,7 +309,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
               classes: number;
               files: number;
             }>;
-            storeInQdrant: () => Promise<void>;
+            storeInQdrant: (projectId: string) => Promise<void>;
           }
         | undefined;
 
@@ -341,20 +362,6 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
         const txTimestamp = Date.now();
         const txId = generateSecureId("tx", 4);
 
-        if (ctx.context.memgraph.isConnected()) {
-          await ctx.context.memgraph.executeCypher(
-            `CREATE (tx:GRAPH_TX {id: $id, projectId: $projectId, type: $type, timestamp: $timestamp, mode: $mode, sourceDir: $sourceDir})`,
-            {
-              id: txId,
-              projectId,
-              type: mode === "full" ? "full_rebuild" : "incremental_rebuild",
-              timestamp: txTimestamp,
-              mode,
-              sourceDir,
-            },
-          );
-        }
-
         if (!fs.existsSync(workspaceRoot)) {
           return ctx.errorEnvelope(
             "WORKSPACE_NOT_FOUND",
@@ -370,6 +377,20 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             `Source directory does not exist: ${sourceDir}`,
             true,
             "Provide sourceDir in graph_rebuild or graph_set_workspace.",
+          );
+        }
+
+        if (ctx.context.memgraph.isConnected()) {
+          await ctx.context.memgraph.executeCypher(
+            `CREATE (tx:GRAPH_TX {id: $id, projectId: $projectId, type: $type, timestamp: $timestamp, mode: $mode, sourceDir: $sourceDir})`,
+            {
+              id: txId,
+              projectId,
+              type: mode === "full" ? "full_rebuild" : "incremental_rebuild",
+              timestamp: txTimestamp,
+              mode,
+              sourceDir,
+            },
           );
         }
 
@@ -403,7 +424,7 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             try {
               const generated = await embeddingEngine?.generateAllEmbeddings();
               if (generated && generated.functions + generated.classes + generated.files > 0) {
-                await embeddingEngine?.storeInQdrant();
+                await embeddingEngine?.storeInQdrant(projectId);
                 ctx.setProjectEmbeddingsReady(projectId, true);
                 logger.error(
                   `[Phase2b] Embeddings auto-generated for full rebuild: ${generated.functions} functions, ${generated.classes} classes, ${generated.files} files for project ${projectId}`,
@@ -623,6 +644,8 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             message: "Workspace context updated. Subsequent graph tools will use this project.",
           },
           profile,
+          "Workspace set",
+          "graph_set_workspace",
         );
       } catch (error) {
         return ctx.errorEnvelope(
@@ -695,13 +718,12 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
         let embeddingCount = 0;
         if (ctx.engines.qdrant?.isConnected?.()) {
           try {
-            const [fnColl, clsColl, fileColl] = await Promise.all([
-              ctx.engines.qdrant.getCollection("functions"),
-              ctx.engines.qdrant.getCollection("classes"),
-              ctx.engines.qdrant.getCollection("files"),
+            const [fnCount, clsCount, fileCount] = await Promise.all([
+              ctx.engines.qdrant.countByFilter("functions", projectId),
+              ctx.engines.qdrant.countByFilter("classes", projectId),
+              ctx.engines.qdrant.countByFilter("files", projectId),
             ]);
-            embeddingCount =
-              (fnColl?.pointCount ?? 0) + (clsColl?.pointCount ?? 0) + (fileColl?.pointCount ?? 0);
+            embeddingCount = fnCount + clsCount + fileCount;
           } catch {
             // Fall back to in-memory count below.
           }
@@ -745,9 +767,16 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
             "Index is out of sync with Memgraph - run graph_rebuild to synchronize",
           );
         }
-        if (embeddingDrift && ctx.isProjectEmbeddingsReady(projectId)) {
+        if (
+          embeddingCount === 0 &&
+          memgraphFuncCount + memgraphClassCount + memgraphFileCount > 0
+        ) {
           recommendations.push(
-            "Some entities don't have embeddings - run semantic_search or graph_rebuild to generate them",
+            "No embeddings — run graph_rebuild (full mode) to enable semantic search",
+          );
+        } else if (embeddingDrift) {
+          recommendations.push(
+            "Embeddings incomplete — run graph_rebuild to regenerate",
           );
         }
 

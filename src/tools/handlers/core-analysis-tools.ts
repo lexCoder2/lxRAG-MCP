@@ -82,13 +82,14 @@ export const coreAnalysisToolDefinitions: ToolDefinition[] = [
   {
     name: "find_pattern",
     category: "code",
-    description: "Find architectural patterns or violations in code",
+    description:
+      "Find architectural patterns or violations in code. Requires pattern (a search string describing what to find, e.g. 'circular dependencies', 'unused files', 'layer violation'). Optional type selects the detection mode: 'circular' = circular dependency detection, 'unused' = files with no relationships, 'violation' = architecture layer rule violations, 'pattern' = general semantic pattern search.",
     inputShape: {
-      pattern: z.string().describe("Pattern to search for"),
+      pattern: z.string().describe("Search string describing what to find (e.g. 'circular dependencies', 'unused files', 'layer violations')"),
       type: z
         .enum(["pattern", "violation", "unused", "circular"])
         .default("pattern")
-        .describe("Pattern type"),
+        .describe("Detection mode: circular | unused | violation | pattern"),
     },
     async impl(rawArgs: ToolArgs, ctx: HandlerBridge): Promise<string> {
       // Args validated by Zod inputShape; local alias preserves existing acc patterns

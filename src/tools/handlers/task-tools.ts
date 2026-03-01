@@ -16,7 +16,8 @@ export const taskToolDefinitions: ToolDefinition[] = [
   {
     name: "progress_query",
     category: "task",
-    description: "Query progress tracking data",
+    description:
+      "List tasks or features by status. Pass a query string (e.g. 'all tasks' or 'feature auth') and optionally filter by status (all | active | blocked | completed). Returns matching task or feature nodes with their current status, assignee, and due date.",
     inputShape: {
       query: z.string().describe("Progress query"),
       status: z
@@ -63,7 +64,8 @@ export const taskToolDefinitions: ToolDefinition[] = [
   {
     name: "task_update",
     category: "task",
-    description: "Update task status",
+    description:
+      "Update the status of a tracked task. Requires taskId (from progress_query results) and status (new status string, e.g. completed, blocked, in-progress). Optional: notes (progress notes or blockers), assignee, dueDate. Use after completing or blocking a task to keep delivery state current.",
     inputShape: {
       taskId: z.string().describe("Task ID"),
       status: z.string().describe("New status"),

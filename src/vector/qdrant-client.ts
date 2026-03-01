@@ -129,9 +129,54 @@ export class QdrantClient {
   }
 
   /**
-   * Search for similar vectors
+   * Delete all points in a collection that match a payload filter.
+   * Used to purge stale ghost points for a project before re-upserting.
    */
-  async search(collectionName: string, vector: number[], limit = 10): Promise<SearchResult[]> {
+  async deleteByFilter(collectionName: string, projectId: string): Promise<void> {
+    if (!this.connected) {
+      logger.warn("[QdrantClient] Not connected, skipping deleteByFilter");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/collections/${collectionName}/points/delete?wait=true`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filter: {
+              must: [{ key: "projectId", match: { value: projectId } }],
+            },
+          }),
+        },
+      );
+
+      if (response.ok) {
+        logger.error(
+          `[QdrantClient] Deleted stale points for project '${projectId}' from '${collectionName}'`,
+        );
+      } else {
+        const text = await response.text().catch(() => "(unreadable)");
+        logger.error(
+          `[QdrantClient] deleteByFilter failed (${response.status}): ${text}`,
+        );
+      }
+    } catch (error) {
+      logger.error(`[QdrantClient] deleteByFilter error: ${error}`);
+    }
+  }
+
+  /**
+   * Search for similar vectors.
+   * @param filter - Optional Qdrant payload filter (e.g. `{ must: [{ key: "projectId", match: { value: "a3f9" } }] }`)
+   */
+  async search(
+    collectionName: string,
+    vector: number[],
+    limit = 10,
+    filter?: object,
+  ): Promise<SearchResult[]> {
     if (!this.connected) {
       logger.warn("[QdrantClient] Not connected");
       return [];
@@ -145,6 +190,7 @@ export class QdrantClient {
           vector,
           limit,
           with_payload: true,
+          ...(filter ? { filter } : {}),
         }),
       });
 
@@ -200,6 +246,38 @@ export class QdrantClient {
       logger.error(`[QdrantClient] Failed to get collection: ${error}`);
     }
     return null;
+  }
+
+  /**
+   * Count points in a collection filtered by projectId.
+   * Uses Qdrant's /points/count endpoint with a payload filter.
+   */
+  async countByFilter(collectionName: string, projectId: string): Promise<number> {
+    if (!this.connected) return 0;
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/collections/${collectionName}/points/count`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filter: {
+              must: [{ key: "projectId", match: { value: projectId } }],
+            },
+            exact: true,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        const data = (await response.json()) as any;
+        return data.result?.count ?? 0;
+      }
+    } catch (error) {
+      logger.error(`[QdrantClient] countByFilter failed: ${error}`);
+    }
+    return 0;
   }
 
   /**

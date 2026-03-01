@@ -1,60 +1,55 @@
 /**
  * Tool Handler Base Class
- * Shared state, interfaces, and helper methods for tool implementations
- * Phase 5: Long file decomposition - extract base infrastructure
+ * Thin orchestrator: engine lifecycle, session/watcher management, and tool
+ * dispatch.  All domain logic has been extracted to focused collaborators
+ * following the Single Responsibility Principle:
+ *
+ *   ResponseFormatter     — wire serialisation
+ *   TemporalQueryBuilder  — Cypher temporal rewrites & anchor resolution
+ *   EpisodeValidator      — episode schema validation & hint inference
+ *   ElementResolver       — graph-node ID → GraphNode lookup
+ *   EmbeddingManager      — per-project embedding readiness & ensure pipeline
  */
 
-import * as fs from "fs";
-import * as path from "path";
-import * as env from "../env.js";
-import { generateSecureId, computeProjectFingerprint } from "../utils/validation.js";
-import type { GraphIndexManager } from "../graph/index.js";
-import type MemgraphClient from "../graph/client.js";
-import ArchitectureEngine from "../engines/architecture-engine.js";
-import TestEngine from "../engines/test-engine.js";
-import ProgressEngine from "../engines/progress-engine.js";
-import GraphOrchestrator from "../graph/orchestrator.js";
-import QdrantClient from "../vector/qdrant-client.js";
-import EmbeddingEngine from "../vector/embedding-engine.js";
-import type { GraphNode } from "../graph/index.js";
-import { getRequestContext } from "../request-context.js";
-import { formatResponse, errorResponse } from "../response/shaper.js";
-import EpisodeEngine from "../engines/episode-engine.js";
-import CoordinationEngine from "../engines/coordination-engine.js";
-import CommunityDetector from "../engines/community-detector.js";
-import HybridRetriever from "../graph/hybrid-retriever.js";
-import FileWatcher from "../graph/watcher.js";
-import { DocsEngine } from "../engines/docs-engine.js";
-import type { EngineSet } from "./types.js";
+import * as env from "../env";
+import ArchitectureEngine from "../engines/architecture-engine";
+import TestEngine from "../engines/test-engine";
+import ProgressEngine from "../engines/progress-engine";
+import GraphOrchestrator from "../graph/orchestrator";
+import QdrantClient from "../vector/qdrant-client";
+import EmbeddingEngine from "../vector/embedding-engine";
+import type { GraphNode } from "../graph/index";
+import EpisodeEngine from "../engines/episode-engine";
+import CoordinationEngine from "../engines/coordination-engine";
+import CommunityDetector from "../engines/community-detector";
+import HybridRetriever from "../graph/hybrid-retriever";
+import FileWatcher from "../graph/watcher";
+import { DocsEngine } from "../engines/docs-engine";
+import type { EngineSet } from "./types";
 import {
   validateToolArgs as _validateToolArgs,
   type ContractValidation,
-} from "./contract-validator.js";
-import { logger } from "../utils/logger.js";
-import type { Config } from "../config.js";
+} from "./contract-validator";
+import { logger } from "../utils/logger";
+import type { ProjectContext, ToolContext, NormalizedToolArgs } from "./handler.interface";
+import { SessionManager } from "./session-manager";
+import { generateSecureId } from "../utils/validation.js";
 
-export interface ToolContext {
-  index: GraphIndexManager;
-  memgraph: MemgraphClient;
-  config: Config;
-  orchestrator?: GraphOrchestrator;
-}
-
-export interface ProjectContext {
-  workspaceRoot: string;
-  sourceDir: string;
-  projectId: string;
-  /** 4-char alphanumeric hash of workspaceRoot — stable workspace identity fingerprint */
-  projectFingerprint?: string;
-}
+// ── Collaborators ──────────────────────────────────────────────────────────────
+import { ResponseFormatter } from "./response-formatter";
+import { TemporalQueryBuilder } from "./temporal-query-builder";
+import { EpisodeValidator } from "./episode-validator";
+import { ElementResolver } from "./element-resolver";
+import { EmbeddingManager } from "./embedding-manager";
 
 /**
- * Abstract base class for tool handlers
- * Contains all shared state, session management, and helper methods
- * Subclasses (ToolHandlers) add the actual tool implementations
+ * Abstract base class for tool handlers.
+ * Manages engine instances, session/watcher lifecycle, and tool dispatch.
+ * Domain logic (formatting, Cypher building, validation, resolution) lives in
+ * the dedicated collaborator classes above.
  */
-export abstract class ToolHandlerBase {
-  // ─────── Engines (Phase 4.6: Configurable, instantiated in constructor) ───────
+export abstract class ToolHandlerBase extends SessionManager {
+  // ── Engines ───────────────────────────────────────────────────────────────────
   protected archEngine?: ArchitectureEngine;
   protected testEngine?: TestEngine;
   protected progressEngine?: ProgressEngine;
@@ -67,27 +62,29 @@ export abstract class ToolHandlerBase {
   protected hybridRetriever?: HybridRetriever;
   protected docsEngine?: DocsEngine;
 
-  // ─────── Session and Project State ─────────────────────────────────────────────
-  // Phase 4.3: Per-project embedding readiness to prevent race conditions
-  protected projectEmbeddingsReady = new Map<string, boolean>();
+  // ── Collaborators ─────────────────────────────────────────────────────────────
+  protected readonly responseFormatter = new ResponseFormatter();
+  protected readonly temporalQueryBuilder = new TemporalQueryBuilder();
+  protected readonly episodeValidator = new EpisodeValidator();
+  protected readonly elementResolver = new ElementResolver();
+  protected readonly embeddingMgr = new EmbeddingManager();
+
+  // ── Session / Build state ─────────────────────────────────────────────────────
   protected lastGraphRebuildAt?: string;
   protected lastGraphRebuildMode?: "full" | "incremental";
 
-  // Phase 4.5: Track background build errors for diagnostics
   public backgroundBuildErrors = new Map<
     string,
     Array<{ timestamp: number; error: string; context?: string }>
   >();
   protected readonly maxBuildErrorsPerProject = 10;
 
-  protected defaultActiveProjectContext: ProjectContext;
-  protected sessionProjectContexts = new Map<string, ProjectContext>();
   protected sessionWatchers = new Map<string, FileWatcher>();
 
   constructor(public readonly context: ToolContext) {
-    this.defaultActiveProjectContext = this.defaultProjectContext();
+    super(context);
     this.initializeEngines();
-    // Phase 2c: Load index from Memgraph on startup (fire and forget)
+    // Load index from Memgraph on startup (fire and forget)
     void this.initializeIndexFromMemgraph();
   }
 
@@ -108,133 +105,6 @@ export abstract class ToolHandlerBase {
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
-  // Session and Context Management
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public getCurrentSessionId(): string | undefined {
-    const sessionId = getRequestContext().sessionId;
-    if (typeof sessionId !== "string" || sessionId.trim().length === 0) {
-      return undefined;
-    }
-
-    return sessionId;
-  }
-
-  public getActiveProjectContext(): ProjectContext {
-    const sessionId = this.getCurrentSessionId();
-    if (!sessionId) {
-      return this.defaultActiveProjectContext;
-    }
-
-    return this.sessionProjectContexts.get(sessionId) || this.defaultActiveProjectContext;
-  }
-
-  public setActiveProjectContext(context: ProjectContext): void {
-    const sessionId = this.getCurrentSessionId();
-    if (!sessionId) {
-      this.defaultActiveProjectContext = context;
-    } else {
-      this.sessionProjectContexts.set(sessionId, context);
-    }
-
-    // Reload engines with new project context
-    this.reloadEnginesForContext(context);
-  }
-
-  protected reloadEnginesForContext(context: ProjectContext): void {
-    logger.error(`[ToolHandlers] Reloading engines for project context: ${context.projectId}`);
-
-    try {
-      this.progressEngine?.reload(this.context.index, context.projectId);
-      this.testEngine?.reload(this.context.index, context.projectId);
-      if (this.archEngine) {
-        this.archEngine.reload(this.context.index, context.projectId, context.workspaceRoot);
-      }
-
-      // Phase 4.3: Reset embedding flag per-project to prevent race conditions
-      this.clearProjectEmbeddingsReady(context.projectId);
-    } catch (error) {
-      logger.error("[ToolHandlers] Failed to reload engines:", error);
-    }
-  }
-
-  protected defaultProjectContext(): ProjectContext {
-    const workspaceRoot = env.LXDIG_WORKSPACE_ROOT;
-    const sourceDir = env.GRAPH_SOURCE_DIR;
-    const projectId = env.LXDIG_PROJECT_ID;
-
-    return {
-      workspaceRoot,
-      sourceDir,
-      projectId,
-      projectFingerprint: computeProjectFingerprint(workspaceRoot),
-    };
-  }
-
-  public resolveProjectContext(overrides: Partial<ProjectContext> = {}): ProjectContext {
-    const base = this.getActiveProjectContext() || this.defaultProjectContext();
-    const workspaceProvided =
-      typeof overrides.workspaceRoot === "string" && overrides.workspaceRoot.trim().length > 0;
-    const workspaceInput = workspaceProvided ? (overrides.workspaceRoot as string) : base.workspaceRoot;
-    const workspaceRoot = path.resolve(workspaceInput);
-    const sourceInput = overrides.sourceDir || path.join(workspaceRoot, "src");
-    const sourceDir = path.isAbsolute(sourceInput)
-      ? sourceInput
-      : path.resolve(workspaceRoot, sourceInput);
-    const projectId =
-      overrides.projectId ||
-      (workspaceProvided ? path.basename(workspaceRoot) : env.LXDIG_PROJECT_ID) ||
-      path.basename(workspaceRoot);
-
-    return {
-      workspaceRoot,
-      sourceDir,
-      projectId,
-      projectFingerprint: computeProjectFingerprint(workspaceRoot),
-    };
-  }
-
-  public adaptWorkspaceForRuntime(context: ProjectContext): {
-    context: ProjectContext;
-    usedFallback: boolean;
-    fallbackReason?: string;
-  } {
-    if (fs.existsSync(context.workspaceRoot)) {
-      return { context, usedFallback: false };
-    }
-
-    const fallbackRoot = env.LXDIG_WORKSPACE_ROOT;
-    if (!fallbackRoot || !fs.existsSync(fallbackRoot)) {
-      return { context, usedFallback: false };
-    }
-
-    let mappedSourceDir = context.sourceDir;
-    if (path.isAbsolute(context.sourceDir) && context.sourceDir.startsWith(context.workspaceRoot)) {
-      const relativeSource = path.relative(context.workspaceRoot, context.sourceDir);
-      mappedSourceDir = path.resolve(fallbackRoot, relativeSource);
-    }
-
-    return {
-      usedFallback: true,
-      fallbackReason:
-        "Requested workspace path is not directly accessible in current runtime; using mounted workspace root.",
-      context: {
-        ...context,
-        workspaceRoot: fallbackRoot,
-        sourceDir: mappedSourceDir,
-      },
-    };
-  }
-
-  public runtimePathFallbackAllowed(): boolean {
-    return env.LXDIG_ALLOW_RUNTIME_PATH_FALLBACK;
-  }
-
-  public watcherEnabledForRuntime(): boolean {
-    return env.MCP_TRANSPORT === "http" || env.LXDIG_ENABLE_WATCHER;
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
   // File Watcher Management
   // ──────────────────────────────────────────────────────────────────────────────
 
@@ -249,18 +119,13 @@ export abstract class ToolHandlerBase {
   public async stopActiveWatcher(): Promise<void> {
     const key = this.watcherKey();
     const existing = this.sessionWatchers.get(key);
-    if (!existing) {
-      return;
-    }
-
+    if (!existing) return;
     await existing.stop();
     this.sessionWatchers.delete(key);
   }
 
   public async startActiveWatcher(context: ProjectContext): Promise<void> {
-    if (!this.watcherEnabledForRuntime()) {
-      return;
-    }
+    if (!this.watcherEnabledForRuntime()) return;
 
     await this.stopActiveWatcher();
 
@@ -290,24 +155,17 @@ export abstract class ToolHandlerBase {
   // Session Lifecycle Management
   // ──────────────────────────────────────────────────────────────────────────────
 
-  /**
-   * Phase 4.1: Clean up session resources when a session ends
-   * Prevents memory leaks from unbounded session map growth
-   */
   async cleanupSession(sessionId: string): Promise<void> {
     if (!sessionId) return;
 
     try {
-      // Stop watcher for this session
-      const watcherKey = sessionId;
-      const watcher = this.sessionWatchers.get(watcherKey);
+      const watcher = this.sessionWatchers.get(sessionId);
       if (watcher) {
         await watcher.stop();
-        this.sessionWatchers.delete(watcherKey);
+        this.sessionWatchers.delete(sessionId);
         logger.error(`[ToolHandlers] Session cleanup: stopped watcher for ${sessionId}`);
       }
 
-      // Remove project context for this session
       if (this.sessionProjectContexts.has(sessionId)) {
         this.sessionProjectContexts.delete(sessionId);
         logger.error(`[ToolHandlers] Session cleanup: removed project context for ${sessionId}`);
@@ -317,21 +175,14 @@ export abstract class ToolHandlerBase {
     }
   }
 
-  /**
-   * Clean up all session resources
-   * Called during server shutdown or restart
-   */
   async cleanupAllSessions(): Promise<void> {
     const sessionIds = Array.from(this.sessionProjectContexts.keys());
     const watcherKeys = Array.from(this.sessionWatchers.keys());
 
-    // Clean up watchers
     for (const key of watcherKeys) {
       try {
         const watcher = this.sessionWatchers.get(key);
-        if (watcher) {
-          await watcher.stop();
-        }
+        if (watcher) await watcher.stop();
       } catch (error) {
         logger.error(`[ToolHandlers] Error stopping watcher ${key}:`, error);
       }
@@ -357,7 +208,8 @@ export abstract class ToolHandlerBase {
 
     if (this.context.config.architecture) {
       this.archEngine = new ArchitectureEngine(
-        this.context.config.architecture.layers as unknown as import("../engines/architecture-engine.js").LayerDefinition[],
+        this.context.config.architecture
+          .layers as unknown as import("../engines/architecture-engine.js").LayerDefinition[],
         this.context.config.architecture.rules,
         this.context.index,
         this.defaultActiveProjectContext.workspaceRoot,
@@ -388,7 +240,6 @@ export abstract class ToolHandlerBase {
     this.communityDetector = new CommunityDetector(this.context.memgraph);
     logger.error("[initializeEngines] communityDetector=ready");
 
-    // Initialize GraphOrchestrator if not provided
     this.orchestrator =
       this.context.orchestrator ||
       new GraphOrchestrator(this.context.memgraph, false, this.context.index);
@@ -416,9 +267,7 @@ export abstract class ToolHandlerBase {
       this.context.memgraph,
     );
     logger.error("[initializeVectorEngine] hybridRetriever=created");
-    this.docsEngine = new DocsEngine(this.context.memgraph, {
-      qdrant: this.qdrant,
-    });
+    this.docsEngine = new DocsEngine(this.context.memgraph, { qdrant: this.qdrant });
     logger.error("[initializeVectorEngine] docsEngine=created");
 
     void this.qdrant
@@ -431,13 +280,16 @@ export abstract class ToolHandlerBase {
       });
 
     // Ensure the Memgraph text_search BM25 index exists at startup.
-    // Fire-and-forget: failure is non-fatal; retrieval falls back to lexical mode.
-    // Deferred with setImmediate so it runs after the current microtask queue
+    // Fire-and-forget; deferred so it runs after the current microtask queue
     // (important for test isolation — avoids polluting executeCypher call counts).
     setImmediate(() => {
       if (!this.hybridRetriever) return;
       if (!this.context.memgraph.isConnected?.()) return;
-      if (typeof (this.hybridRetriever as unknown as { ensureBM25Index?: () => void }).ensureBM25Index !== "function") return;
+      if (
+        typeof (this.hybridRetriever as unknown as { ensureBM25Index?: () => void })
+          .ensureBM25Index !== "function"
+      )
+        return;
       void this.hybridRetriever
         .ensureBM25Index()
         .then((result) => {
@@ -462,11 +314,6 @@ export abstract class ToolHandlerBase {
     }
   }
 
-  /**
-   * Phase 2c: Load index from Memgraph on startup
-   * Populates the in-memory index with data from the database
-   * This enables tools to work immediately without requiring a rebuild first
-   */
   protected async initializeIndexFromMemgraph(): Promise<void> {
     try {
       if (!this.context.memgraph.isConnected()) {
@@ -489,12 +336,9 @@ export abstract class ToolHandlerBase {
         return;
       }
 
-      // Add all nodes to the index
       for (const node of nodes) {
         this.context.index.addNode(node.id, node.type, node.properties);
       }
-
-      // Add all relationships to the index
       for (const rel of relationships) {
         this.context.index.addRelationship(rel.id, rel.from, rel.to, rel.type, rel.properties);
       }
@@ -504,95 +348,21 @@ export abstract class ToolHandlerBase {
       );
     } catch (error) {
       logger.error("[Phase2c] Failed to initialize index from Memgraph:", error);
-      // Continue regardless - index is optional for startup
     }
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
-  // Response Formatting
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public errorEnvelope(code: string, reason: string, recoverable = true, hint?: string): string {
-    const response = errorResponse(
-      code,
-      reason,
-      hint || "Review tool input and retry.",
-    ) as unknown as Record<string, unknown>;
-    response.error = {
-      code,
-      reason,
-      recoverable,
-      hint,
-    };
-    return JSON.stringify(response, null, 2);
-  }
-
-  public canonicalizePaths(text: string): string {
-    return text
-      .replaceAll("/workspace/", "")
-      .replace(/\/home\/[^/]+\/stratSolver\//g, "")
-      .replaceAll("//", "/");
-  }
-
-  protected compactValue(value: unknown): unknown {
-    if (typeof value === "string") {
-      const normalized = this.canonicalizePaths(value);
-      return normalized.length > 320 ? `${normalized.slice(0, 317)}...` : normalized;
-    }
-
-    if (Array.isArray(value)) {
-      return value.slice(0, 10).map((item) => this.compactValue(item));
-    }
-
-    if (value && typeof value === "object") {
-      const entries = Object.entries(value as Record<string, unknown>).slice(0, 20);
-      return Object.fromEntries(entries.map(([key, val]) => [key, this.compactValue(val)]));
-    }
-
-    return value;
-  }
-
-  public formatSuccess(
-    data: unknown,
-    profile: string = "compact",
-    summary?: string,
-    toolName?: string,
-  ): string {
-    const shaped = profile === "debug" ? data : this.compactValue(data);
-    const safeProfile = profile === "balanced" || profile === "debug" ? profile : "compact";
-    return JSON.stringify(
-      formatResponse(summary || "Operation completed successfully.", shaped, safeProfile, toolName),
-      // Safety net: convert any residual BigInt values to Number
-      (_key, value) => (typeof value === "bigint" ? Number(value) : value),
-      2,
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Input Processing and Normalization
+  // Tool Dispatch
   // ──────────────────────────────────────────────────────────────────────────────
 
   public classifyIntent(
     query: string,
   ): "structure" | "dependency" | "test-impact" | "progress" | "general" {
     const lower = query.toLowerCase();
-
-    if (/(test|coverage|spec|affected)/.test(lower)) {
-      return "test-impact";
-    }
-
-    if (/(progress|feature|task|blocked|milestone)/.test(lower)) {
-      return "progress";
-    }
-
-    if (/(import|dependency|depends|caller|called by|uses)/.test(lower)) {
-      return "dependency";
-    }
-
-    if (/(file|folder|class|function|structure|tree|list)/.test(lower)) {
-      return "structure";
-    }
-
+    if (/(test|coverage|spec|affected)/.test(lower)) return "test-impact";
+    if (/(progress|feature|task|blocked|milestone)/.test(lower)) return "progress";
+    if (/(import|dependency|depends|caller|called by|uses)/.test(lower)) return "dependency";
+    if (/(file|folder|class|function|structure|tree|list)/.test(lower)) return "structure";
     return "general";
   }
 
@@ -609,11 +379,9 @@ export abstract class ToolHandlerBase {
         : Array.isArray(normalized.changedFiles)
           ? normalized.changedFiles
           : [];
-
       if (Array.isArray(normalized.changedFiles) && !Array.isArray(normalized.files)) {
         warnings.push("mapped changedFiles -> files");
       }
-
       normalized.files = files;
       delete normalized.changedFiles;
     }
@@ -624,12 +392,10 @@ export abstract class ToolHandlerBase {
         normalized.type = queryText.includes("feature") ? "feature" : "task";
         warnings.push("derived type from query text");
       }
-
       if (normalized.status === "active") {
         normalized.status = "in-progress";
         warnings.push("mapped status active -> in-progress");
       }
-
       if (normalized.status === "all") {
         delete normalized.status;
         warnings.push("mapped status all -> undefined");
@@ -657,16 +423,10 @@ export abstract class ToolHandlerBase {
     return { normalized, warnings };
   }
 
-  normalizeForDispatch(toolName: string, rawArgs: Record<string, unknown>): { normalized: Record<string, unknown>; warnings: string[] } {
+  normalizeForDispatch(toolName: string, rawArgs: Record<string, unknown>): NormalizedToolArgs {
     return this.normalizeToolArgs(toolName, rawArgs);
   }
 
-  /**
-   * Validate `args` against the Zod schema registered for `toolName`.
-   *
-   * Delegates to the standalone {@link _validateToolArgs} function so that
-   * the validation logic stays testable in isolation.
-   */
   validateToolArgs(toolName: string, args: unknown): ContractValidation {
     return _validateToolArgs(toolName, args);
   }
@@ -683,7 +443,9 @@ export abstract class ToolHandlerBase {
         `[callTool] TOOL_NOT_FOUND tool=${toolName} — method does not exist on ToolHandlers`,
       );
       const registered = Object.getOwnPropertyNames(Object.getPrototypeOf(this))
-        .filter((k) => typeof (this as Record<string, unknown>)[k] === "function" && !k.startsWith("_"))
+        .filter(
+          (k) => typeof (this as Record<string, unknown>)[k] === "function" && !k.startsWith("_"),
+        )
         .join(", ");
       logger.error(`[callTool] Registered methods: ${registered}`);
       return this.errorEnvelope(
@@ -710,9 +472,7 @@ export abstract class ToolHandlerBase {
       logger.error(`[callTool] EXIT tool=${toolName} result-length=${result.length}`);
     }
 
-    if (!warnings.length) {
-      return result;
-    }
+    if (!warnings.length) return result;
 
     try {
       const parsed = JSON.parse(result);
@@ -727,421 +487,22 @@ export abstract class ToolHandlerBase {
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
-  // Utility Conversions
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public toEpochMillis(asOf?: string): number | null {
-    if (!asOf || typeof asOf !== "string") {
-      return null;
-    }
-
-    if (/^\d+$/.test(asOf)) {
-      const numeric = Number(asOf);
-      return Number.isFinite(numeric) ? numeric : null;
-    }
-
-    const parsed = Date.parse(asOf);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
-  public toSafeNumber(value: unknown): number | null {
-    if (typeof value === "number") {
-      return Number.isFinite(value) ? value : null;
-    }
-
-    if (typeof value === "bigint") {
-      return Number(value);
-    }
-
-    if (typeof value === "string" && /^-?\d+(?:\.\d+)?$/.test(value)) {
-      const parsed = Number(value);
-      return Number.isFinite(parsed) ? parsed : null;
-    }
-
-    if (value && typeof value === "object" && "low" in (value as Record<string, unknown>)) {
-      const low = Number((value as Record<string, unknown>).low);
-      const highRaw = (value as Record<string, unknown>).high;
-      const high = typeof highRaw === "number" ? highRaw : Number(highRaw || 0);
-
-      if (Number.isFinite(low) && Number.isFinite(high)) {
-        return high * 4294967296 + low;
-      }
-    }
-
-    return null;
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Episode and Entity Validation
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public validateEpisodeInput(args: {
-    type: string;
-    outcome?: unknown;
-    entities?: string[];
-    metadata?: Record<string, unknown>;
-  }): string | null {
-    const type = String(args.type || "").toUpperCase();
-    const entities = Array.isArray(args.entities) ? args.entities : [];
-    const metadata = args.metadata || {};
-    logger.error(
-      `[validateEpisodeInput] type=${type} outcome=${String(args.outcome ?? "")} entities=${entities.length} metadataKeys=${Object.keys(metadata).join(",") || "none"}`,
-    );
-
-    if (type === "DECISION") {
-      const outcome = String(args.outcome || "").toLowerCase();
-      if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
-        return "DECISION episodes require outcome: success | failure | partial.";
-      }
-      if (typeof metadata.rationale !== "string" && typeof metadata.reason !== "string") {
-        return "DECISION episodes require metadata.rationale (or metadata.reason).";
-      }
-    }
-
-    if (type === "EDIT") {
-      if (!entities.length) {
-        return "EDIT episodes require at least one entity reference.";
-      }
-    }
-
-    if (type === "TEST_RESULT") {
-      const outcome = String(args.outcome || "").toLowerCase();
-      if (!outcome || !["success", "failure", "partial"].includes(outcome)) {
-        return "TEST_RESULT episodes require outcome: success | failure | partial.";
-      }
-      if (typeof metadata.testName !== "string" && typeof metadata.testFile !== "string") {
-        return "TEST_RESULT episodes require metadata.testName or metadata.testFile.";
-      }
-    }
-
-    if (type === "ERROR") {
-      if (typeof metadata.errorCode !== "string" && typeof metadata.stack !== "string") {
-        return "ERROR episodes require metadata.errorCode or metadata.stack.";
-      }
-    }
-
-    return null;
-  }
-
-  public async inferEpisodeEntityHints(query: string, limit: number): Promise<string[]> {
-    if (!this.embeddingEngine || !query.trim()) {
-      return [];
-    }
-
-    try {
-      await this.ensureEmbeddings();
-      const { projectId } = this.getActiveProjectContext();
-      const topK = Math.max(1, Math.min(limit, 10));
-      const [functions, classes, files] = await Promise.all([
-        this.embeddingEngine.findSimilar(query, "function", topK, projectId),
-        this.embeddingEngine.findSimilar(query, "class", topK, projectId),
-        this.embeddingEngine.findSimilar(query, "file", topK, projectId),
-      ]);
-
-      return [...functions, ...classes, ...files]
-        .map((item) => String(item.id || ""))
-        .filter(Boolean)
-        .slice(0, topK * 2);
-    } catch {
-      return [];
-    }
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Temporal Query Helpers
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public async resolveSinceAnchor(
-    since: string,
-    projectId: string,
-  ): Promise<{
-    sinceTs: number;
-    mode: "txId" | "timestamp" | "gitCommit" | "agentId";
-    anchorValue: string;
-  } | null> {
-    const trimmed = since.trim();
-    if (!trimmed) {
-      return null;
-    }
-
-    const txIdPattern =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (txIdPattern.test(trimmed) || trimmed.startsWith("tx-")) {
-      const txLookup = await this.context.memgraph.executeCypher(
-        "MATCH (tx:GRAPH_TX {projectId: $projectId, id: $id}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-        { projectId, id: trimmed },
-      );
-      const ts = this.toSafeNumber(txLookup.data?.[0]?.timestamp);
-      if (ts !== null) {
-        return { sinceTs: ts, mode: "txId", anchorValue: trimmed };
-      }
-      return null;
-    }
-
-    const timestamp = this.toEpochMillis(trimmed);
-    if (timestamp !== null) {
-      return { sinceTs: timestamp, mode: "timestamp", anchorValue: trimmed };
-    }
-
-    if (/^[a-f0-9]{7,40}$/i.test(trimmed)) {
-      const commitLookup = await this.context.memgraph.executeCypher(
-        "MATCH (tx:GRAPH_TX {projectId: $projectId, gitCommit: $gitCommit}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-        { projectId, gitCommit: trimmed },
-      );
-      const ts = this.toSafeNumber(commitLookup.data?.[0]?.timestamp);
-      if (ts !== null) {
-        return { sinceTs: ts, mode: "gitCommit", anchorValue: trimmed };
-      }
-      return null;
-    }
-
-    const agentLookup = await this.context.memgraph.executeCypher(
-      "MATCH (tx:GRAPH_TX {projectId: $projectId, agentId: $agentId}) RETURN tx.timestamp AS timestamp ORDER BY tx.timestamp DESC LIMIT 1",
-      { projectId, agentId: trimmed },
-    );
-    const agentTs = this.toSafeNumber(agentLookup.data?.[0]?.timestamp);
-    if (agentTs !== null) {
-      return { sinceTs: agentTs, mode: "agentId", anchorValue: trimmed };
-    }
-
-    return null;
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Embedding Management
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  // Phase 4.3: Project-scoped embedding readiness check to prevent race conditions
-  // Phase 4.5: Improved error handling for Qdrant operations
-  public async ensureEmbeddings(projectId?: string): Promise<void> {
-    const activeProjectId = projectId || this.getActiveProjectContext().projectId;
-
-    logger.error(
-      `[ensureEmbeddings] projectId=${activeProjectId} embeddingEngineReady=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)} qdrantConnected=${this.qdrant?.isConnected?.() ?? "unknown"}`,
-    );
-
-    if (this.isProjectEmbeddingsReady(activeProjectId) || !this.embeddingEngine) {
-      logger.error(
-        `[ensureEmbeddings] SKIP — embeddingEngine=${!!this.embeddingEngine} alreadyReady=${this.isProjectEmbeddingsReady(activeProjectId)}`,
-      );
-      return;
-    }
-
-    try {
-      const generated = await this.embeddingEngine.generateAllEmbeddings();
-      if (generated.functions + generated.classes + generated.files === 0) {
-        throw new Error("No indexed symbols found. Run graph_rebuild first.");
-      }
-
-      try {
-        await this.embeddingEngine.storeInQdrant();
-      } catch (qdrantError) {
-        const errorMsg = qdrantError instanceof Error ? qdrantError.message : String(qdrantError);
-        logger.error(
-          `[Phase4.5] Qdrant storage failed for project ${activeProjectId}: ${errorMsg}`,
-        );
-        // Don't throw - continue with embeddings ready flag set locally
-        // Qdrant failures are non-critical for indexing functionality
-        logger.warn(
-          `[Phase4.5] Continuing without Qdrant - semantic search may be unavailable for project ${activeProjectId}`,
-        );
-      }
-
-      this.setProjectEmbeddingsReady(activeProjectId, true);
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      logger.error(
-        `[Phase4.5] Embedding generation failed for project ${activeProjectId}: ${errorMsg}`,
-      );
-      throw error;
-    }
-  }
-
-  protected isProjectEmbeddingsReady(projectId: string): boolean {
-    return this.projectEmbeddingsReady.get(projectId) ?? false;
-  }
-
-  protected setProjectEmbeddingsReady(projectId: string, ready: boolean): void {
-    this.projectEmbeddingsReady.set(projectId, ready);
-  }
-
-  protected clearProjectEmbeddingsReady(projectId: string): void {
-    this.projectEmbeddingsReady.delete(projectId);
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Build Error Tracking (Phase 4.5)
+  // Build Error Tracking
   // ──────────────────────────────────────────────────────────────────────────────
 
   public recordBuildError(projectId: string, error: unknown, context?: string): void {
     const errorMsg = error instanceof Error ? error.message : String(error);
     const errors = this.backgroundBuildErrors.get(projectId) || [];
-
-    errors.push({
-      timestamp: Date.now(),
-      error: errorMsg,
-      context,
-    });
-
-    // Keep history bounded
-    if (errors.length > this.maxBuildErrorsPerProject) {
-      errors.shift();
-    }
-
+    errors.push({ timestamp: Date.now(), error: errorMsg, context });
+    if (errors.length > this.maxBuildErrorsPerProject) errors.shift();
     this.backgroundBuildErrors.set(projectId, errors);
   }
 
-  protected getRecentBuildErrors(
+  public getRecentBuildErrors(
     projectId: string,
-    limit: number = 5,
+    limit = 5,
   ): Array<{ timestamp: number; error: string; context?: string }> {
-    const errors = this.backgroundBuildErrors.get(projectId) || [];
-    return errors.slice(-limit);
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Element Resolution
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  public resolveElement(elementId: string): GraphNode | undefined {
-    const requested = String(elementId || "").trim();
-    if (!requested) {
-      return undefined;
-    }
-
-    // Try exact match first, then also try with the active projectId prefix
-    // (Memgraph nodes use "projectId:file:name:line" while the in-memory index
-    // built during a rebuild uses the raw "file:name:line" format)
-    const { projectId } = this.getActiveProjectContext();
-    const exact =
-      this.context.index.getNode(requested) ||
-      (projectId && requested && !requested.startsWith(`${projectId}:`)
-        ? this.context.index.getNode(`${projectId}:${requested}`)
-        : undefined);
-    if (exact) {
-      return exact;
-    }
-
-    const normalizedPath = requested.replace(/\\/g, "/");
-    const basename = path.basename(normalizedPath);
-
-    // For IDs in format "file.ts:symbolName:lineNum" (parser output), the last
-    // segment is a line number — use the second-to-last as the symbol name.
-    const parts = requested.split(":");
-    const scopedTail = parts.length > 1 ? parts[parts.length - 1] : requested;
-    // If last segment is a number, treat the preceding segment as the name
-    const scopedName =
-      parts.length > 2 && /^\d+$/.test(scopedTail) ? parts[parts.length - 2] : scopedTail;
-    const symbolTail = requested.includes("::") ? requested.split("::").slice(-1)[0] : scopedName;
-
-    const files = this.context.index.getNodesByType("FILE");
-    const functions = this.context.index.getNodesByType("FUNCTION");
-    const classes = this.context.index.getNodesByType("CLASS");
-
-    return (
-      files.find((node) => {
-        const nodePath = String(
-          node.properties.path || node.properties.filePath || node.properties.relativePath || "",
-        ).replace(/\\/g, "/");
-        return (
-          nodePath === normalizedPath ||
-          nodePath.endsWith(normalizedPath) ||
-          normalizedPath.endsWith(nodePath) ||
-          path.basename(nodePath) === basename ||
-          node.id === requested ||
-          node.id.endsWith(`:${normalizedPath}`)
-        );
-      }) ||
-      functions.find((node) => {
-        const name = String(node.properties.name || "");
-        return (
-          name === requested ||
-          name === scopedTail ||
-          name === scopedName ||
-          name === symbolTail ||
-          node.id === requested ||
-          node.id.endsWith(`:${requested}`)
-        );
-      }) ||
-      classes.find((node) => {
-        const name = String(node.properties.name || "");
-        return (
-          name === requested ||
-          name === scopedTail ||
-          name === scopedName ||
-          name === symbolTail ||
-          node.id === requested ||
-          node.id.endsWith(`:${requested}`)
-        );
-      })
-    );
-  }
-
-  // ──────────────────────────────────────────────────────────────────────────────
-  // Temporal Query Building
-  // ──────────────────────────────────────────────────────────────────────────────
-
-  protected buildTemporalPredicateForVars(variables: string[]): string {
-    const unique = [...new Set(variables.filter(Boolean))];
-    return unique
-      .map(
-        (name) =>
-          `(${name}.validFrom <= $asOfTs AND (${name}.validTo IS NULL OR ${name}.validTo > $asOfTs))`,
-      )
-      .join(" AND ");
-  }
-
-  protected extractMatchVariables(segment: string): string[] {
-    const vars: string[] = [];
-    const regex = /\(([A-Za-z_][A-Za-z0-9_]*)\s*(?::|\)|\{)/g;
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(segment)) !== null) {
-      vars.push(match[1]);
-    }
-    return vars;
-  }
-
-  protected applyTemporalFilterToCypher(query: string): string {
-    const matchSegmentRegex =
-      /((?:OPTIONAL\s+MATCH|MATCH)\b[\s\S]*?)(?=\n\s*(?:OPTIONAL\s+MATCH|MATCH|WITH|RETURN|UNWIND|CALL|CREATE|MERGE|SET|DELETE|REMOVE|FOREACH|ORDER\s+BY|LIMIT|SKIP|UNION)\b|$)/gi;
-
-    let touched = false;
-    const rewritten = query.replace(matchSegmentRegex, (segment) => {
-      const vars = this.extractMatchVariables(segment);
-      if (!vars.length) {
-        return segment;
-      }
-
-      const predicate = this.buildTemporalPredicateForVars(vars);
-      if (!predicate) {
-        return segment;
-      }
-
-      touched = true;
-      const inlineClauseRegex =
-        /\b(?:WITH|RETURN|UNWIND|CALL|CREATE|MERGE|SET|DELETE|REMOVE|FOREACH|ORDER\s+BY|LIMIT|SKIP|UNION)\b/i;
-      const boundaryIndex = segment.search(inlineClauseRegex);
-      const whereMatch = /\bWHERE\b/i.exec(segment);
-
-      if (whereMatch) {
-        if (boundaryIndex > whereMatch.index) {
-          const head = segment.slice(0, boundaryIndex).trimEnd();
-          const tail = segment.slice(boundaryIndex).trimStart();
-          return `${head} AND ${predicate}\n${tail}`;
-        }
-        return `${segment} AND ${predicate}`;
-      }
-
-      if (boundaryIndex > 0) {
-        const head = segment.slice(0, boundaryIndex).trimEnd();
-        const tail = segment.slice(boundaryIndex).trimStart();
-        return `${head} WHERE ${predicate}\n${tail}`;
-      }
-
-      return `${segment}\nWHERE ${predicate}`;
-    });
-
-    return touched ? rewritten : query;
+    return (this.backgroundBuildErrors.get(projectId) || []).slice(-limit);
   }
 
   // ──────────────────────────────────────────────────────────────────────────────
@@ -1151,11 +512,8 @@ export abstract class ToolHandlerBase {
   protected async runWatcherIncrementalRebuild(
     context: ProjectContext & { changedFiles?: string[] },
   ): Promise<void> {
-    if (!this.orchestrator) {
-      return;
-    }
+    if (!this.orchestrator) return;
 
-    // Phase 4.2: Use crypto-secure random ID generation instead of Math.random()
     const txTimestamp = Date.now();
     const txId = generateSecureId("tx", 4);
 
@@ -1185,13 +543,118 @@ export abstract class ToolHandlerBase {
       exclude: ["node_modules", "dist", ".next", ".lxdig", "coverage", ".git"],
     });
 
-    // Phase 2a & 4.3: Reset embeddings for watcher-driven incremental builds (per-project to prevent race conditions)
-    this.setProjectEmbeddingsReady(context.projectId, false);
+    this.embeddingMgr.setReady(context.projectId, false);
     logger.error(
       `[Phase2a] Embeddings flag reset for watcher incremental rebuild of project ${context.projectId}`,
     );
 
     this.lastGraphRebuildAt = new Date().toISOString();
     this.lastGraphRebuildMode = "incremental";
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Delegation: ResponseFormatter
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  public errorEnvelope(code: string, reason: string, recoverable = true, hint?: string): string {
+    return this.responseFormatter.errorEnvelope(code, reason, recoverable, hint);
+  }
+
+  public canonicalizePaths(text: string): string {
+    return this.responseFormatter.canonicalizePaths(text);
+  }
+
+  protected compactValue(value: unknown): unknown {
+    return this.responseFormatter.compactValue(value);
+  }
+
+  public formatSuccess(
+    data: unknown,
+    profile: string = "compact",
+    summary?: string,
+    toolName?: string,
+  ): string {
+    return this.responseFormatter.formatSuccess(data, profile, summary, toolName);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Delegation: TemporalQueryBuilder
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  public applyTemporalFilterToCypher(query: string): string {
+    return this.temporalQueryBuilder.applyTemporalFilterToCypher(query);
+  }
+
+  protected buildTemporalPredicateForVars(variables: string[]): string {
+    return this.temporalQueryBuilder.buildTemporalPredicateForVars(variables);
+  }
+
+  protected extractMatchVariables(segment: string): string[] {
+    return this.temporalQueryBuilder.extractMatchVariables(segment);
+  }
+
+  public async resolveSinceAnchor(
+    since: string,
+    projectId: string,
+  ): Promise<{
+    sinceTs: number;
+    mode: "txId" | "timestamp" | "gitCommit" | "agentId";
+    anchorValue: string;
+  } | null> {
+    return this.temporalQueryBuilder.resolveSinceAnchor(since, projectId, this.context.memgraph);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Delegation: EpisodeValidator
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  public validateEpisodeInput(args: {
+    type: string;
+    outcome?: unknown;
+    entities?: string[];
+    metadata?: Record<string, unknown>;
+  }): string | null {
+    return this.episodeValidator.validateEpisodeInput(args);
+  }
+
+  public async inferEpisodeEntityHints(query: string, limit: number): Promise<string[]> {
+    const { projectId } = this.getActiveProjectContext();
+    return this.episodeValidator.inferEntityHints(
+      query,
+      limit,
+      this.embeddingEngine,
+      projectId,
+      () => this.ensureEmbeddings(),
+    );
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Delegation: ElementResolver
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  public resolveElement(elementId: string): GraphNode | undefined {
+    const { projectId } = this.getActiveProjectContext();
+    return this.elementResolver.resolve(elementId, this.context.index, projectId);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────────
+  // Delegation: EmbeddingManager
+  // ──────────────────────────────────────────────────────────────────────────────
+
+  public async ensureEmbeddings(projectId?: string): Promise<void> {
+    const activeId = projectId || this.getActiveProjectContext().projectId;
+    return this.embeddingMgr.ensureEmbeddings(activeId, this.embeddingEngine);
+  }
+
+  public isProjectEmbeddingsReady(projectId: string): boolean {
+    return this.embeddingMgr.isReady(projectId);
+  }
+
+  public setProjectEmbeddingsReady(projectId: string, ready: boolean): void {
+    this.embeddingMgr.setReady(projectId, ready);
+  }
+
+  protected clearProjectEmbeddingsReady(projectId: string): void {
+    this.embeddingMgr.clear(projectId);
   }
 }

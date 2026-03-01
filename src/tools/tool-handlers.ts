@@ -8,17 +8,16 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import * as env from "../env.js";
-import type { GraphNode } from "../graph/index.js";
-import { runPPR } from "../graph/ppr.js";
-import type { ResponseProfile } from "../response/budget.js";
-import { estimateTokens, makeBudget } from "../response/budget.js";
-import { ToolHandlerBase, type ToolContext } from "./tool-handler-base.js";
-import { toolRegistryMap } from "./registry.js";
-import type { ToolArgs, HandlerBridge } from "./types.js";
+import * as env from "../env";
+import type { GraphNode } from "../graph/index";
+import { runPPR } from "../graph/ppr";
+import type { ResponseProfile } from "../response/budget";
+import { estimateTokens, makeBudget } from "../response/budget";
+import { ToolHandlerBase } from "./tool-handler-base";
+import { toolRegistryMap } from "./registry";
+import type { ToolArgs, HandlerBridge } from "./types";
 
-// Re-export base types for external consumers
-export type { ToolContext, ProjectContext } from "./tool-handler-base.js";
+import type { ToolContext } from "../tools/handler.interface";
 
 /**
  * Main tool handler class that implements all MCP tools
@@ -38,7 +37,8 @@ export class ToolHandlers extends ToolHandlerBase {
       if (typeof (this as Record<string, unknown>)[toolName] === "function") {
         continue;
       }
-      (this as Record<string, unknown>)[toolName] = (args: any) => definition.impl(args, this as unknown as HandlerBridge);
+      (this as Record<string, unknown>)[toolName] = (args: any) =>
+        definition.impl(args, this as unknown as HandlerBridge);
     }
   }
 
@@ -83,7 +83,13 @@ export class ToolHandlers extends ToolHandlerBase {
         ["FUNCTION", "CLASS", "FILE"].includes(String(item.type || "").toUpperCase()),
       );
       const coreSymbolsRaw = await this.materializeCoreSymbols(codeCandidates, workspaceRoot);
-      type CoreSymbol = { nodeId: string; symbolName: string; file: string; incomingCallers: Array<{ id: string }>; outgoingCalls: Array<{ id: string }> };
+      type CoreSymbol = {
+        nodeId: string;
+        symbolName: string;
+        file: string;
+        incomingCallers: Array<{ id: string }>;
+        outgoingCalls: Array<{ id: string }>;
+      };
       const coreSymbols = coreSymbolsRaw as unknown as CoreSymbol[];
 
       const selectedIds = coreSymbols.map((item) => item.nodeId);
@@ -437,7 +443,10 @@ export class ToolHandlers extends ToolHandlerBase {
     }));
   }
 
-  private async findDecisionEpisodes(selectedIds: string[], projectId: string): Promise<Record<string, unknown>[]> {
+  private async findDecisionEpisodes(
+    selectedIds: string[],
+    projectId: string,
+  ): Promise<Record<string, unknown>[]> {
     if (!selectedIds.length) {
       return [];
     }
@@ -458,7 +467,10 @@ export class ToolHandlers extends ToolHandlerBase {
     }));
   }
 
-  private async findLearnings(selectedIds: string[], projectId: string): Promise<Record<string, unknown>[]> {
+  private async findLearnings(
+    selectedIds: string[],
+    projectId: string,
+  ): Promise<Record<string, unknown>[]> {
     if (!selectedIds.length) {
       return [];
     }

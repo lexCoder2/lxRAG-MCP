@@ -159,18 +159,27 @@ export class EmbeddingEngine {
   }
 
   /**
-   * Store embeddings in Qdrant
+   * Store embeddings in Qdrant.
+   * Purges stale ghost points for the project before upserting so that
+   * previous indexing runs (with different node IDs) cannot pollute results.
    */
-  async storeInQdrant(): Promise<void> {
+  async storeInQdrant(projectId: string): Promise<void> {
     if (!this.qdrant.isConnected()) {
       logger.warn("[EmbeddingEngine] Qdrant not connected, skipping storage");
       return;
     }
 
-    // Create collections
+    // Create collections (no-op if already exist)
     await this.qdrant.createCollection("functions", 128);
     await this.qdrant.createCollection("classes", 128);
     await this.qdrant.createCollection("files", 128);
+
+    // Purge stale ghost points for this project before inserting fresh ones
+    await Promise.all([
+      this.qdrant.deleteByFilter("functions", projectId),
+      this.qdrant.deleteByFilter("classes", projectId),
+      this.qdrant.deleteByFilter("files", projectId),
+    ]);
 
     // Separate embeddings by type
     const functionEmbeddings: VectorPoint[] = [];
@@ -223,23 +232,29 @@ export class EmbeddingEngine {
   ): Promise<CodeEmbedding[]> {
     const queryVector = this.textToVector(query);
 
+    // Build a server-side Qdrant payload filter so cross-project points are
+    // excluded at the DB level — avoids ghost-point contamination.
+    const qdrantFilter = projectId
+      ? { must: [{ key: "projectId", match: { value: projectId } }] }
+      : undefined;
+
     if (this.qdrant.isConnected()) {
-      const results = await this.qdrant.search(`${type}s`, queryVector, limit * 2);
-      // Only return Qdrant results when it actually has data; otherwise fall
-      // through to in-memory cosine similarity (e.g. after a fresh rebuild
-      // before Qdrant has been populated).
-      if (results.length > 0) {
-        return results
-          .map((result) => {
-            const embedding = this.embeddings.get(result.id);
-            return embedding;
-          })
-          .filter((e) => {
+      const raw = await this.qdrant.search(`${type}s`, queryVector, limit * 2, qdrantFilter);
+      // Only return Qdrant results when they survive the application-level
+      // filter. If every result is a ghost point (originalId not in the
+      // current in-memory map), fall through to in-memory cosine similarity
+      // so the caller always gets something useful.
+      if (raw.length > 0) {
+        const mapped = raw
+          .map((result) => this.embeddings.get(result.id))
+          .filter((e): e is CodeEmbedding => {
             if (!e) return false;
             if (projectId && e.projectId !== projectId) return false;
             return true;
           })
-          .slice(0, limit) as CodeEmbedding[];
+          .slice(0, limit);
+        if (mapped.length > 0) return mapped;
+        // All Qdrant results were ghost points — fall through to in-memory.
       }
     }
 
