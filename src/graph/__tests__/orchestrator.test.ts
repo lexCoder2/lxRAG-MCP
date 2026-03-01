@@ -114,3 +114,121 @@ describe("GraphOrchestrator", () => {
     fs.rmSync(root, { recursive: true, force: true });
   });
 });
+
+describe("GraphOrchestrator — two-phase execution", () => {
+  it("executeBatch is called twice — nodes first, then edges", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "orch-2phase-"));
+    const srcDir = path.join(root, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, "hello.ts"),
+      'export function hello(): string { return "hi"; }\n',
+    );
+
+    const memgraph = {
+      isConnected: vi.fn().mockReturnValue(true),
+      executeBatch: vi.fn().mockResolvedValue([]),
+      executeCypher: vi.fn().mockResolvedValue({ records: [] }),
+      beginBulkMode: vi.fn(),
+      endBulkMode: vi.fn(),
+    } as any;
+
+    const orchestrator = new GraphOrchestrator(memgraph, false);
+    await orchestrator.build({
+      mode: "full",
+      workspaceRoot: root,
+      sourceDir: "src",
+      projectId: "2ph1",
+    });
+
+    expect(memgraph.executeBatch).toHaveBeenCalledTimes(2);
+
+    // First call — nodes only (no relationship arrows)
+    const nodesArg: Array<{ query: string }> = memgraph.executeBatch.mock.calls[0][0];
+    for (const stmt of nodesArg) {
+      expect(stmt.query).not.toMatch(/-\[.*\]->/);
+    }
+
+    // Second call — edges (all have MATCH or relationship arrows)
+    const edgesArg: Array<{ query: string }> = memgraph.executeBatch.mock.calls[1][0];
+    for (const stmt of edgesArg) {
+      expect(stmt.query).toMatch(/MATCH|(-\[.*\]->)/);
+    }
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("beginBulkMode/endBulkMode wrap both execution phases", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "orch-bulk-"));
+    const srcDir = path.join(root, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, "hello.ts"),
+      'export function hello(): string { return "hi"; }\n',
+    );
+
+    const callOrder: string[] = [];
+
+    const memgraph = {
+      isConnected: vi.fn().mockReturnValue(true),
+      executeBatch: vi.fn().mockImplementation(async () => {
+        callOrder.push(callOrder.filter((c) => c.startsWith("batch")).length === 0 ? "batch1" : "batch2");
+        return [];
+      }),
+      executeCypher: vi.fn().mockResolvedValue({ records: [] }),
+      beginBulkMode: vi.fn().mockImplementation(() => {
+        callOrder.push("begin");
+      }),
+      endBulkMode: vi.fn().mockImplementation(() => {
+        callOrder.push("end");
+      }),
+    } as any;
+
+    const orchestrator = new GraphOrchestrator(memgraph, false);
+    await orchestrator.build({
+      mode: "full",
+      workspaceRoot: root,
+      sourceDir: "src",
+      projectId: "2ph2",
+    });
+
+    expect(callOrder).toEqual(["begin", "batch1", "batch2", "end"]);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("endBulkMode is called even if executeBatch throws", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "orch-throw-"));
+    const srcDir = path.join(root, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(srcDir, "hello.ts"),
+      'export function hello(): string { return "hi"; }\n',
+    );
+
+    const memgraph = {
+      isConnected: vi.fn().mockReturnValue(true),
+      executeBatch: vi.fn().mockRejectedValue(new Error("batch boom")),
+      executeCypher: vi.fn().mockResolvedValue({ records: [] }),
+      beginBulkMode: vi.fn(),
+      endBulkMode: vi.fn(),
+    } as any;
+
+    const orchestrator = new GraphOrchestrator(memgraph, false);
+
+    try {
+      await orchestrator.build({
+        mode: "full",
+        workspaceRoot: root,
+        sourceDir: "src",
+        projectId: "2ph3",
+      });
+    } catch {
+      // expected — executeBatch throws
+    }
+
+    expect(memgraph.endBulkMode).toHaveBeenCalledTimes(1);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+});

@@ -40,7 +40,7 @@ const CIRCUIT_BREAKER_THRESHOLD = 5;
 const CIRCUIT_BREAKER_BULK_THRESHOLD = 50;
 
 /** Milliseconds the circuit stays open before entering half-open state. */
-const CIRCUIT_BREAKER_COOLDOWN_MS = 30_000;
+const CIRCUIT_BREAKER_COOLDOWN_MS = 20_000;
 
 /** Interval for background liveness pings while connected (ms). */
 const HEALTH_CHECK_INTERVAL_MS = 30_000;
@@ -80,7 +80,7 @@ function sleep(ms: number): Promise<void> {
  */
 export class MemgraphClient {
   private config: MemgraphConfig;
-  private driver: any;
+  private driver: any; // neo4j.Driver, but avoid tight coupling in type definitions
   private connected = false;
   private readonly queryRetryAttempts = 3;
 
@@ -204,7 +204,9 @@ export class MemgraphClient {
 
   private recordQueryFailure(): void {
     this.consecutiveFailures += 1;
-    const threshold = this.bulkModeActive ? CIRCUIT_BREAKER_BULK_THRESHOLD : CIRCUIT_BREAKER_THRESHOLD;
+    const threshold = this.bulkModeActive
+      ? CIRCUIT_BREAKER_BULK_THRESHOLD
+      : CIRCUIT_BREAKER_THRESHOLD;
     if (this.consecutiveFailures >= threshold) {
       this.circuitOpen = true;
       this.circuitOpenAt = Date.now();
@@ -321,7 +323,9 @@ export class MemgraphClient {
       const session = this.driver.session();
       try {
         const result = await session.run(query, sanitizedParams);
-        const data = result.records.map((record: { toObject(): Record<string, unknown> }) => record.toObject());
+        const data = result.records.map((record: { toObject(): Record<string, unknown> }) =>
+          record.toObject(),
+        );
 
         this.recordQuerySuccess();
         return { data, error: undefined };
@@ -409,11 +413,14 @@ export class MemgraphClient {
           }
         } catch (txError) {
           const msg = txError instanceof Error ? txError.message : String(txError);
-          logger.warn("[Memgraph] Chunk transaction failed, falling back to per-statement execution", {
-            chunkOffset: offset,
-            chunkSize: chunk.length,
-            cause: msg,
-          });
+          logger.warn(
+            "[Memgraph] Chunk transaction failed, falling back to per-statement execution",
+            {
+              chunkOffset: offset,
+              chunkSize: chunk.length,
+              cause: msg,
+            },
+          );
           await tx.rollback().catch(() => {});
           this.recordQueryFailure();
         }
@@ -435,7 +442,9 @@ export class MemgraphClient {
     }
 
     if (totalFailed > 0) {
-      logger.warn(`[Memgraph] executeBatchInChunks: ${totalFailed} / ${statements.length} statements failed`);
+      logger.warn(
+        `[Memgraph] executeBatchInChunks: ${totalFailed} / ${statements.length} statements failed`,
+      );
     }
 
     return results;

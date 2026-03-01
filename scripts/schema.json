@@ -47,10 +47,21 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":        { "type": "string", "required": true,  "unique": true, "indexed": true, "description": "Scoped folder ID (projectId:folder:path)" },
-        "name":      { "type": "string", "required": false, "description": "Folder basename" },
-        "path":      { "type": "string", "required": false, "description": "Absolute path" },
-        "projectId": { "type": "string", "required": false, "indexed": true, "description": "Multi-tenant scope" }
+        "id": {
+          "type": "string",
+          "required": true,
+          "unique": true,
+          "indexed": true,
+          "description": "Scoped folder ID (projectId:folder:path)"
+        },
+        "name": { "type": "string", "required": false, "description": "Folder basename" },
+        "path": { "type": "string", "required": false, "description": "Absolute path" },
+        "projectId": {
+          "type": "string",
+          "required": false,
+          "indexed": true,
+          "description": "Multi-tenant scope"
+        }
       }
     },
 
@@ -59,22 +70,40 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":                 { "type": "string",   "required": true,  "unique": true, "indexed": true },
-        "name":               { "type": "string",   "required": false },
-        "path":               { "type": "string",   "required": false, "indexed": true, "description": "Absolute path" },
-        "relativePath":       { "type": "string",   "required": false, "indexed": true, "description": "Workspace-relative path" },
-        "language":           { "type": "string",   "required": false },
-        "LOC":                { "type": "integer",  "required": false },
-        "summary":            { "type": "string",   "required": false, "description": "LLM-generated summary (requires summarizer)" },
-        "hash":               { "type": "string",   "required": false, "description": "Content hash for change detection" },
-        "scipId":             { "type": "string",   "required": false },
-        "projectId":          { "type": "string",   "required": false, "indexed": true },
-        "projectFingerprint": { "type": "string",   "required": false },
-        "validFrom":          { "type": "integer",  "required": false },
-        "validTo":            { "type": "integer",  "required": false },
-        "createdAt":          { "type": "integer",  "required": false },
-        "txId":               { "type": "string",   "required": false },
-        "lastModified":       { "type": "datetime", "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
+        "path": {
+          "type": "string",
+          "required": false,
+          "indexed": true,
+          "description": "Absolute path"
+        },
+        "relativePath": {
+          "type": "string",
+          "required": false,
+          "indexed": true,
+          "description": "Workspace-relative path"
+        },
+        "language": { "type": "string", "required": false },
+        "LOC": { "type": "integer", "required": false },
+        "summary": {
+          "type": "string",
+          "required": false,
+          "description": "LLM-generated summary (requires summarizer)"
+        },
+        "hash": {
+          "type": "string",
+          "required": false,
+          "description": "Content hash for change detection"
+        },
+        "scipId": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "projectFingerprint": { "type": "string", "required": false },
+        "validFrom": { "type": "integer", "required": false },
+        "validTo": { "type": "integer", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "txId": { "type": "string", "required": false },
+        "lastModified": { "type": "datetime", "required": false }
       }
     },
 
@@ -84,25 +113,41 @@
       "transactional": true,
       "description": "The primary logical unit. Functions, methods, arrow functions, handlers.",
       "properties": {
-        "id":           { "type": "string",  "required": true,  "unique": true, "indexed": true },
-        "name":         { "type": "string",  "required": false, "indexed": true },
-        "kind":         { "type": "string",  "required": false, "description": "function | method | arrow | generator | constructor" },
-        "filePath":     { "type": "string",  "required": false, "description": "Absolute path of containing file" },
-        "path":         { "type": "string",  "required": false },
-        "relativePath": { "type": "string",  "required": false },
-        "startLine":    { "type": "integer", "required": false },
-        "endLine":      { "type": "integer", "required": false },
-        "LOC":          { "type": "integer", "required": false },
-        "summary":      { "type": "string",  "required": false },
-        "parameters":   { "type": "string",  "required": false, "description": "JSON-serialized parameter list" },
-        "scipId":       { "type": "string",  "required": false },
-        "isExported":   { "type": "boolean", "required": false },
-        "stub":         { "type": "boolean", "required": false, "description": "true for CALLS_TO stubs not yet resolved" },
-        "projectId":    { "type": "string",  "required": false, "indexed": true },
-        "validFrom":    { "type": "integer", "required": false },
-        "validTo":      { "type": "integer", "required": false },
-        "createdAt":    { "type": "integer", "required": false },
-        "txId":         { "type": "string",  "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false, "indexed": true },
+        "kind": {
+          "type": "string",
+          "required": false,
+          "description": "function | method | arrow | generator | constructor"
+        },
+        "filePath": {
+          "type": "string",
+          "required": false,
+          "description": "Absolute path of containing file"
+        },
+        "path": { "type": "string", "required": false },
+        "relativePath": { "type": "string", "required": false },
+        "startLine": { "type": "integer", "required": false },
+        "endLine": { "type": "integer", "required": false },
+        "LOC": { "type": "integer", "required": false },
+        "summary": { "type": "string", "required": false },
+        "parameters": {
+          "type": "string",
+          "required": false,
+          "description": "JSON-serialized parameter list"
+        },
+        "scipId": { "type": "string", "required": false },
+        "isExported": { "type": "boolean", "required": false },
+        "stub": {
+          "type": "boolean",
+          "required": false,
+          "description": "true for CALLS_TO stubs not yet resolved"
+        },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "validFrom": { "type": "integer", "required": false },
+        "validTo": { "type": "integer", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "txId": { "type": "string", "required": false }
       }
     },
 
@@ -112,23 +157,27 @@
       "transactional": true,
       "description": "Classes, interfaces, type aliases, enums. Primary container for methods.",
       "properties": {
-        "id":           { "type": "string",  "required": true,  "unique": true, "indexed": true },
-        "name":         { "type": "string",  "required": false, "indexed": true },
-        "kind":         { "type": "string",  "required": false, "description": "class | interface | enum | type" },
-        "filePath":     { "type": "string",  "required": false },
-        "path":         { "type": "string",  "required": false },
-        "relativePath": { "type": "string",  "required": false },
-        "startLine":    { "type": "integer", "required": false },
-        "endLine":      { "type": "integer", "required": false },
-        "LOC":          { "type": "integer", "required": false },
-        "summary":      { "type": "string",  "required": false },
-        "scipId":       { "type": "string",  "required": false },
-        "isExported":   { "type": "boolean", "required": false },
-        "projectId":    { "type": "string",  "required": false, "indexed": true },
-        "validFrom":    { "type": "integer", "required": false },
-        "validTo":      { "type": "integer", "required": false },
-        "createdAt":    { "type": "integer", "required": false },
-        "txId":         { "type": "string",  "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false, "indexed": true },
+        "kind": {
+          "type": "string",
+          "required": false,
+          "description": "class | interface | enum | type"
+        },
+        "filePath": { "type": "string", "required": false },
+        "path": { "type": "string", "required": false },
+        "relativePath": { "type": "string", "required": false },
+        "startLine": { "type": "integer", "required": false },
+        "endLine": { "type": "integer", "required": false },
+        "LOC": { "type": "integer", "required": false },
+        "summary": { "type": "string", "required": false },
+        "scipId": { "type": "string", "required": false },
+        "isExported": { "type": "boolean", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "validFrom": { "type": "integer", "required": false },
+        "validTo": { "type": "integer", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "txId": { "type": "string", "required": false }
       }
     },
 
@@ -137,12 +186,16 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":        { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "name":      { "type": "string",  "required": false },
-        "kind":      { "type": "string",  "required": false, "description": "const | let | var" },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
+        "kind": { "type": "string", "required": false, "description": "const | let | var" },
         "startLine": { "type": "integer", "required": false },
-        "type":      { "type": "string",  "required": false, "description": "TypeScript type annotation" },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "TypeScript type annotation"
+        },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -151,16 +204,20 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":         { "type": "string",        "required": true,  "unique": true, "indexed": true },
-        "source":     { "type": "string",        "required": false, "description": "Import specifier (e.g. './utils/helpers')" },
-        "specifiers": { "type": "list<string>",  "required": false },
-        "startLine":  { "type": "integer",       "required": false },
-        "summary":    { "type": "string",        "required": false },
-        "projectId":  { "type": "string",        "required": false, "indexed": true },
-        "validFrom":  { "type": "integer",       "required": false },
-        "validTo":    { "type": "integer",       "required": false },
-        "createdAt":  { "type": "integer",       "required": false },
-        "txId":       { "type": "string",        "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "source": {
+          "type": "string",
+          "required": false,
+          "description": "Import specifier (e.g. './utils/helpers')"
+        },
+        "specifiers": { "type": "list<string>", "required": false },
+        "startLine": { "type": "integer", "required": false },
+        "summary": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "validFrom": { "type": "integer", "required": false },
+        "validTo": { "type": "integer", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "txId": { "type": "string", "required": false }
       }
     },
 
@@ -169,11 +226,11 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":        { "type": "string",  "required": true,  "unique": true, "indexed": true },
-        "name":      { "type": "string",  "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
         "isDefault": { "type": "boolean", "required": false },
         "startLine": { "type": "integer", "required": false },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -182,14 +239,22 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":        { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "name":      { "type": "string",  "required": false },
-        "type":      { "type": "string",  "required": false, "description": "describe | suite | context" },
-        "category":  { "type": "string",  "required": false, "description": "unit | integration | e2e" },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "describe | suite | context"
+        },
+        "category": {
+          "type": "string",
+          "required": false,
+          "description": "unit | integration | e2e"
+        },
         "startLine": { "type": "integer", "required": false },
-        "endLine":   { "type": "integer", "required": false },
-        "filePath":  { "type": "string",  "required": false },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "endLine": { "type": "integer", "required": false },
+        "filePath": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -198,12 +263,12 @@
       "builtBy": "GraphBuilder",
       "transactional": true,
       "properties": {
-        "id":        { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "name":      { "type": "string",  "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
         "startLine": { "type": "integer", "required": false },
-        "endLine":   { "type": "integer", "required": false },
-        "filePath":  { "type": "string",  "required": false },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "endLine": { "type": "integer", "required": false },
+        "filePath": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -212,17 +277,21 @@
       "builtBy": "DocsEngine",
       "transactional": true,
       "properties": {
-        "id":           { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "relativePath": { "type": "string",  "required": false },
-        "filePath":     { "type": "string",  "required": false },
-        "title":        { "type": "string",  "required": false },
-        "kind":         { "type": "string",  "required": false, "description": "readme | guide | adr | changelog" },
-        "wordCount":    { "type": "integer", "required": false },
-        "hash":         { "type": "string",  "required": false },
-        "projectId":    { "type": "string",  "required": false, "indexed": true },
-        "validFrom":    { "type": "integer", "required": false },
-        "validTo":      { "type": "integer", "required": false },
-        "txId":         { "type": "string",  "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "relativePath": { "type": "string", "required": false },
+        "filePath": { "type": "string", "required": false },
+        "title": { "type": "string", "required": false },
+        "kind": {
+          "type": "string",
+          "required": false,
+          "description": "readme | guide | adr | changelog"
+        },
+        "wordCount": { "type": "integer", "required": false },
+        "hash": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "validFrom": { "type": "integer", "required": false },
+        "validTo": { "type": "integer", "required": false },
+        "txId": { "type": "string", "required": false }
       }
     },
 
@@ -231,16 +300,16 @@
       "builtBy": "DocsEngine",
       "transactional": true,
       "properties": {
-        "id":           { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "heading":      { "type": "string",  "required": false },
-        "level":        { "type": "integer", "required": false },
-        "content":      { "type": "string",  "required": false, "description": "Trimmed to 4000 chars" },
-        "wordCount":    { "type": "integer", "required": false },
-        "startLine":    { "type": "integer", "required": false },
-        "docId":        { "type": "string",  "required": false },
-        "relativePath": { "type": "string",  "required": false },
-        "projectId":    { "type": "string",  "required": false, "indexed": true },
-        "txId":         { "type": "string",  "required": false }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "heading": { "type": "string", "required": false },
+        "level": { "type": "integer", "required": false },
+        "content": { "type": "string", "required": false, "description": "Trimmed to 4000 chars" },
+        "wordCount": { "type": "integer", "required": false },
+        "startLine": { "type": "integer", "required": false },
+        "docId": { "type": "string", "required": false },
+        "relativePath": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true },
+        "txId": { "type": "string", "required": false }
       }
     },
 
@@ -249,13 +318,17 @@
       "builtBy": "CommunityDetector (on-demand)",
       "transactional": false,
       "properties": {
-        "id":          { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "label":       { "type": "string",  "required": false },
-        "summary":     { "type": "string",  "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "label": { "type": "string", "required": false },
+        "summary": { "type": "string", "required": false },
         "memberCount": { "type": "integer", "required": false },
-        "centralNode": { "type": "string",  "required": false, "description": "ID of the most central member" },
-        "computedAt":  { "type": "integer", "required": false },
-        "projectId":   { "type": "string",  "required": false, "indexed": true }
+        "centralNode": {
+          "type": "string",
+          "required": false,
+          "description": "ID of the most central member"
+        },
+        "computedAt": { "type": "integer", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -264,9 +337,13 @@
       "builtBy": "ArchitectureEngine (on-demand)",
       "transactional": false,
       "properties": {
-        "id":          { "type": "string", "required": true, "unique": true, "indexed": true },
-        "severity":    { "type": "string", "required": false, "description": "error | warning | info" },
-        "pattern":     { "type": "string", "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "severity": {
+          "type": "string",
+          "required": false,
+          "description": "error | warning | info"
+        },
+        "pattern": { "type": "string", "required": false },
         "description": { "type": "string", "required": false }
       }
     },
@@ -276,13 +353,17 @@
       "builtBy": "ProgressEngine (on-demand)",
       "transactional": false,
       "properties": {
-        "id":          { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "name":        { "type": "string",  "required": false },
-        "status":      { "type": "string",  "required": false, "description": "planned | in-progress | completed" },
-        "description": { "type": "string",  "required": false },
-        "startedAt":   { "type": "integer", "required": false },
-        "createdAt":   { "type": "integer", "required": false },
-        "projectId":   { "type": "string",  "required": false, "indexed": true }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
+        "status": {
+          "type": "string",
+          "required": false,
+          "description": "planned | in-progress | completed"
+        },
+        "description": { "type": "string", "required": false },
+        "startedAt": { "type": "integer", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -291,15 +372,19 @@
       "builtBy": "ProgressEngine (on-demand)",
       "transactional": false,
       "properties": {
-        "id":          { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "name":        { "type": "string",  "required": false },
-        "status":      { "type": "string",  "required": false, "description": "todo | in-progress | completed | blocked" },
-        "description": { "type": "string",  "required": false },
-        "featureId":   { "type": "string",  "required": false },
-        "assignee":    { "type": "string",  "required": false },
-        "dueDate":     { "type": "string",  "required": false },
-        "createdAt":   { "type": "integer", "required": false },
-        "projectId":   { "type": "string",  "required": false, "indexed": true }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "name": { "type": "string", "required": false },
+        "status": {
+          "type": "string",
+          "required": false,
+          "description": "todo | in-progress | completed | blocked"
+        },
+        "description": { "type": "string", "required": false },
+        "featureId": { "type": "string", "required": false },
+        "assignee": { "type": "string", "required": false },
+        "dueDate": { "type": "string", "required": false },
+        "createdAt": { "type": "integer", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -308,15 +393,23 @@
       "builtBy": "EpisodeEngine (runtime)",
       "transactional": false,
       "properties": {
-        "id":        { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "type":      { "type": "string",  "required": false, "description": "DECISION | LEARNING | OBSERVATION | REFLECTION" },
-        "content":   { "type": "string",  "required": false },
-        "agentId":   { "type": "string",  "required": false, "indexed": true },
-        "sessionId": { "type": "string",  "required": false, "indexed": true },
-        "taskId":    { "type": "string",  "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "type": {
+          "type": "string",
+          "required": false,
+          "description": "DECISION | LEARNING | OBSERVATION | REFLECTION"
+        },
+        "content": { "type": "string", "required": false },
+        "agentId": { "type": "string", "required": false, "indexed": true },
+        "sessionId": { "type": "string", "required": false, "indexed": true },
+        "taskId": { "type": "string", "required": false },
         "timestamp": { "type": "integer", "required": false },
-        "outcome":   { "type": "string",  "required": false, "description": "success | failure | partial" },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "outcome": {
+          "type": "string",
+          "required": false,
+          "description": "success | failure | partial"
+        },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -325,12 +418,12 @@
       "builtBy": "EpisodeEngine (runtime, via reflect)",
       "transactional": false,
       "properties": {
-        "id":           { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "content":      { "type": "string",  "required": false },
-        "extractedAt":  { "type": "integer", "required": false },
-        "confidence":   { "type": "float",   "required": false, "description": "0.0–1.0" },
-        "reflectionId": { "type": "string",  "required": false },
-        "projectId":    { "type": "string",  "required": false, "indexed": true }
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "content": { "type": "string", "required": false },
+        "extractedAt": { "type": "integer", "required": false },
+        "confidence": { "type": "float", "required": false, "description": "0.0–1.0" },
+        "reflectionId": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     },
 
@@ -339,11 +432,11 @@
       "builtBy": "CoordinationEngine (runtime)",
       "transactional": false,
       "properties": {
-        "id":        { "type": "string", "required": true, "unique": true, "indexed": true },
-        "agentId":   { "type": "string", "required": false, "indexed": true },
-        "intent":    { "type": "string", "required": false },
-        "status":    { "type": "string", "required": false, "description": "active | released" },
-        "taskId":    { "type": "string", "required": false },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "agentId": { "type": "string", "required": false, "indexed": true },
+        "intent": { "type": "string", "required": false },
+        "status": { "type": "string", "required": false, "description": "active | released" },
+        "taskId": { "type": "string", "required": false },
         "sessionId": { "type": "string", "required": false },
         "projectId": { "type": "string", "required": false, "indexed": true }
       }
@@ -354,18 +447,17 @@
       "builtBy": "ToolHandler (runtime, on graph_rebuild)",
       "transactional": false,
       "properties": {
-        "id":        { "type": "string",  "required": true, "unique": true, "indexed": true },
-        "type":      { "type": "string",  "required": false, "description": "rebuild | incremental" },
+        "id": { "type": "string", "required": true, "unique": true, "indexed": true },
+        "type": { "type": "string", "required": false, "description": "rebuild | incremental" },
         "timestamp": { "type": "integer", "required": false },
-        "mode":      { "type": "string",  "required": false, "description": "full | incremental" },
-        "sourceDir": { "type": "string",  "required": false },
-        "projectId": { "type": "string",  "required": false, "indexed": true }
+        "mode": { "type": "string", "required": false, "description": "full | incremental" },
+        "sourceDir": { "type": "string", "required": false },
+        "projectId": { "type": "string", "required": false, "indexed": true }
       }
     }
   },
 
   "relationships": {
-
     "_comment_physical": "=== PHYSICAL LAYER (localization) ===",
 
     "FOLDER_CONTAINS_FOLDER": {
@@ -583,7 +675,7 @@
       "cardinality": "N:N",
       "description": "Documentation section describes a file",
       "properties": {
-        "strength":    { "type": "float",  "description": "Match confidence 0.0–1.0" },
+        "strength": { "type": "float", "description": "Match confidence 0.0–1.0" },
         "matchedName": { "type": "string", "description": "The backtick reference that matched" }
       }
     },
@@ -595,7 +687,7 @@
       "cardinality": "N:N",
       "description": "Documentation section describes a function",
       "properties": {
-        "strength":    { "type": "float" },
+        "strength": { "type": "float" },
         "matchedName": { "type": "string" }
       }
     },
@@ -607,7 +699,7 @@
       "cardinality": "N:N",
       "description": "Documentation section describes a class or interface",
       "properties": {
-        "strength":    { "type": "float" },
+        "strength": { "type": "float" },
         "matchedName": { "type": "string" }
       }
     },
@@ -640,7 +732,7 @@
       "description": "File-level architecture violation",
       "properties": {
         "severity": { "type": "string" },
-        "message":  { "type": "string" }
+        "message": { "type": "string" }
       }
     },
 
@@ -652,7 +744,7 @@
       "description": "Class-level architecture violation (e.g. god class, wrong layer)",
       "properties": {
         "severity": { "type": "string" },
-        "message":  { "type": "string" }
+        "message": { "type": "string" }
       }
     },
 
@@ -664,7 +756,7 @@
       "description": "Function-level violation (e.g. cross-layer call, excessive complexity)",
       "properties": {
         "severity": { "type": "string" },
-        "message":  { "type": "string" }
+        "message": { "type": "string" }
       }
     },
 
@@ -765,27 +857,36 @@
     "total": 33,
     "uniqueTypes": 18,
     "byType": {
-      "CONTAINS":      { "count": 8, "variants": "FOLDER→FOLDER, FOLDER→FILE, FILE→FUNCTION, FILE→CLASS, FILE→VARIABLE, FILE→TEST_SUITE, FILE→TEST_CASE, TEST_SUITE→TEST_CASE" },
-      "IMPORTS":       { "count": 1, "variants": "FILE→IMPORT" },
-      "EXPORTS":       { "count": 1, "variants": "FILE→EXPORT" },
-      "REFERENCES":    { "count": 1, "variants": "IMPORT→FILE" },
-      "DEPENDS_ON":    { "count": 2, "variants": "FILE→FILE, RULE→RULE" },
-      "CALLS_TO":      { "count": 1, "variants": "FUNCTION→FUNCTION" },
-      "EXTENDS":       { "count": 1, "variants": "CLASS→CLASS" },
-      "IMPLEMENTS":    { "count": 1, "variants": "CLASS→CLASS" },
-      "TESTS":         { "count": 5, "variants": "TEST_SUITE→FUNCTION, TEST_SUITE→CLASS, TEST_SUITE→FILE, TEST_CASE→FUNCTION, TEST_CASE→CLASS" },
-      "SECTION_OF":    { "count": 1, "variants": "SECTION→DOCUMENT" },
-      "NEXT_SECTION":  { "count": 1, "variants": "SECTION→SECTION" },
+      "CONTAINS": {
+        "count": 8,
+        "variants": "FOLDER→FOLDER, FOLDER→FILE, FILE→FUNCTION, FILE→CLASS, FILE→VARIABLE, FILE→TEST_SUITE, FILE→TEST_CASE, TEST_SUITE→TEST_CASE"
+      },
+      "IMPORTS": { "count": 1, "variants": "FILE→IMPORT" },
+      "EXPORTS": { "count": 1, "variants": "FILE→EXPORT" },
+      "REFERENCES": { "count": 1, "variants": "IMPORT→FILE" },
+      "DEPENDS_ON": { "count": 2, "variants": "FILE→FILE, RULE→RULE" },
+      "CALLS_TO": { "count": 1, "variants": "FUNCTION→FUNCTION" },
+      "EXTENDS": { "count": 1, "variants": "CLASS→CLASS" },
+      "IMPLEMENTS": { "count": 1, "variants": "CLASS→CLASS" },
+      "TESTS": {
+        "count": 5,
+        "variants": "TEST_SUITE→FUNCTION, TEST_SUITE→CLASS, TEST_SUITE→FILE, TEST_CASE→FUNCTION, TEST_CASE→CLASS"
+      },
+      "SECTION_OF": { "count": 1, "variants": "SECTION→DOCUMENT" },
+      "NEXT_SECTION": { "count": 1, "variants": "SECTION→SECTION" },
       "DOC_DESCRIBES": { "count": 3, "variants": "SECTION→FILE, SECTION→FUNCTION, SECTION→CLASS" },
-      "BELONGS_TO":    { "count": 1, "variants": "FUNCTION/CLASS/FILE→COMMUNITY" },
-      "ANCHORED_BY":   { "count": 1, "variants": "COMMUNITY→FUNCTION/CLASS" },
+      "BELONGS_TO": { "count": 1, "variants": "FUNCTION/CLASS/FILE→COMMUNITY" },
+      "ANCHORED_BY": { "count": 1, "variants": "COMMUNITY→FUNCTION/CLASS" },
       "VIOLATES_RULE": { "count": 3, "variants": "FILE→RULE, CLASS→RULE, FUNCTION→RULE" },
-      "HAS_TASK":      { "count": 1, "variants": "FEATURE→TASK" },
-      "IMPLEMENTED_BY":{ "count": 4, "variants": "FEATURE→FUNCTION, FEATURE→CLASS, TASK→FUNCTION, TASK→CLASS" },
-      "TARGETS":       { "count": 1, "variants": "CLAIM→FILE/FUNCTION/CLASS" },
-      "INVOLVES":      { "count": 1, "variants": "EPISODE→FILE/FUNCTION/CLASS/VARIABLE" },
-      "NEXT_EPISODE":  { "count": 1, "variants": "EPISODE→EPISODE" },
-      "APPLIES_TO":    { "count": 1, "variants": "LEARNING→FILE/FUNCTION/CLASS" }
+      "HAS_TASK": { "count": 1, "variants": "FEATURE→TASK" },
+      "IMPLEMENTED_BY": {
+        "count": 4,
+        "variants": "FEATURE→FUNCTION, FEATURE→CLASS, TASK→FUNCTION, TASK→CLASS"
+      },
+      "TARGETS": { "count": 1, "variants": "CLAIM→FILE/FUNCTION/CLASS" },
+      "INVOLVES": { "count": 1, "variants": "EPISODE→FILE/FUNCTION/CLASS/VARIABLE" },
+      "NEXT_EPISODE": { "count": 1, "variants": "EPISODE→EPISODE" },
+      "APPLIES_TO": { "count": 1, "variants": "LEARNING→FILE/FUNCTION/CLASS" }
     }
   },
 

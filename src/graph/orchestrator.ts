@@ -294,7 +294,8 @@ export class GraphOrchestrator {
 
       // Parse files and build graph
       let nodesCreated = 0;
-      const statementsToExecute: CypherStatement[] = [];
+      const allNodes: CypherStatement[] = [];
+      const allEdges: CypherStatement[] = [];
       const parsedFiles: Array<{ filePath: string; parsed: ParsedFile }> = [];
       this.builder = new GraphBuilder(
         opts.projectId,
@@ -310,16 +311,16 @@ export class GraphOrchestrator {
           await this.attachSummaries(parsed);
           parsedFiles.push({ filePath, parsed });
           const adaptedParsed = this.adaptParsedFile(parsed);
-          const statements = this.builder.buildFromParsedFile(adaptedParsed);
-
-          statementsToExecute.push(...statements);
+          const result = this.builder.buildFromParsedFile(adaptedParsed);
+          allNodes.push(...result.nodes);
+          allEdges.push(...result.edges);
 
           // Update cache
           this.cache.set(filePath, parsed.hash, parsed.LOC);
 
           // Track for index
           this.addToIndex(parsed, opts.projectId);
-          nodesCreated += this.countNodesInStatements(statements);
+          nodesCreated += result.nodes.length;
 
           if (opts.verbose && filesToProcess.indexOf(filePath) % 50 === 0) {
             logger.error(
@@ -337,41 +338,45 @@ export class GraphOrchestrator {
         opts.workspaceRoot,
         opts.projectId,
       );
-      statementsToExecute.push(...testRelationships);
+      allEdges.push(...testRelationships);
 
       // Seed progress nodes if config has progress section (Phase 5.2)
       if (opts.verbose) {
         logger.error("[GraphOrchestrator] Seeding progress tracking nodes...");
       }
       const progressStatements = this.seedProgressNodes(opts.projectId);
-      statementsToExecute.push(...progressStatements);
+      allNodes.push(...progressStatements);
 
       // Execute statements against Memgraph (MVP: in offline mode, just count)
-      const relationshipsCreated = statementsToExecute.length;
+      const totalStatements = allNodes.length + allEdges.length;
+      const relationshipsCreated = totalStatements;
 
       if (this.memgraph.isConnected()) {
         if (opts.verbose) {
           logger.error(
-            `[GraphOrchestrator] Executing ${statementsToExecute.length} Cypher statements...`,
+            `[GraphOrchestrator] Executing ${totalStatements} Cypher statements (Phase 1: ${allNodes.length} nodes, Phase 2: ${allEdges.length} edges)...`,
           );
         }
         // Raise CB threshold and use chunked transactions for the bulk write so that
         // transient connection-pool pressure does not open the circuit breaker mid-rebuild.
         this.memgraph.beginBulkMode?.();
-        let results: Array<{ error?: string }>;
         try {
-          results = await this.memgraph.executeBatch(statementsToExecute);
+          // Phase 1: All node MERGEs — every statement is independent
+          const nodeResults = await this.memgraph.executeBatch(allNodes);
+          // Phase 2: All edge MATCHes — every endpoint guaranteed to exist
+          const edgeResults = await this.memgraph.executeBatch(allEdges);
+          const results = [...nodeResults, ...edgeResults];
+          const failedStatements = results.filter((r) => r.error).length;
+          if (failedStatements > 0) {
+            warnings.push(`${failedStatements} Cypher statements failed`);
+          }
         } finally {
           this.memgraph.endBulkMode?.();
-        }
-        const failedStatements = results.filter((r) => r.error).length;
-        if (failedStatements > 0) {
-          warnings.push(`${failedStatements} Cypher statements failed`);
         }
       } else {
         if (opts.verbose) {
           logger.error(
-            `[GraphOrchestrator] Memgraph offline - statements prepared but not executed`,
+            `[GraphOrchestrator] Memgraph offline - ${totalStatements} statements prepared but not executed`,
           );
         }
       }
@@ -882,20 +887,6 @@ export class GraphOrchestrator {
         "CONTAINS",
       );
     });
-  }
-
-  /**
-   * Count nodes created in Cypher statements
-   */
-  private countNodesInStatements(statements: CypherStatement[]): number {
-    let count = 0;
-    for (const stmt of statements) {
-      // Rough count: each MERGE with a node type
-      if (stmt.query.includes("MERGE (") || stmt.query.includes("CREATE (")) {
-        count++;
-      }
-    }
-    return Math.max(count, 1); // At least 1 node per file
   }
 
   /**

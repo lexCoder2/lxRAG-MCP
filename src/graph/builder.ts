@@ -87,8 +87,19 @@ export interface CypherStatement {
   params: Record<string, any>;
 }
 
+export interface BuildResult {
+  nodes: CypherStatement[];
+  edges: CypherStatement[];
+}
+
 export class GraphBuilder {
-  private statements: CypherStatement[] = [];
+  private nodeStmts: CypherStatement[] = [];
+  private edgeStmts: CypherStatement[] = [];
+
+  /** @deprecated Use buildFromParsedFile().nodes and .edges instead */
+  get statements(): CypherStatement[] {
+    return [...this.nodeStmts, ...this.edgeStmts];
+  }
   private processedNodes = new Set<string>();
   private projectId: string;
   private projectFingerprint: string;
@@ -152,8 +163,9 @@ export class GraphBuilder {
     return this.scopedId(`folder:${folderPath}`);
   }
 
-  buildFromParsedFile(parsedFile: ParsedFile): CypherStatement[] {
-    this.statements = [];
+  buildFromParsedFile(parsedFile: ParsedFile): BuildResult {
+    this.nodeStmts = [];
+    this.edgeStmts = [];
     this.processedNodes.clear();
 
     // Create FILE node
@@ -177,7 +189,7 @@ export class GraphBuilder {
     // Create TEST_SUITE nodes (if this is a test file)
     this.buildTestNodes(parsedFile);
 
-    return this.statements;
+    return { nodes: this.nodeStmts, edges: this.edgeStmts };
   }
 
   private createFileNode(parsedFile: ParsedFile): void {
@@ -224,14 +236,14 @@ export class GraphBuilder {
         txId: this.txId,
       },
     };
-    this.statements.push(statement);
+    this.nodeStmts.push(statement);
 
     // Create folder hierarchy
     const folderPath = path.dirname(parsedFile.filePath);
     this.createFolderHierarchy(folderPath);
 
     // Connect FILE to FOLDER
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (f:FILE {id: $fileId})
         MERGE (folder:FOLDER {id: $folderId})
@@ -253,7 +265,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (folder:FOLDER {id: $id})
         SET folder.name = $name,
@@ -273,7 +285,7 @@ export class GraphBuilder {
       this.createFolderHierarchy(parentPath);
 
       // Connect parent to child
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (parent:FOLDER {id: $parentId})
           MATCH (child:FOLDER {id: $childId})
@@ -292,7 +304,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (func:FUNCTION {id: $id})
         SET func.name = $name,
@@ -340,7 +352,7 @@ export class GraphBuilder {
     });
 
     // Connect function to file
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (func:FUNCTION {id: $funcId})
         MATCH (f:FILE {id: $fileId})
@@ -354,7 +366,7 @@ export class GraphBuilder {
 
     // Tag as exported if applicable
     if (fn.isExported) {
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (func:FUNCTION {id: $id})
           SET func.isExported = true
@@ -367,7 +379,7 @@ export class GraphBuilder {
     const calls: Array<{ name: string; line: number }> = (fn as any).calls ?? [];
     for (const call of calls) {
       const calleeStubId = this.scopedId(`func-stub:${call.name}`);
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MERGE (stub:FUNCTION {id: $calleeId})
           ON CREATE SET stub.name = $calleeName,
@@ -393,7 +405,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (cls:CLASS {id: $id})
         SET cls.name = $name,
@@ -433,7 +445,7 @@ export class GraphBuilder {
     });
 
     // Connect class to file
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (cls:CLASS {id: $classId})
         MATCH (f:FILE {id: $fileId})
@@ -447,7 +459,7 @@ export class GraphBuilder {
 
     // Handle inheritance
     if (cls.extends) {
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (cls:CLASS {id: $classId})
           MERGE (parent:CLASS {id: $parentId})
@@ -467,7 +479,7 @@ export class GraphBuilder {
     // Handle implementations
     if (cls.implements) {
       cls.implements.forEach((impl) => {
-        this.statements.push({
+        this.edgeStmts.push({
           query: `
             MATCH (cls:CLASS {id: $classId})
             MERGE (iface:CLASS {id: $ifaceId})
@@ -486,7 +498,7 @@ export class GraphBuilder {
     }
 
     if (cls.isExported) {
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (cls:CLASS {id: $id})
           SET cls.isExported = true
@@ -506,7 +518,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (var:VARIABLE {id: $id})
         SET var.name = $name,
@@ -526,7 +538,7 @@ export class GraphBuilder {
     });
 
     // Connect to file
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (var:VARIABLE {id: $varId})
         MATCH (f:FILE {id: $fileId})
@@ -553,7 +565,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (imp:IMPORT {id: $id})
         SET imp.source = $source,
@@ -581,7 +593,7 @@ export class GraphBuilder {
     });
 
     // Connect to file
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (imp:IMPORT {id: $impId})
         MATCH (f:FILE {id: $fileId})
@@ -601,7 +613,7 @@ export class GraphBuilder {
       const absoluteTargetPath = path.resolve(this.workspaceRoot, resolvedPath);
       // Single query: MERGE targetFile, wire REFERENCES, and DEPENDS_ON atomically.
       // Using one statement avoids the MATCH-visibility race between separate executeCypher calls.
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (sourceFile:FILE {id: $sourceFileId})
           MATCH (imp:IMPORT {id: $impId})
@@ -632,7 +644,7 @@ export class GraphBuilder {
     if (this.processedNodes.has(nodeId)) return;
     this.processedNodes.add(nodeId);
 
-    this.statements.push({
+    this.nodeStmts.push({
       query: `
         MERGE (exp:EXPORT {id: $id})
         SET exp.name = $name,
@@ -650,7 +662,7 @@ export class GraphBuilder {
     });
 
     // Connect to file
-    this.statements.push({
+    this.edgeStmts.push({
       query: `
         MATCH (exp:EXPORT {id: $expId})
         MATCH (f:FILE {id: $fileId})
@@ -678,7 +690,7 @@ export class GraphBuilder {
       this.processedNodes.add(nodeId);
 
       // Create TEST_SUITE node
-      this.statements.push({
+      this.nodeStmts.push({
         query: `
           MERGE (ts:TEST_SUITE {id: $id})
           SET ts.name = $name,
@@ -702,7 +714,7 @@ export class GraphBuilder {
       });
 
       // Create FILE -[:CONTAINS]-> TEST_SUITE relationship
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (f:FILE {id: $fileId})
           MATCH (ts:TEST_SUITE {id: $testSuiteId})
@@ -722,7 +734,7 @@ export class GraphBuilder {
       this.processedNodes.add(nodeId);
 
       // Create TEST_CASE node
-      this.statements.push({
+      this.nodeStmts.push({
         query: `
           MERGE (tc:TEST_CASE {id: $id})
           SET tc.name = $name,
@@ -744,7 +756,7 @@ export class GraphBuilder {
       // Create TEST_SUITE -[:CONTAINS]-> TEST_CASE relationship (if parent suite exists)
       if (testCase.parentSuiteId) {
         const parentNodeId = this.scopedId(`test_suite:${testCase.parentSuiteId}`);
-        this.statements.push({
+        this.edgeStmts.push({
           query: `
             MATCH (ts:TEST_SUITE {id: $testSuiteId})
             MATCH (tc:TEST_CASE {id: $testCaseId})
@@ -758,7 +770,7 @@ export class GraphBuilder {
       }
 
       // Create FILE -[:CONTAINS]-> TEST_CASE relationship
-      this.statements.push({
+      this.edgeStmts.push({
         query: `
           MATCH (f:FILE {id: $fileId})
           MATCH (tc:TEST_CASE {id: $testCaseId})
