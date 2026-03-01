@@ -8,6 +8,7 @@ venv/
 # Build output
 dist/
 
+coverage/
 # Local graph/cache artifacts
 .lexrag/
 
