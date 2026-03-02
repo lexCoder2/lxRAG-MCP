@@ -20,10 +20,10 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 | Category     |  Count |
 | ------------ | -----: |
 | graph        |      4 |
-| utility      |      3 |
+| utility      |      2 |
 | code         |      7 |
 | test         |      5 |
-| coordination |      5 |
+| coordination |      6 |
 | setup        |      2 |
 | arch         |      2 |
 | docs         |      2 |
@@ -43,7 +43,6 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 
 #### Utility
 
-- `diff_since`
 - `tools_list`
 - `contract_validate`
 
@@ -67,6 +66,7 @@ Based on the built runtime registry (`dist/tools/registry.js`), the server curre
 
 #### Coordination
 
+- `diff_since`
 - `context_pack`
 - `agent_claim`
 - `agent_release`
