@@ -715,8 +715,8 @@ describe("INCONSISTENCY: arch_suggest parameter naming", () => {
   });
 });
 
-describe("INCONSISTENCY: impact_analyze changedFiles normalization", () => {
-  it("normalizes changedFiles -> files with contract warning via callTool", async () => {
+describe("impact_analyze changedFiles normalization", () => {
+  it("passes changedFiles through natively (no contract warning)", async () => {
     const { handlers } = createHandlers();
 
     (handlers as any).testEngine = {
@@ -734,7 +734,7 @@ describe("INCONSISTENCY: impact_analyze changedFiles normalization", () => {
     const parsed = parseResponse(response);
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.contractWarnings).toContain("mapped changedFiles -> files");
+    expect(parsed.contractWarnings ?? []).not.toContain("mapped changedFiles -> files");
   });
 
   it("works directly with files parameter (no warning)", async () => {

@@ -116,7 +116,7 @@ describe("ToolHandlers contract normalization", () => {
     const parsed = JSON.parse(response);
 
     expect(parsed.ok).toBe(true);
-    expect(parsed.contractWarnings).toContain("mapped changedFiles -> files");
+    expect(parsed.contractWarnings ?? []).not.toContain("mapped changedFiles -> files");
     expect(selectAffectedTests).toHaveBeenCalledWith(["src/baz.ts"], true, 2);
   });
 

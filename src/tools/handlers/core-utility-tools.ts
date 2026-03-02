@@ -4,7 +4,7 @@
  */
 
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+import type { HandlerBridge, ToolDefinition, ToolArgs } from "../types.js";
 
 export const coreUtilityToolDefinitions: ToolDefinition[] = [
   {
@@ -26,13 +26,7 @@ export const coreUtilityToolDefinitions: ToolDefinition[] = [
 
       const KNOWN_CATEGORIES: Record<string, string[]> = {
         setup: ["init_project_setup", "setup_copilot_instructions"],
-        graph: [
-          "graph_set_workspace",
-          "graph_rebuild",
-          "graph_query",
-          "graph_health",
-          "ref_query",
-        ],
+        graph: ["graph_set_workspace", "graph_rebuild", "graph_query", "graph_health", "ref_query"],
         architecture: ["arch_validate", "arch_suggest"],
         semantic: [
           "semantic_search",
@@ -50,6 +44,7 @@ export const coreUtilityToolDefinitions: ToolDefinition[] = [
         progress: ["progress_query", "task_update", "feature_status"],
         coordination: [
           "agent_claim",
+          "agent_status",
           "agent_release",
           "coordination_overview",
           "diff_since",
