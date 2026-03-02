@@ -702,9 +702,11 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
         const memgraphFileCount = ctx.toSafeNumber(stats.fileCount) ?? 0;
         const memgraphFuncCount = ctx.toSafeNumber(stats.funcCount) ?? 0;
         const memgraphClassCount = ctx.toSafeNumber(stats.classCount) ?? 0;
-        const memgraphImportCount = ctx.toSafeNumber(stats.importCount) ?? 0;
-        const memgraphIndexableCount =
-          memgraphFileCount + memgraphFuncCount + memgraphClassCount + memgraphImportCount;
+        // memgraphIndexableCount counts the same three symbol types tracked by the
+        // in-memory index (FILE, FUNCTION, CLASS) so both sides of the drift check
+        // are symmetric.  IMPORT, VARIABLE, TEST_* etc. are deliberately excluded
+        // because the in-memory index may not carry all of them after every sync.
+        const memgraphIndexableCount = memgraphFileCount + memgraphFuncCount + memgraphClassCount;
 
         const indexStats = ctx.context.index.getStatistics();
         const indexFileCount = ctx.context.index.getNodesByType("FILE").length;
@@ -740,7 +742,10 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
               )
             : 0;
 
-        const indexDrift = Math.abs(indexStats.totalNodes - memgraphIndexableCount) > 3;
+        // Compare same types on both sides: in-memory FILE+FUNC+CLASS vs Memgraph FILE+FUNC+CLASS
+        const cachedIndexableCount = indexFileCount + indexFuncCount + indexClassCount;
+        const indexDrift =
+          memgraphIndexableCount > 0 && Math.abs(cachedIndexableCount - memgraphIndexableCount) > 3;
         const embeddingDrift = embeddingCount < indexedSymbols;
 
         const txMetadataResult = await ctx.context.memgraph.executeCypher(
@@ -793,7 +798,9 @@ export const coreGraphToolDefinitions: ToolDefinition[] = [
               driftDetected: indexDrift,
               memgraphNodes: memgraphNodeCount,
               memgraphIndexableNodes: memgraphIndexableCount,
-              cachedNodes: indexStats.totalNodes,
+              cachedNodes: cachedIndexableCount,
+              cachedNodeNote:
+                "FILE+FUNCTION+CLASS counts compared; other types (VARIABLE, TEST_*, SECTION, etc.) excluded from drift check",
               memgraphRels: memgraphRelCount,
               cachedRels: indexStats.totalRelationships,
               recommendation: indexDrift

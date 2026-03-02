@@ -13,7 +13,8 @@ import * as path from "path";
 import type { GraphNode, GraphRelationship } from "../../graph/index.js";
 import { execWithTimeout } from "../../utils/exec-utils.js";
 import * as z from "zod";
-import type { HandlerBridge, ToolDefinition , ToolArgs } from "../types.js";
+import type { HandlerBridge, ToolDefinition, ToolArgs } from "../types.js";
+import { logger } from "../../utils/logger.js";
 
 /**
  * Determine the command and arguments used to execute tests.
@@ -98,7 +99,9 @@ async function resolveDirectImpact(ctx: HandlerBridge, changedFiles: string[]): 
         { projectId, changedPaths: changedFiles },
       );
 
-      const paths: string[] = result.data.map((row: Record<string, unknown>) => String(row.path ?? "")).filter(Boolean);
+      const paths: string[] = result.data
+        .map((row: Record<string, unknown>) => String(row.path ?? ""))
+        .filter(Boolean);
 
       if (paths.length > 0) {
         return paths;
@@ -376,7 +379,7 @@ export const testToolDefinitions: ToolDefinition[] = [
           );
         }
 
-        const cwd = process.cwd();
+        const cwd = ctx.getActiveProjectContext?.().workspaceRoot ?? process.cwd();
 
         // Resolve runner: config > auto-detect by extension > vitest fallback
         const { cmd, env: runnerEnv } = resolveTestRunner(
@@ -385,12 +388,12 @@ export const testToolDefinitions: ToolDefinition[] = [
           ctx.context.config?.testing,
         );
 
-        console.error(`[ToolHandlers] Executing: ${cmd}`);
+        logger.debug(`[test_run] Executing in ${cwd}: ${cmd}`);
 
         try {
           const augmentedEnv = { ...process.env, ...(runnerEnv ?? {}) };
           const output = execWithTimeout(cmd, {
-            cwd: process.cwd(),
+            cwd,
             encoding: "utf-8",
             stdio: ["pipe", "pipe", "pipe"],
             env: augmentedEnv,

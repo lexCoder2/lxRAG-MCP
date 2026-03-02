@@ -1210,7 +1210,6 @@ export class GraphOrchestrator {
             f.priority = $priority,
             f.projectId = $projectId,
             f.createdAt = timestamp()
-          ON MATCH DO NOTHING
         `,
         params: {
           id: `${projectId}:feature:${feature.id}`,

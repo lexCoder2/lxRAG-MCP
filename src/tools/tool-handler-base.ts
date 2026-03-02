@@ -377,18 +377,7 @@ export abstract class ToolHandlerBase extends SessionManager {
     const warnings: string[] = [];
     const normalized = { ...(rawArgs || {}) };
 
-    if (toolName === "impact_analyze") {
-      const files = Array.isArray(normalized.files)
-        ? normalized.files
-        : Array.isArray(normalized.changedFiles)
-          ? normalized.changedFiles
-          : [];
-      if (Array.isArray(normalized.changedFiles) && !Array.isArray(normalized.files)) {
-        warnings.push("mapped changedFiles -> files");
-      }
-      normalized.files = files;
-      delete normalized.changedFiles;
-    }
+    // impact_analyze: both 'files' and 'changedFiles' are native Zod params — no alias mapping needed.
 
     if (toolName === "progress_query") {
       if (typeof normalized.type !== "string") {

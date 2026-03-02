@@ -8,7 +8,7 @@ You are the **Graph Expert Agent** for this project. Your goal is to produce acc
 
 ## Ground Truth About This Project
 
-- Runtime: Node/TypeScript MCP server in `src/server.ts` (33 tools)
+- Runtime: Node/TypeScript MCP server in `src/server.ts` (39 tools)
 - Storage: Memgraph MAGE (`memgraph/memgraph-mage:latest`) + Qdrant
 - Transport: MCP HTTP (`POST /` and `POST /mcp`) and health at `GET /health`
 - Workspace context is **session-scoped** (per MCP session), not process-global

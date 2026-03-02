@@ -3,6 +3,7 @@
 ## The Problem
 
 Copilot instructions get **ignored in longer conversations** (15+ messages) and Claude falls back to:
+
 - Reading files directly
 - Using grep patterns
 - Manual code analysis
@@ -17,6 +18,7 @@ Copilot instructions get **ignored in longer conversations** (15+ messages) and 
 ## The Solution: System Prompt Engineering
 
 Make the system prompt **enforce MCP at protocol level**:
+
 - File reads become impossible (system block)
 - Grep becomes forbidden (protocol-level)
 - MCP becomes mandatory (only option)
@@ -36,7 +38,7 @@ Edit `~/.claude_desktop_config.json`:
   "mcpServers": {
     "lxdig": {
       "command": "node",
-      "args": ["/home/alex_rod/code-graph-server/dist/server.js"],
+      "args": ["/home/alex_rod/projects/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -53,19 +55,21 @@ Edit `~/.claude_desktop_config.json`:
 ### Step 2: Update VS Code Settings
 
 Create `.vscode/mcp.json`:
+
 ```json
 {
   "servers": {
     "lxdig": {
       "type": "stdio",
       "command": "node",
-      "args": ["/home/alex_rod/code-graph-server/dist/server.js"]
+      "args": ["/home/alex_rod/projects/lxDIG-MCP/dist/server.js"]
     }
   }
 }
 ```
 
 Create `.vscode/settings.json`:
+
 ```json
 {
   "claude.alwaysUseMCP": true,
@@ -82,6 +86,7 @@ Close and reopen Claude completely.
 Ask Claude: "How does src/main.ts work?"
 
 **Expected**:
+
 - Claude calls `graph_set_workspace`
 - Claude calls `code_explain('main')`
 - NO file reads
@@ -90,12 +95,12 @@ Ask Claude: "How does src/main.ts work?"
 
 ## Why This Works
 
-| Before | After |
-|--------|-------|
-| Instructions fade in long chats | System prompt is protocol-level |
-| Claude reads files anyway | File reads are system-blocked |
-| Uses grep by default | Grep is forbidden |
-| Context gets out of sync | Health checks re-anchor every 5 messages |
+| Before                          | After                                    |
+| ------------------------------- | ---------------------------------------- |
+| Instructions fade in long chats | System prompt is protocol-level          |
+| Claude reads files anyway       | File reads are system-blocked            |
+| Uses grep by default            | Grep is forbidden                        |
+| Context gets out of sync        | Health checks re-anchor every 5 messages |
 
 ---
 
@@ -146,16 +151,19 @@ System Prompt:
 ## Troubleshooting
 
 ### Claude still reads files
+
 - Check system prompt in Claude Desktop config
 - Verify "NEVER read files" is present
 - Restart Claude completely
 
 ### Long conversations break
+
 - Ensure `graph_health()` re-anchoring is in system prompt
 - Test with 50+ message conversation
 - If fails at message N, check if `graph_health()` was called at N-5
 
 ### MCP tools not available
+
 - Verify MCP server running: `curl http://localhost:9000/health`
 - Check Docker: `docker-compose ps`
 - Restart Claude

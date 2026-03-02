@@ -7,7 +7,7 @@ Complete guide for integrating lxDIG MCP across projects.
 ### 1. Start Infrastructure
 
 ```bash
-cd /home/alex_rod/code-graph-server
+cd /home/alex_rod/projects/lxDIG-MCP
 docker-compose up -d memgraph qdrant
 npm install && npm run build
 npm run start:http  # Listens on http://localhost:9000
@@ -22,7 +22,7 @@ Edit `~/.claude_desktop_config.json`:
   "mcpServers": {
     "lxdig": {
       "command": "node",
-      "args": ["/home/alex_rod/code-graph-server/dist/server.js"],
+      "args": ["/home/alex_rod/projects/lxDIG-MCP/dist/server.js"],
       "env": {
         "MCP_TRANSPORT": "stdio",
         "MEMGRAPH_HOST": "localhost",
@@ -44,7 +44,7 @@ Create `.vscode/mcp.json`:
     "lxdig": {
       "type": "stdio",
       "command": "node",
-      "args": ["/home/alex_rod/code-graph-server/dist/server.js"]
+      "args": ["/home/alex_rod/projects/lxDIG-MCP/dist/server.js"]
     }
   }
 }
@@ -81,7 +81,7 @@ For each project, add `.mcp-config.json`:
 }
 ```
 
-## 38 Tools Quick Reference
+## 39 MCP Tools Quick Reference
 
 ### Essential (Use First)
 
@@ -200,7 +200,7 @@ await mcp.initialize();
 await mcp.query("find all HTTP handlers");
 ```
 
-See docs/CLIENT_EXAMPLES.md for Python, bash, React.
+See [QUICK_REFERENCE.md](../QUICK_REFERENCE.md) for all 39 tools.
 
 ## Rollout Phases
 
@@ -232,6 +232,5 @@ See docs/CLIENT_EXAMPLES.md for Python, bash, React.
 - QUICK_START.md — Deployment details
 - QUICK_REFERENCE.md — All 39 tools
 - ARCHITECTURE.md — Technical deep dive
-- docs/CLIENT_EXAMPLES.md — Code snippets
 - docs/CLAUDE_INTEGRATION.md — System prompt details
 - docs/TOOL_PATTERNS.md — Before/after examples
