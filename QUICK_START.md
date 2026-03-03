@@ -9,7 +9,7 @@ The server supports two transports — pick the one that matches your client:
 | **stdio** ✅ recommended | Claude Desktop, VS Code Copilot, Claude Code, any stdio MCP client | `npm run start`      |
 | **HTTP**                 | Remote agents, curl, multi-client fleets                           | `npm run start:http` |
 
-Both transports expose all 38 tools and require the same infrastructure (Memgraph + Qdrant).
+Both transports expose all 39 tools and require the same infrastructure (Memgraph + Qdrant).
 
 > **Recommended setup:** run the databases in Docker, run the MCP server directly on your host via stdio. No port management, no session ID headers — your editor spawns and owns the process.
 
@@ -33,7 +33,7 @@ npm install && npm run build
 Optional — enable AST-accurate tree-sitter parsers (recommended for TypeScript/Python projects):
 
 ```bash
-export CODE_GRAPH_USE_TREE_SITTER=true
+export LXDIG_USE_TREE_SITTER=true
 ```
 
 ---
@@ -165,15 +165,15 @@ Create `.vscode/mcp.json` in the root of **your project** and commit it. VS Code
         "MEMGRAPH_PORT": "7687",
         "QDRANT_HOST": "localhost",
         "QDRANT_PORT": "6333",
-        "CODE_GRAPH_WORKSPACE_ROOT": "${workspaceFolder}",
-        "CODE_GRAPH_PROJECT_ID": "my-repo"
+        "LXDIG_WORKSPACE_ROOT": "${workspaceFolder}",
+        "LXDIG_PROJECT_ID": "my-repo"
       }
     }
   }
 }
 ```
 
-Open Copilot Chat → switch to **Agent** mode → the 38 tools are available immediately.
+Open Copilot Chat → switch to **Agent** mode → the 39 tools are available immediately.
 
 > With stdio, VS Code owns the server lifecycle. You still need to call `graph_set_workspace` + `graph_rebuild` once per session (or use `init_project_setup` to do both in one step).
 
@@ -235,8 +235,8 @@ Edit the config file for your OS:
         "MEMGRAPH_PORT": "7687",
         "QDRANT_HOST": "localhost",
         "QDRANT_PORT": "6333",
-        "CODE_GRAPH_WORKSPACE_ROOT": "/absolute/path/to/your-project",
-        "CODE_GRAPH_PROJECT_ID": "my-repo"
+        "LXDIG_WORKSPACE_ROOT": "/absolute/path/to/your-project",
+        "LXDIG_PROJECT_ID": "my-repo"
       }
     }
   }
@@ -276,9 +276,9 @@ VS Code reads `.github/copilot-instructions.md` automatically. Claude Desktop pi
 Set these env vars to skip the `graph_set_workspace` call — the server auto-initializes to this project on startup:
 
 ```bash
-export CODE_GRAPH_WORKSPACE_ROOT=/path/to/your-project
+export LXDIG_WORKSPACE_ROOT=/path/to/your-project
 export GRAPH_SOURCE_DIR=/path/to/your-project/src   # optional sub-dir
-export CODE_GRAPH_PROJECT_ID=my-project
+export LXDIG_PROJECT_ID=my-project
 ```
 
 To index a **different project** at any time: call `graph_set_workspace` again with the new path. One server instance handles multiple projects across independent sessions.
@@ -289,12 +289,14 @@ To index a **different project** at any time: call `graph_set_workspace` again w
 
 | Variable                                 | Default              | Description                                                   |
 | ---------------------------------------- | -------------------- | ------------------------------------------------------------- |
-| `CODE_GRAPH_USE_TREE_SITTER`             | `false`              | AST-accurate parsers for TS/TSX/JS/JSX/Python/Go/Rust/Java    |
-| `CODE_GRAPH_WORKSPACE_ROOT`              | —                    | Default workspace path on startup                             |
-| `CODE_GRAPH_PROJECT_ID`                  | `default`            | Default project namespace                                     |
+| `LXDIG_USE_TREE_SITTER`                  | `false`              | AST-accurate parsers for TS/TSX/JS/JSX/Python/Go/Rust/Java    |
+| `LXDIG_WORKSPACE_ROOT`                   | —                    | Default workspace path on startup                             |
+| `LXDIG_PROJECT_ID`                       | `default`            | Default project namespace (display label; DB key is the hash) |
 | `CODE_GRAPH_TARGET_WORKSPACE`            | —                    | Host path mounted as `/workspace` in Docker Compose           |
-| `CODE_GRAPH_ALLOW_RUNTIME_PATH_FALLBACK` | `false`              | Allow host paths when running inside Docker                   |
-| `CODE_GRAPH_SUMMARIZER_URL`              | —                    | OpenAI-compatible endpoint for indexing-time symbol summaries |
+| `LXDIG_ALLOW_RUNTIME_PATH_FALLBACK`      | `false`              | Allow host paths when running inside Docker                   |
+| `LXDIG_SUMMARIZER_URL`                   | —                    | OpenAI-compatible endpoint for indexing-time symbol summaries |
+| `LXDIG_ENABLE_WATCHER`                   | `false`              | Enable incremental file-change watching (auto-true for HTTP)  |
+| `LXDIG_AGENT_ID`                         | `agent-local`        | Agent instance identifier for coordination claims             |
 | `MEMGRAPH_HOST` / `MEMGRAPH_PORT`        | `localhost` / `7687` | Memgraph connection                                           |
 | `QDRANT_HOST` / `QDRANT_PORT`            | `localhost` / `6333` | Qdrant connection                                             |
 | `MCP_PORT`                               | `9000`               | HTTP server port                                              |
@@ -317,7 +319,7 @@ To index a **different project** at any time: call `graph_set_workspace` again w
 | stdio server exits immediately      | Check `MEMGRAPH_HOST`/`QDRANT_HOST` env vars; errors go to stderr           |
 | `graph_rebuild` returns immediately | Normal — it's async; poll `graph_health` until `indexedSymbols > 0`         |
 | Build fails                         | `npm install && npm run build`; check TypeScript errors                     |
-| Tree-sitter inactive                | `export CODE_GRAPH_USE_TREE_SITTER=true` before starting the server         |
+| Tree-sitter inactive                | `export LXDIG_USE_TREE_SITTER=true` before starting the server         |
 | `docs_index` not found (upgrade)    | Run `graph_rebuild mode:full` once to create the missing index              |
 
 ---
@@ -345,7 +347,7 @@ Memgraph Lab UI: `http://localhost:3000` (full Docker Compose stack only).
 
 ## Next steps
 
-- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — all 35 tools with parameters
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — all 39 tools with parameters
 - [README.md](README.md) — capability overview
 - [ARCHITECTURE.md](ARCHITECTURE.md) — technical internals
 - [docs/GRAPH_EXPERT_AGENT.md](docs/GRAPH_EXPERT_AGENT.md) — agent runbook (tool priority, path rules, response shaping)

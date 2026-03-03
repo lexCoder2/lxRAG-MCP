@@ -16,7 +16,7 @@
 [![Memgraph](https://img.shields.io/badge/Graph-Memgraph-00B894)](https://memgraph.com)
 [![Qdrant](https://img.shields.io/badge/Vector-Qdrant-DC244C)](https://qdrant.tech)
 [![License: MIT](https://img.shields.io/badge/License-MIT-F59E0B)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-402%20passing-22C55E)](src)
+[![Tests](https://img.shields.io/badge/Tests-557%20passing-22C55E)](src)
 [![Transport](https://img.shields.io/badge/Transport-stdio%20%7C%20HTTP-0EA5E9)](QUICK_START.md)
 [![Status](https://img.shields.io/badge/Status-Beta-orange)](QUICK_START.md)
 
@@ -393,7 +393,7 @@ Every feature below is **production-ready today**:
 - ✅ **Episode memory, agent coordination, context packs, and response budget shaping**
 - ✅ **Docs & ADR indexing** — markdown parsed into graph nodes; queried by text or symbol association
 - ✅ **Interactive graph visualization** via [lxDIG Visual](https://github.com/lexCoder2/lxDIG-visual) — force-directed canvas explorer
-- ✅ **402 tests** across parsers, builders, engines, and tool handlers — all green
+- ✅ **557 tests** across parsers, builders, engines, and tool handlers — all green
 
 ---
 
@@ -410,7 +410,7 @@ Every feature below is **production-ready today**:
 npm run start                       # stdio server (recommended)
 npm run start:http                  # HTTP supervisor (multi-session)
 npm run build                       # compile TypeScript
-npm test                            # run all 402 tests
+npm test                            # run all 557 tests
 npm run benchmark:check-regression  # check latency/token regressions
 ```
 
