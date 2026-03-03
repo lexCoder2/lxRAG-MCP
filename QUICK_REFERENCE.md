@@ -165,8 +165,13 @@ curl http://localhost:9000/health
 MEMGRAPH_HOST=localhost       # default: localhost
 MEMGRAPH_PORT=7687            # default: 7687
 MCP_PORT=9000                 # default: 9000
-LXDIG_PROJECT_ID=my-repo # optional: default project namespace
-LXDIG_USE_TREE_SITTER=true  # enable AST-accurate parsers (requires optional deps)
+MCP_TRANSPORT=stdio           # stdio (default) or http
+LXDIG_WORKSPACE_ROOT=/path   # default workspace path
+LXDIG_PROJECT_ID=my-repo     # display label (DB key is auto-computed hash)
+LXDIG_USE_TREE_SITTER=true   # enable AST-accurate parsers (requires optional deps)
+LXDIG_ENABLE_WATCHER=true    # enable incremental file-change watching
+LXDIG_SUMMARIZER_URL=http://localhost:8080  # optional: OpenAI-compatible summarizer
+LXDIG_AGENT_ID=agent-1       # optional: agent instance id for coordination
 ```
 
 ## Tree-sitter Parsers
